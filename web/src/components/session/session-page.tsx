@@ -170,7 +170,7 @@ export function SessionPage() {
       />
 
       <div className="flex min-h-0 flex-1">
-        <main className="grid min-h-0 flex-1 grid-cols-1 gap-4 p-4 md:grid-cols-2 md:grid-rows-2">
+        <main className="grid min-h-0 flex-1 grid-cols-1 gap-4 p-4 md:grid-cols-2 md:grid-rows-2 [&>*]:min-h-0">
           {view.cards.map((card) => (
             <SuggestionCard
               key={card.id}
