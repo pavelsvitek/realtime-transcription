@@ -48,7 +48,7 @@ export function ReplayControls({
 
       <div
         className="flex items-center rounded-lg border border-stone-200 bg-white p-0.5"
-        title="Speed (↑ / ↓)"
+        title="Speed (↑ / ↓) · Seek ±10s (← / →)"
       >
         {REPLAY_SPEED_OPTIONS.map((option) => (
           <button

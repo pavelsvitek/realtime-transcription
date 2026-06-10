@@ -1,5 +1,8 @@
 import { useHotkeys } from "@tanstack/react-hotkeys";
-import type { ReplayDriver } from "@/lib/replay/replay-driver";
+import {
+  SEEK_STEP_MS,
+  type ReplayDriver,
+} from "@/lib/replay/replay-driver";
 import {
   stepReplaySpeedDown,
   stepReplaySpeedUp,
@@ -50,6 +53,20 @@ export function useReplayHotkeys({
           if (!driver) return;
           const next = stepReplaySpeedDown(driver.getState().speed);
           if (next !== null) driver.setSpeed(next);
+        },
+        options: { preventDefault: true },
+      },
+      {
+        hotkey: "ArrowLeft",
+        callback: () => {
+          driver?.seekBy(-SEEK_STEP_MS);
+        },
+        options: { preventDefault: true },
+      },
+      {
+        hotkey: "ArrowRight",
+        callback: () => {
+          driver?.seekBy(SEEK_STEP_MS);
         },
         options: { preventDefault: true },
       },

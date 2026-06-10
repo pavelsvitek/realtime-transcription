@@ -4,6 +4,7 @@ import type {
   ActiveSession,
   CardUpdate,
   CreateSessionInput,
+  DispositionSnapshot,
   GenerationContext,
   ItemDisposition,
   SessionRecord,
@@ -22,6 +23,8 @@ type InternalItem = {
   disposition: ItemDisposition;
   createdAtMs: number;
   discardedAtMs?: number;
+  pinnedAtMs?: number;
+  doneAtMs?: number;
   resurfaced?: boolean;
 };
 
@@ -123,8 +126,25 @@ export function createActiveSession(input: CreateSessionInput): ActiveSession {
     item.disposition = disposition;
     if (disposition === "discarded") {
       item.discardedAtMs = elapsedMs;
+    } else if (disposition === "pinned") {
+      item.pinnedAtMs = elapsedMs;
+    } else if (disposition === "done") {
+      item.doneAtMs = elapsedMs;
     }
     notify();
+  }
+
+  function dispositionActionAtMs(item: InternalItem): number {
+    if (item.disposition === "discarded") {
+      return item.discardedAtMs ?? item.createdAtMs;
+    }
+    if (item.disposition === "pinned") {
+      return item.pinnedAtMs ?? item.createdAtMs;
+    }
+    if (item.disposition === "done") {
+      return item.doneAtMs ?? item.createdAtMs;
+    }
+    return item.createdAtMs;
   }
 
   const session: ActiveSession = {
@@ -254,6 +274,42 @@ export function createActiveSession(input: CreateSessionInput): ActiveSession {
 
     markDone(cardId, itemId) {
       setItemDisposition(cardId, itemId, "done");
+    },
+
+    captureDispositionSnapshots(): DispositionSnapshot[] {
+      return items
+        .filter((item) => item.disposition !== "active")
+        .map((item) => ({
+          cardId: item.cardId,
+          text: item.text,
+          createdAtMs: item.createdAtMs,
+          disposition: item.disposition,
+          actionAtMs: dispositionActionAtMs(item),
+        }));
+    },
+
+    reapplyDispositionSnapshots(snapshots, atMs) {
+      for (const snapshot of snapshots) {
+        if (snapshot.actionAtMs > atMs) continue;
+
+        const item = items.find(
+          (candidate) =>
+            candidate.cardId === snapshot.cardId &&
+            candidate.text === snapshot.text &&
+            candidate.createdAtMs === snapshot.createdAtMs,
+        );
+        if (!item) continue;
+
+        item.disposition = snapshot.disposition;
+        if (snapshot.disposition === "discarded") {
+          item.discardedAtMs = snapshot.actionAtMs;
+        } else if (snapshot.disposition === "pinned") {
+          item.pinnedAtMs = snapshot.actionAtMs;
+        } else if (snapshot.disposition === "done") {
+          item.doneAtMs = snapshot.actionAtMs;
+        }
+      }
+      notify();
     },
 
     getGenerationContext(): GenerationContext {

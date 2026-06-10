@@ -101,6 +101,14 @@ export type StubUpdatesFile = {
   }>;
 };
 
+export type DispositionSnapshot = {
+  cardId: string;
+  text: string;
+  createdAtMs: number;
+  disposition: ItemDisposition;
+  actionAtMs: number;
+};
+
 export interface ActiveSession {
   readonly sessionId: string;
 
@@ -118,6 +126,12 @@ export interface ActiveSession {
   pinItem(cardId: string, itemId: string): void;
   discardItem(cardId: string, itemId: string): void;
   markDone(cardId: string, itemId: string): void;
+
+  captureDispositionSnapshots(): DispositionSnapshot[];
+  reapplyDispositionSnapshots(
+    snapshots: DispositionSnapshot[],
+    atMs: number,
+  ): void;
 
   getGenerationContext(): GenerationContext;
 }

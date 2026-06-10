@@ -11,10 +11,13 @@ export type ReplayDriverState = {
   elapsedMs: number;
 };
 
+export const SEEK_STEP_MS = 10_000;
+
 export type ReplayDriver = {
   play(): void;
   pause(): void;
   reset(): void;
+  seekBy(deltaMs: number): void;
   setSpeed(multiplier: number): void;
   getState(): ReplayDriverState;
   subscribe(listener: () => void): () => void;
@@ -142,6 +145,40 @@ export function createReplayDriver(input: ReplayDriverInput): ReplayDriver {
     notify();
   }
 
+  function seekTo(targetMs: number): void {
+    const wasPlaying = playing;
+    pause();
+
+    const clampedTarget = Math.max(0, Math.min(targetMs, durationMs));
+    if (clampedTarget === elapsedMs) {
+      if (wasPlaying && elapsedMs < durationMs) play();
+      return;
+    }
+
+    if (clampedTarget < elapsedMs) {
+      const snapshots = session.captureDispositionSnapshots();
+      session.reset();
+      tickIndex = 0;
+      elapsedMs = 0;
+      virtualAnchorMs = 0;
+      drainTicksUpTo(clampedTarget);
+      session.reapplyDispositionSnapshots(snapshots, clampedTarget);
+    } else {
+      drainTicksUpTo(clampedTarget);
+    }
+
+    virtualAnchorMs = elapsedMs;
+    notify();
+
+    if (wasPlaying && elapsedMs < durationMs) {
+      play();
+    }
+  }
+
+  function seekBy(deltaMs: number): void {
+    seekTo(elapsedMs + deltaMs);
+  }
+
   function setSpeed(multiplier: number): void {
     if (multiplier <= 0) return;
 
@@ -173,6 +210,7 @@ export function createReplayDriver(input: ReplayDriverInput): ReplayDriver {
     play,
     pause,
     reset,
+    seekBy,
     setSpeed,
     getState,
     subscribe(listener) {
