@@ -1,0 +1,204 @@
+{
+  "triggers": [
+    {
+      "afterSegmentId": "seg-006",
+      "updates": [
+        {
+          "cardId": "follow-ups",
+          "ops": [
+            {
+              "kind": "append",
+              "text": "Ask what workaround they mentioned and why they didn't return to it live",
+              "rationale": "They lost the follow-up thread during the call and only recovered it from Otter afterward."
+            }
+          ]
+        },
+        {
+          "cardId": "needs",
+          "ops": [
+            {
+              "kind": "append",
+              "text": "In-the-moment follow-up support during live interviews",
+              "rationale": "Pain is specific to losing threads while the conversation is still happening."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "afterSegmentId": "seg-008",
+      "updates": [
+        {
+          "cardId": "needs",
+          "ops": [
+            {
+              "kind": "append",
+              "text": "Less reactive post-call reconstruction work",
+              "rationale": "Post-call synthesis takes 45–60 minutes and rebuilds what was missed live."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "afterSegmentId": "seg-010",
+      "updates": [
+        {
+          "cardId": "risks",
+          "ops": [
+            {
+              "kind": "append",
+              "text": "Chat-style AI output may feel like distraction during camera-on calls",
+              "rationale": "Granola felt like another chat window dumping text while trying to stay present."
+            }
+          ]
+        },
+        {
+          "cardId": "topics",
+          "ops": [
+            {
+              "kind": "append",
+              "text": "How this differs from summary-after tools like Teams Copilot",
+              "rationale": "They contrasted in-the-moment help with post-call summaries."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "afterSegmentId": "seg-012",
+      "updates": [
+        {
+          "cardId": "topics",
+          "ops": [
+            {
+              "kind": "append",
+              "text": "Stable spatial layout as a habit-forming affordance",
+              "rationale": "They valued knowing where to look instead of hunting for the latest AI paragraph."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "afterSegmentId": "seg-014",
+      "updates": [
+        {
+          "cardId": "risks",
+          "ops": [
+            {
+              "kind": "append",
+              "text": "Suggestion churn and scroll-jank could cause them to ignore the product",
+              "rationale": "Repeated bullets and wrong-time scrolling were explicit turn-off triggers."
+            }
+          ]
+        },
+        {
+          "cardId": "follow-ups",
+          "ops": [
+            {
+              "kind": "append",
+              "text": "Confirm dedupe expectations: discarded items stay gone unless new evidence appears",
+              "rationale": "They expect discard to be conversation-scoped, not cosmetic."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "afterSegmentId": "seg-016",
+      "updates": [
+        {
+          "cardId": "risks",
+          "ops": [
+            {
+              "kind": "append",
+              "text": "Repeated near-duplicate suggestions are worse than silence",
+              "rationale": "Four pricing prompts from one mention of budget would kill trust."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "afterSegmentId": "seg-018",
+      "updates": [
+        {
+          "cardId": "topics",
+          "ops": [
+            {
+              "kind": "append",
+              "text": "Custom modes and card templates per research study",
+              "rationale": "They want jobs-to-be-done and unmet needs without rebuilding the whole UI."
+            }
+          ]
+        },
+        {
+          "cardId": "follow-ups",
+          "ops": [
+            {
+              "kind": "append",
+              "text": "Ask which card types are non-negotiable vs nice-to-have per call type",
+              "rationale": "Follow-up questions and customer needs were called non-negotiable."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "afterSegmentId": "seg-022",
+      "updates": [
+        {
+          "cardId": "needs",
+          "ops": [
+            {
+              "kind": "append",
+              "text": "Rationale text and keyboard shortcuts for pin/discard during live calls",
+              "rationale": "Rationale builds trust; they cannot mouse around during interviews."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "afterSegmentId": "seg-026",
+      "updates": [
+        {
+          "cardId": "risks",
+          "ops": [
+            {
+              "kind": "append",
+              "text": "Privacy and cloud-processing clarity is deal-breaker territory",
+              "rationale": "Enterprise participants ask where audio goes; real-time AI implies cloud processing."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "afterSegmentId": "seg-028",
+      "updates": [
+        {
+          "cardId": "follow-ups",
+          "ops": [
+            {
+              "kind": "append",
+              "text": "Validate priority: low-noise follow-up cards over novel features",
+              "rationale": "They want fewer missed threads in the 45 minutes that matter."
+            }
+          ]
+        },
+        {
+          "cardId": "needs",
+          "ops": [
+            {
+              "kind": "append",
+              "text": "Session export that respects pins versus discards",
+              "rationale": "Second priority after reliable follow-up question cards."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

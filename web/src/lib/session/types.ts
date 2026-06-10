@@ -1,0 +1,123 @@
+export type SessionMode = "customer_interview";
+
+export type SessionStatus = "live" | "finished";
+
+export type ItemDisposition = "active" | "pinned" | "done" | "discarded";
+
+export type TranscriptLine = {
+  id: string;
+  speaker: string;
+  text: string;
+  atMs: number;
+  timeLabel: string;
+  isPartial?: boolean;
+};
+
+export type ItemView = {
+  id: string;
+  text: string;
+  rationale: string;
+  disposition: ItemDisposition;
+};
+
+export type CardView = {
+  id: string;
+  title: string;
+  items: ItemView[];
+};
+
+export type SessionView = {
+  status: SessionStatus;
+  mode: SessionMode;
+  modeLabel: string;
+  title: string;
+  elapsedMs: number;
+  elapsedLabel: string;
+  transcript: TranscriptLine[];
+  cards: CardView[];
+};
+
+export type TranscriptIngress = {
+  id: string;
+  speakerKey: string;
+  text: string;
+  startMs: number;
+  final?: boolean;
+};
+
+export type CardUpdateOp =
+  | { kind: "append"; text: string; rationale: string }
+  | { kind: "revise"; itemId: string; text: string; rationale: string };
+
+export type CardUpdate = {
+  cardId: string;
+  ops: CardUpdateOp[];
+};
+
+export type GenerationContext = {
+  mode: SessionMode;
+  title: string;
+  elapsedMs: number;
+  recentTranscript: TranscriptLine[];
+  cards: Array<{
+    id: string;
+    title: string;
+    activeItems: Array<{ id: string; text: string; rationale: string }>;
+    suppressedTopics: string[];
+  }>;
+};
+
+export type SessionRecord = {
+  sessionId: string;
+  mode: SessionMode;
+  title: string;
+  startedAt: string;
+  finishedAt: string;
+  durationMs: number;
+  transcript: TranscriptLine[];
+  cards: Array<{
+    id: string;
+    title: string;
+    items: Array<
+      ItemView & {
+        createdAtMs: number;
+        discardedAtMs?: number;
+        resurfaced?: boolean;
+      }
+    >;
+  }>;
+};
+
+export type CreateSessionInput = {
+  mode: SessionMode;
+  title?: string;
+  speakers?: Record<string, { name: string; role?: string }>;
+};
+
+export type StubUpdatesFile = {
+  triggers: Array<{
+    afterSegmentId: string;
+    updates: CardUpdate[];
+  }>;
+};
+
+export interface ActiveSession {
+  readonly sessionId: string;
+
+  start(): void;
+  finish(): SessionRecord;
+  reset(): void;
+
+  getView(): SessionView;
+  subscribe(listener: () => void): () => void;
+
+  setElapsed(ms: number): void;
+  appendTranscript(segment: TranscriptIngress): void;
+  applyCardUpdates(updates: CardUpdate[]): void;
+
+  pinItem(cardId: string, itemId: string): void;
+  discardItem(cardId: string, itemId: string): void;
+  markDone(cardId: string, itemId: string): void;
+
+  getGenerationContext(): GenerationContext;
+}
