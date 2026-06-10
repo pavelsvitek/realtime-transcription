@@ -1,0 +1,233 @@
+{
+  "$schema": "./transcript.schema.json",
+  "version": 1,
+  "meta": {
+    "title": "Customer interview — meeting copilot",
+    "scenario": "customer_interview",
+    "product_context": "Live conversation copilot with real-time transcription and suggestion cards",
+    "duration_ms": 608000,
+    "created_at": "2026-06-10T20:00:00Z"
+  },
+  "speakers": {
+    "pm": {
+      "name": "Pavel",
+      "role": "Product Manager"
+    },
+    "customer": {
+      "name": "Morgan Chen",
+      "role": "Head of UX Research, Flowstack"
+    }
+  },
+  "segments": [
+    {
+      "id": "seg-001",
+      "start_ms": 0,
+      "end_ms": 11000,
+      "speaker": "pm",
+      "text": "Hi Morgan, thanks for making time. I'm Pavel, product manager on a tool we're calling the meeting copilot. Is it okay if I use this call for product discovery? Nothing gets shared outside our team without your consent."
+    },
+    {
+      "id": "seg-002",
+      "start_ms": 12000,
+      "end_ms": 17000,
+      "speaker": "customer",
+      "text": "Yes, that's fine. Happy to help. I've been curious about tools in this space anyway."
+    },
+    {
+      "id": "seg-003",
+      "start_ms": 18500,
+      "end_ms": 28000,
+      "speaker": "pm",
+      "text": "Great. I'd love to start with your world. What does a typical customer interview look like for you — from before the call through what happens after you hang up?"
+    },
+    {
+      "id": "seg-004",
+      "start_ms": 29500,
+      "end_ms": 52000,
+      "speaker": "customer",
+      "text": "Sure. I run about four to six interviews a week for a B2B workflow product — mostly PMs and ops leads. Before the call I pull a discussion guide in Google Docs. During the call I'm on Zoom with Otter transcribing in the background. I'm trying to listen, ask follow-ups, and jot notes at the same time, and that's the part that breaks down."
+    },
+    {
+      "id": "seg-005",
+      "start_ms": 53500,
+      "end_ms": 61000,
+      "speaker": "pm",
+      "text": "When it breaks down, what's the first thing you lose — the thread, the notes, or something else?"
+    },
+    {
+      "id": "seg-006",
+      "start_ms": 62500,
+      "end_ms": 88000,
+      "speaker": "customer",
+      "text": "The follow-up thread. Someone mentions a workaround they've used for months, I think I'll come back to it, the conversation moves on, and twenty minutes later I've lost the moment. After the call I skim Otter and find three questions I wish I'd asked while we were still talking."
+    },
+    {
+      "id": "seg-007",
+      "start_ms": 89500,
+      "end_ms": 96000,
+      "speaker": "pm",
+      "text": "How long does the post-call synthesis take you per interview?"
+    },
+    {
+      "id": "seg-008",
+      "start_ms": 97500,
+      "end_ms": 118000,
+      "speaker": "customer",
+      "text": "Roughly forty-five minutes to an hour. Highlighting quotes, tagging needs in Dovetail, updating our research board. Rich sessions run longer. It's valuable work, but it's all reactive — I'm reconstructing what I missed live."
+    },
+    {
+      "id": "seg-009",
+      "start_ms": 119500,
+      "end_ms": 131000,
+      "speaker": "pm",
+      "text": "Have you tried anything that helps during the call itself, not just transcription afterward?"
+    },
+    {
+      "id": "seg-010",
+      "start_ms": 132500,
+      "end_ms": 162000,
+      "speaker": "customer",
+      "text": "I tried Granola briefly. Interesting, but it felt like another chat window dumping text while I'm trying to stay present on camera. I turned most of it off. Teams Copilot is more summary-after-the-fact — doesn't help me in the moment."
+    },
+    {
+      "id": "seg-011",
+      "start_ms": 163500,
+      "end_ms": 198000,
+      "speaker": "pm",
+      "text": "Let me describe what we're building and you can react. You pick a mode like customer interview. Main area is a stable two-by-two grid of cards — follow-up questions, customer needs, risks, topics to explore. Not a chat stream. Transcript on the right, about a quarter of the screen. Cards update live: short items, one-line rationale underneath. You discard, pin, or mark done without leaving the call."
+    },
+    {
+      "id": "seg-012",
+      "start_ms": 199500,
+      "end_ms": 224000,
+      "speaker": "customer",
+      "text": "The stable grid is already different from what I didn't like about Granola. I want to know where to look. If cards stay in the same place every session, I could build a habit instead of hunting for the latest AI paragraph."
+    },
+    {
+      "id": "seg-013",
+      "start_ms": 225500,
+      "end_ms": 236000,
+      "speaker": "pm",
+      "text": "What would make you distrust it or turn it off mid-interview?"
+    },
+    {
+      "id": "seg-014",
+      "start_ms": 237500,
+      "end_ms": 268000,
+      "speaker": "customer",
+      "text": "Noise. If a new bullet appears every few seconds and it's the same idea rephrased, I'll ignore the product. Also anything that yanks my scroll at the wrong time. If I discard something, it should stay gone unless the participant actually brings that thread back with new evidence."
+    },
+    {
+      "id": "seg-015",
+      "start_ms": 269500,
+      "end_ms": 284000,
+      "speaker": "pm",
+      "text": "We spec semantic dedupe and limited resurfacing for exactly that. Does that match your bar?"
+    },
+    {
+      "id": "seg-016",
+      "start_ms": 285500,
+      "end_ms": 304000,
+      "speaker": "customer",
+      "text": "If it works, yes. I've had tools suggest 'ask about pricing' four times because someone said budget once. That's worse than no suggestion."
+    },
+    {
+      "id": "seg-017",
+      "start_ms": 305500,
+      "end_ms": 320000,
+      "speaker": "pm",
+      "text": "Are those four card types right for your interviews, or would you rearrange them?"
+    },
+    {
+      "id": "seg-018",
+      "start_ms": 321500,
+      "end_ms": 354000,
+      "speaker": "customer",
+      "text": "Follow-up questions and customer needs are non-negotiable. Risks less often in pure research, more in discovery calls. I'd want custom modes — swap in jobs-to-be-done and unmet needs — without rebuilding the whole UI. One research study shouldn't fight the default template."
+    },
+    {
+      "id": "seg-019",
+      "start_ms": 355500,
+      "end_ms": 368000,
+      "speaker": "pm",
+      "text": "What would you want to set before the session starts?"
+    },
+    {
+      "id": "seg-020",
+      "start_ms": 369500,
+      "end_ms": 394000,
+      "speaker": "customer",
+      "text": "Interview goal, participant segment, hypothesis I'm testing. If suggestions ignore that and stay generic, I wouldn't open the app. Context can't be an afterthought."
+    },
+    {
+      "id": "seg-021",
+      "start_ms": 395500,
+      "end_ms": 408000,
+      "speaker": "pm",
+      "text": "You saw a short Loom of the prototype — what landed, and what felt off?"
+    },
+    {
+      "id": "seg-022",
+      "start_ms": 409500,
+      "end_ms": 448000,
+      "speaker": "customer",
+      "text": "Transcript on the right felt right — main area for action. Rationale under each item is what would make me trust a suggestion; otherwise it's vibes. Auto-scroll with a back-to-live when I scroll up — essential. I'd want keyboard shortcuts for pin and discard. I can't mouse around during a live interview."
+    },
+    {
+      "id": "seg-023",
+      "start_ms": 449500,
+      "end_ms": 460000,
+      "speaker": "pm",
+      "text": "Anything in that prototype that felt unfinished?"
+    },
+    {
+      "id": "seg-024",
+      "start_ms": 461500,
+      "end_ms": 494000,
+      "speaker": "customer",
+      "text": "Post-call was clearly TBD, and that's where I live. Pin and discard need to show up in a breakdown — what I kept, what I rejected — with export to Notion or Dovetail. Also four cards on a thirteen-inch laptop next to Zoom is tight; I'd need a compact layout."
+    },
+    {
+      "id": "seg-025",
+      "start_ms": 495500,
+      "end_ms": 506000,
+      "speaker": "pm",
+      "text": "How do you think about privacy when customer audio is involved?"
+    },
+    {
+      "id": "seg-026",
+      "start_ms": 507500,
+      "end_ms": 538000,
+      "speaker": "customer",
+      "text": "Deal-breaker territory. Clear consent, retention policy, and ideally clarity on whether audio leaves the device. Enterprise participants ask. If you say real-time AI, they assume cloud processing — you need to be explicit."
+    },
+    {
+      "id": "seg-027",
+      "start_ms": 539500,
+      "end_ms": 556000,
+      "speaker": "pm",
+      "text": "If we shipped one thing in the next month, what would actually move the needle for you?"
+    },
+    {
+      "id": "seg-028",
+      "start_ms": 557500,
+      "end_ms": 586000,
+      "speaker": "customer",
+      "text": "Reliable follow-up question cards with low noise. Second is session export that respects pins versus discards. I don't need a novel — I need fewer missed threads in the forty-five minutes that matter."
+    },
+    {
+      "id": "seg-029",
+      "start_ms": 587500,
+      "end_ms": 598500,
+      "speaker": "pm",
+      "text": "That's incredibly helpful. I'll follow up with a summary — and we'd love you on a replay demo when the UX build is ready. Thanks Morgan."
+    },
+    {
+      "id": "seg-030",
+      "start_ms": 599500,
+      "end_ms": 608000,
+      "speaker": "customer",
+      "text": "Happy to test it. Good luck with the build."
+    }
+  ]
+}

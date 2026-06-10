@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://realtime-transcription.local/tests/transcripts/transcript.schema.json",
+  "title": "Replayable conversation transcript",
+  "description": "Timed transcript segments for simulating live conversation replay without audio.",
+  "type": "object",
+  "required": ["version", "meta", "speakers", "segments"],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "const": 1,
+      "description": "Schema version for replay tooling."
+    },
+    "meta": {
+      "type": "object",
+      "required": ["title", "duration_ms"],
+      "properties": {
+        "title": { "type": "string" },
+        "scenario": { "type": "string" },
+        "product_context": { "type": "string" },
+        "duration_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total session length; last segment end_ms should be close to this value."
+        },
+        "created_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "speakers": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["name", "role"],
+        "properties": {
+          "name": { "type": "string" },
+          "role": { "type": "string" }
+        }
+      }
+    },
+    "segments": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "start_ms", "end_ms", "speaker", "text"],
+        "properties": {
+          "id": { "type": "string" },
+          "start_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "When this utterance begins; replay engines emit the segment at this offset."
+          },
+          "end_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "When this utterance ends; gap until the next start_ms is silence."
+          },
+          "speaker": {
+            "type": "string",
+            "description": "Key into speakers object."
+          },
+          "text": {
+            "type": "string",
+            "description": "Final transcript text for the utterance."
+          },
+          "final": {
+            "type": "boolean",
+            "default": true,
+            "description": "False for partial STT chunks when simulating streaming transcription."
+          }
+        }
+      }
+    }
+  }
+}
