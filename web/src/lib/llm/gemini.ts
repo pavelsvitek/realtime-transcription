@@ -19,6 +19,7 @@ import {
   buildUserPrompt,
   SUGGESTIONS_RESPONSE_JSON_SCHEMA,
 } from "./prompt";
+import { summarizeItemStates } from "./normalize-generate-request";
 import { validateSuggestionsResponse } from "./validate-response";
 
 function getApiKey(): string | undefined {
@@ -84,6 +85,7 @@ export async function generateSuggestions(
     systemPrompt,
     userPrompt,
     requestPayload: request,
+    itemStateSummary: summarizeItemStates(request),
   });
 
   const tokenLimits = [LLM_MAX_OUTPUT_TOKENS, LLM_MAX_OUTPUT_TOKENS_RETRY];

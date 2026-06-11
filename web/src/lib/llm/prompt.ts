@@ -1,7 +1,9 @@
 import { getModeDefinition } from "@/lib/session/modes";
 import type {
-  GenerateSuggestionsRequest,
-  SessionMode,
+    GenerateSuggestionsRequest,
+    ItemDisposition,
+    SessionMode,
+    SuggestionItemState,
 } from "@/lib/session/types";
 
 const CARD_PURPOSES: Record<string, string> = {
@@ -14,6 +16,8 @@ const CARD_PURPOSES: Record<string, string> = {
   topics:
     "Themes worth exploring further that are not yet fully understood.",
 };
+
+const VISIBLE_DISPOSITIONS: ItemDisposition[] = ["active", "pinned", "done"];
 
 function formatSessionContext(
   request: GenerateSuggestionsRequest,
@@ -34,23 +38,41 @@ function formatSessionContext(
   return lines.length > 0 ? lines.join("\n") : "No additional session context provided.";
 }
 
-function formatExistingItems(request: GenerateSuggestionsRequest): string {
+function formatItem(item: SuggestionItemState): string {
+  return `- disposition=${item.disposition} id=${item.id}\n  text: ${item.text}\n  rationale: ${item.rationale}`;
+}
+
+function formatItemsByCard(
+  request: GenerateSuggestionsRequest,
+  filter: (item: SuggestionItemState) => boolean,
+  emptyLabel: string,
+): string {
   return request.cards
     .map((card) => {
-      if (card.items.length === 0) {
-        return `### ${card.title} (${card.id})\n(none)`;
+      const filtered = card.items.filter(filter);
+      if (filtered.length === 0) {
+        return `### ${card.title} (${card.id})\n${emptyLabel}`;
       }
 
-      const itemLines = card.items
-        .map(
-          (item) =>
-            `- [${item.disposition}] id=${item.id}\n  text: ${item.text}\n  rationale: ${item.rationale}`,
-        )
-        .join("\n");
-
-      return `### ${card.title} (${card.id})\n${itemLines}`;
+      return `### ${card.title} (${card.id})\n${filtered.map(formatItem).join("\n")}`;
     })
     .join("\n\n");
+}
+
+function formatVisibleItems(request: GenerateSuggestionsRequest): string {
+  return formatItemsByCard(
+    request,
+    (item) => VISIBLE_DISPOSITIONS.includes(item.disposition),
+    "(none)",
+  );
+}
+
+function formatSuppressedItems(request: GenerateSuggestionsRequest): string {
+  return formatItemsByCard(
+    request,
+    (item) => item.disposition === "discarded",
+    "(none — no discarded topics on this card)",
+  );
 }
 
 function formatTranscriptChunk(request: GenerateSuggestionsRequest): string {
@@ -76,25 +98,40 @@ Your job is to analyze a recent transcript window and suggest short, actionable 
 ## Card types
 ${cardList}
 
+## Item state semantics
+Each existing item has a disposition:
+- active: visible on the card; do not duplicate or lightly rephrase
+- pinned: user marked important; do not duplicate
+- done: user acted on it; do not duplicate
+- discarded: user rejected it for this conversation; treat as suppressed unless resurfacing rules apply
+
 ## Rules
 1. Return ONLY genuinely new items. An empty items array is correct and preferred over noise.
 2. Append-only: each item must open a new thread. Do not rephrase existing items.
-3. Dedupe semantically against ALL existing items (active, pinned, done) on the same card.
-4. **Discarded items must NOT reappear** unless the transcript chunk contains substantial new evidence (new facts, direct quotes, or clear escalation). A passing mention is not enough.
-5. Item text: one short actionable line (question, need, risk, or topic).
-6. Rationale: 1-2 short sentences citing specific recent transcript context.
-7. Assign each item to exactly one cardId from: ${modeDef.cards.map((c) => c.id).join(", ")}.
-8. Maximum ${2} items per card per response.
-9. Prefer silence when the signal is weak or already captured.
-10. Keep item text under 120 characters and rationale under 200 characters.`;
+3. Dedupe semantically against items (active, pinned, done, discarded) on the same card.
+4. **Suppressed (discarded) items must NOT reappear** unless the transcript chunk contains substantial NEW evidence (new facts, direct quotes, or clear escalation). A passing mention of the same theme is not enough to resurface.
+5. If a discarded topic might be resurfacing, the new item must be meaningfully different and the rationale must cite the new evidence explicitly.
+6. Item text: one short actionable line (question, need, risk, or topic).
+7. Rationale: 1-2 short sentences citing specific recent transcript context.
+8. Assign each item to exactly one cardId from: ${modeDef.cards.map((c) => c.id).join(", ")}.
+9. Maximum ${2} items per card per response.
+10. Prefer silence when the signal is weak or already captured.
+11. Keep item text under 120 characters and rationale under 200 characters.`;
 }
 
 export function buildUserPrompt(request: GenerateSuggestionsRequest): string {
   return `## Session context
 ${formatSessionContext(request)}
 
-## Existing items by card
-${formatExistingItems(request)}
+## Existing items by card (active, pinned, done)
+Do not duplicate or lightly rephrase these.
+
+${formatVisibleItems(request)}
+
+## Suppressed topics by card (disposition=discarded)
+The user dismissed these during the live session. Do not suggest them again unless the transcript chunk contains substantial new evidence.
+
+${formatSuppressedItems(request)}
 
 ## Transcript chunk (last 90 seconds)
 ${formatTranscriptChunk(request)}`;

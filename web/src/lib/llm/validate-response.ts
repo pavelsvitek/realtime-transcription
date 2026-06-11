@@ -31,6 +31,16 @@ function isNearDuplicate(a: string, b: string): boolean {
   return false;
 }
 
+function itemsWithDisposition(
+  request: GenerateSuggestionsRequest,
+  cardId: string,
+  dispositions: ItemDisposition[],
+) {
+  const card = request.cards.find((c) => c.id === cardId);
+  if (!card) return [];
+  return card.items.filter((item) => dispositions.includes(item.disposition));
+}
+
 export function validateSuggestionsResponse(
   raw: unknown,
   request: GenerateSuggestionsRequest,
@@ -43,20 +53,6 @@ export function validateSuggestionsResponse(
   const validCardIds = new Set(
     getModeDefinition(request.mode).cards.map((card) => card.id),
   );
-
-  const existingByCard = new Map<
-    string,
-    Array<{ text: string; disposition: ItemDisposition }>
-  >();
-  for (const card of request.cards) {
-    existingByCard.set(
-      card.id,
-      card.items.map((item) => ({
-        text: item.text,
-        disposition: item.disposition,
-      })),
-    );
-  }
 
   const perCardCount = new Map<string, number>();
   const accepted: GeneratedSuggestion[] = [];
@@ -74,16 +70,19 @@ export function validateSuggestionsResponse(
     const cardCount = perCardCount.get(cardId) ?? 0;
     if (cardCount >= MAX_ITEMS_PER_CARD_PER_CALL) continue;
 
-    const existing = existingByCard.get(cardId) ?? [];
-    const duplicatesExisting = existing.some((existingItem) =>
+    const visibleItems = itemsWithDisposition(request, cardId, [
+      "active",
+      "pinned",
+      "done",
+    ]);
+    const duplicatesVisible = visibleItems.some((existingItem) =>
       isNearDuplicate(existingItem.text, text),
     );
-    if (duplicatesExisting) continue;
+    if (duplicatesVisible) continue;
 
-    const matchesDiscarded = existing.some(
-      (existingItem) =>
-        existingItem.disposition === "discarded" &&
-        isNearDuplicate(existingItem.text, text),
+    const discardedItems = itemsWithDisposition(request, cardId, ["discarded"]);
+    const matchesDiscarded = discardedItems.some((existingItem) =>
+      isNearDuplicate(existingItem.text, text),
     );
     if (matchesDiscarded) continue;
 

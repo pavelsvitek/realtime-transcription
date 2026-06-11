@@ -1,24 +1,14 @@
 import { generateSuggestions, isGeminiConfigured } from "@/lib/llm/gemini";
-import type {
-  GenerateSuggestionsRequest,
-  SessionMode,
-} from "@/lib/session/types";
+import {
+  normalizeGenerateRequest,
+  summarizeItemStates,
+} from "@/lib/llm/normalize-generate-request";
+import type { SessionMode } from "@/lib/session/types";
 import { NextResponse } from "next/server";
 
 const VALID_MODES: SessionMode[] = ["customer_interview"];
 
-function isValidRequest(body: unknown): body is GenerateSuggestionsRequest {
-  if (!body || typeof body !== "object") return false;
-
-  const request = body as GenerateSuggestionsRequest;
-  if (!VALID_MODES.includes(request.mode)) return false;
-  if (!Array.isArray(request.cards)) return false;
-  if (!Array.isArray(request.transcriptChunk)) return false;
-
-  return true;
-}
-
-export async function POST(request: Request) {
+export async function POST(httpRequest: Request) {
   if (!isGeminiConfigured()) {
     return NextResponse.json(
       { error: "GEMINI_API_KEY is not configured" },
@@ -28,17 +18,21 @@ export async function POST(request: Request) {
 
   let body: unknown;
   try {
-    body = await request.json();
+    body = await httpRequest.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  if (!isValidRequest(body)) {
+  const request = normalizeGenerateRequest(body, VALID_MODES);
+  if (!request) {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
 
   try {
-    const items = await generateSuggestions(body);
+    const itemStates = summarizeItemStates(request);
+    console.log("[suggestions/api] item states:", itemStates);
+
+    const items = await generateSuggestions(request);
     return NextResponse.json({ items });
   } catch (error) {
     const message =

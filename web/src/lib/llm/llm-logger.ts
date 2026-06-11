@@ -12,10 +12,14 @@ export function logGeminiRequest(input: {
   systemPrompt: string;
   userPrompt: string;
   requestPayload: unknown;
+  itemStateSummary?: Record<string, number>;
 }): void {
   divider("REQUEST");
   console.log(`${LOG_PREFIX} model:`, input.model);
   console.log(`${LOG_PREFIX} mode:`, input.mode);
+  if (input.itemStateSummary) {
+    console.log(`${LOG_PREFIX} item states:`, input.itemStateSummary);
+  }
   console.log(`${LOG_PREFIX} request payload:\n`, JSON.stringify(input.requestPayload, null, 2));
   console.log(`${LOG_PREFIX} system prompt:\n`, input.systemPrompt);
   console.log(`${LOG_PREFIX} user prompt:\n`, input.userPrompt);
