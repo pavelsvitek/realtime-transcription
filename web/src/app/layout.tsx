@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { AgentationDev } from "@/components/agentation-dev";
 import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 
@@ -32,6 +33,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
           {children}
+          <AgentationDev />
         </ThemeProvider>
       </body>
     </html>
