@@ -1,4 +1,12 @@
-import type { ActiveSession } from "@/lib/session/types";
+import {
+  fetchGenerateSuggestions,
+  mapSuggestionsToCardUpdates,
+} from "@/lib/llm/generate-suggestions-client";
+import {
+  GENERATION_INTERVAL_MS,
+  MIN_NEW_WORDS_FOR_GENERATION,
+} from "@/lib/llm/constants";
+import type { ActiveSession, GenerationMode } from "@/lib/session/types";
 import type { StubUpdatesFile } from "@/lib/session/types";
 import {
   buildWordTimeline,
@@ -9,6 +17,7 @@ export type ReplayDriverState = {
   playing: boolean;
   speed: number;
   elapsedMs: number;
+  generating: boolean;
 };
 
 export const SEEK_STEP_MS = 10_000;
@@ -19,6 +28,7 @@ export type ReplayDriver = {
   reset(): void;
   seekBy(deltaMs: number): void;
   setSpeed(multiplier: number): void;
+  setGenerationMode(mode: GenerationMode): void;
   getState(): ReplayDriverState;
   subscribe(listener: () => void): () => void;
   destroy(): void;
@@ -29,10 +39,17 @@ type ReplayDriverInput = {
   segments: TranscriptFixtureSegment[];
   durationMs: number;
   stubTriggers?: StubUpdatesFile["triggers"];
+  generationMode?: GenerationMode;
 };
 
 export function createReplayDriver(input: ReplayDriverInput): ReplayDriver {
-  const { session, segments, durationMs, stubTriggers = [] } = input;
+  const {
+    session,
+    segments,
+    durationMs,
+    stubTriggers = [],
+    generationMode = "stub",
+  } = input;
   const wordTicks = buildWordTimeline(segments);
   const triggerBySegment = new Map(
     stubTriggers.map((trigger) => [trigger.afterSegmentId, trigger.updates]),
@@ -45,6 +62,12 @@ export function createReplayDriver(input: ReplayDriverInput): ReplayDriver {
   let wallAnchorMs = 0;
   let virtualAnchorMs = 0;
   let rafId: number | null = null;
+  let currentGenerationMode = generationMode;
+  let generating = false;
+  let lastGenerationAtMs = 0;
+  let lastTranscriptAtMsAtGeneration = 0;
+  let generationSeq = 0;
+  let inFlight = false;
   const listeners = new Set<() => void>();
 
   function notify(): void {
@@ -54,13 +77,64 @@ export function createReplayDriver(input: ReplayDriverInput): ReplayDriver {
   }
 
   function getState(): ReplayDriverState {
-    return { playing, speed, elapsedMs };
+    return { playing, speed, elapsedMs, generating };
   }
 
   function fireStubUpdates(segmentId: string): void {
     const updates = triggerBySegment.get(segmentId);
     if (updates) {
       session.applyCardUpdates(updates);
+    }
+  }
+
+  function shouldAttemptGeneration(): boolean {
+    if (currentGenerationMode !== "llm") return false;
+    if (inFlight) return false;
+    if (elapsedMs - lastGenerationAtMs < GENERATION_INTERVAL_MS) return false;
+
+    const latestFinalized = session.getLatestFinalizedTranscriptAtMs();
+    if (latestFinalized <= lastTranscriptAtMsAtGeneration) return false;
+
+    const newWords = session.getNewWordCountSince(lastTranscriptAtMsAtGeneration);
+    if (newWords < MIN_NEW_WORDS_FOR_GENERATION) return false;
+
+    const request = session.buildGenerateRequest();
+    if (request.transcriptChunk.length === 0) return false;
+
+    return true;
+  }
+
+  async function requestSuggestions(): Promise<void> {
+    if (!shouldAttemptGeneration()) return;
+
+    const request = session.buildGenerateRequest();
+    const seq = ++generationSeq;
+    inFlight = true;
+    generating = true;
+    lastGenerationAtMs = elapsedMs;
+    lastTranscriptAtMsAtGeneration = session.getLatestFinalizedTranscriptAtMs();
+    notify();
+
+    try {
+      const items = await fetchGenerateSuggestions(request);
+      if (seq !== generationSeq) return;
+      if (items.length > 0) {
+        session.applyCardUpdates(mapSuggestionsToCardUpdates(items));
+      }
+    } catch (error) {
+      console.error("Suggestion generation failed:", error);
+    } finally {
+      if (seq === generationSeq) {
+        inFlight = false;
+        generating = false;
+        notify();
+      }
+    }
+  }
+
+  function maybeTriggerGeneration(): void {
+    if (shouldAttemptGeneration()) {
+      void requestSuggestions();
     }
   }
 
@@ -75,7 +149,7 @@ export function createReplayDriver(input: ReplayDriverInput): ReplayDriver {
         final: tick.final,
       });
 
-      if (tick.final) {
+      if (tick.final && currentGenerationMode === "stub") {
         fireStubUpdates(tick.segmentId);
       }
 
@@ -84,6 +158,7 @@ export function createReplayDriver(input: ReplayDriverInput): ReplayDriver {
 
     elapsedMs = Math.min(targetMs, durationMs);
     session.setElapsed(elapsedMs);
+    maybeTriggerGeneration();
     notify();
   }
 
@@ -133,7 +208,16 @@ export function createReplayDriver(input: ReplayDriverInput): ReplayDriver {
     }
 
     session.setElapsed(elapsedMs);
+    maybeTriggerGeneration();
     notify();
+  }
+
+  function resetGenerationState(): void {
+    generationSeq += 1;
+    inFlight = false;
+    generating = false;
+    lastGenerationAtMs = 0;
+    lastTranscriptAtMsAtGeneration = 0;
   }
 
   function reset(): void {
@@ -141,6 +225,7 @@ export function createReplayDriver(input: ReplayDriverInput): ReplayDriver {
     elapsedMs = 0;
     tickIndex = 0;
     virtualAnchorMs = 0;
+    resetGenerationState();
     session.reset();
     notify();
   }
@@ -157,6 +242,7 @@ export function createReplayDriver(input: ReplayDriverInput): ReplayDriver {
 
     if (clampedTarget < elapsedMs) {
       const snapshots = session.captureDispositionSnapshots();
+      resetGenerationState();
       session.reset();
       tickIndex = 0;
       elapsedMs = 0;
@@ -203,7 +289,14 @@ export function createReplayDriver(input: ReplayDriverInput): ReplayDriver {
 
   function destroy(): void {
     pause();
+    generationSeq += 1;
     listeners.clear();
+  }
+
+  function setGenerationMode(mode: GenerationMode): void {
+    currentGenerationMode = mode;
+    resetGenerationState();
+    notify();
   }
 
   return {
@@ -212,6 +305,7 @@ export function createReplayDriver(input: ReplayDriverInput): ReplayDriver {
     reset,
     seekBy,
     setSpeed,
+    setGenerationMode,
     getState,
     subscribe(listener) {
       listeners.add(listener);

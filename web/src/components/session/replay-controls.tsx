@@ -2,6 +2,7 @@
 
 import type { TranscriptListItem } from "@/lib/replay/load-fixture";
 import { REPLAY_SPEED_OPTIONS } from "@/lib/replay/replay-speed";
+import type { GenerationMode } from "@/lib/session/types";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -15,24 +16,30 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 type ReplayControlsProps = {
   playing: boolean;
   speed: number;
+  generating: boolean;
+  generationMode: GenerationMode;
   transcripts: TranscriptListItem[];
   selectedTranscriptId: string;
   onPlay: () => void;
   onPause: () => void;
   onReset: () => void;
   onSpeedChange: (speed: number) => void;
+  onGenerationModeChange: (mode: GenerationMode) => void;
   onTranscriptChange: (id: string) => void;
 };
 
 export function ReplayControls({
   playing,
   speed,
+  generating,
+  generationMode,
   transcripts,
   selectedTranscriptId,
   onPlay,
   onPause,
   onReset,
   onSpeedChange,
+  onGenerationModeChange,
   onTranscriptChange,
 }: ReplayControlsProps) {
   return (
@@ -55,6 +62,21 @@ export function ReplayControls({
       </Button>
 
       <ToggleGroup
+        value={[generationMode]}
+        onValueChange={(values) => {
+          const next = values[0] as GenerationMode | null;
+          if (next) onGenerationModeChange(next);
+        }}
+        variant="outline"
+        spacing={0}
+        size="sm"
+        title="Suggestion source"
+      >
+        <ToggleGroupItem value="stub">Stub</ToggleGroupItem>
+        <ToggleGroupItem value="llm">LLM</ToggleGroupItem>
+      </ToggleGroup>
+
+      <ToggleGroup
         value={[String(speed)]}
         onValueChange={(values) => {
           const next = values[0];
@@ -71,6 +93,10 @@ export function ReplayControls({
           </ToggleGroupItem>
         ))}
       </ToggleGroup>
+
+      {generating ? (
+        <span className="text-xs text-muted-foreground">Generating…</span>
+      ) : null}
 
       {transcripts.length > 1 ? (
         <Select

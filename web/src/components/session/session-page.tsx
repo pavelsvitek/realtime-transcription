@@ -2,7 +2,11 @@
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { createActiveSession } from "@/lib/session/active-session";
-import type { ActiveSession, SessionView } from "@/lib/session/types";
+import type {
+  ActiveSession,
+  GenerationMode,
+  SessionView,
+} from "@/lib/session/types";
 import { createReplayDriver, type ReplayDriver } from "@/lib/replay/replay-driver";
 import {
   listTranscripts,
@@ -35,10 +39,12 @@ export function SessionPage() {
   const [selectedTranscriptId, setSelectedTranscriptId] = useState(
     DEFAULT_TRANSCRIPT_ID,
   );
+  const [generationMode, setGenerationMode] = useState<GenerationMode>("stub");
   const [driverState, setDriverState] = useState({
     playing: false,
     speed: 1,
     elapsedMs: 0,
+    generating: false,
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -75,7 +81,10 @@ export function SessionPage() {
     enabled: !loading && !error,
   });
 
-  const setupFixture = useCallback(async (transcriptId: string) => {
+  const setupFixture = useCallback(async (
+    transcriptId: string,
+    mode: GenerationMode,
+  ) => {
     setLoading(true);
     setError(null);
 
@@ -90,6 +99,13 @@ export function SessionPage() {
         mode: "customer_interview",
         title: fixture.meta.title,
         speakers: fixture.speakers,
+        sessionContext: {
+          additionalContext: fixture.meta.product_context,
+          goal: "Evaluate meeting copilot for UX research interviews",
+          participantSegment: "Head of UX Research at B2B SaaS",
+          hypothesis:
+            "Stable card grid with low-noise follow-ups beats chat-style AI",
+        },
       });
 
       const nextDriver = createReplayDriver({
@@ -97,11 +113,13 @@ export function SessionPage() {
         segments: fixture.segments,
         durationMs: fixture.meta.duration_ms,
         stubTriggers: stubUpdates.triggers,
+        generationMode: mode,
       });
 
       setSession(nextSession);
       setDriver(nextDriver);
       setSelectedTranscriptId(transcriptId);
+      setGenerationMode(mode);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load transcript");
       setSession(null);
@@ -116,7 +134,7 @@ export function SessionPage() {
       .then(setTranscripts)
       .catch(() => setTranscripts([]));
 
-    setupFixture(DEFAULT_TRANSCRIPT_ID);
+    setupFixture(DEFAULT_TRANSCRIPT_ID, "stub");
 
     return () => {
       setDriver((current) => {
@@ -127,7 +145,12 @@ export function SessionPage() {
   }, [setupFixture]);
 
   const handleTranscriptChange = (id: string) => {
-    setupFixture(id);
+    setupFixture(id, generationMode);
+  };
+
+  const handleGenerationModeChange = (mode: GenerationMode) => {
+    setGenerationMode(mode);
+    driver?.setGenerationMode(mode);
   };
 
   if (loading && !session) {
@@ -157,12 +180,15 @@ export function SessionPage() {
             <ReplayControls
               playing={driverState.playing}
               speed={driverState.speed}
+              generating={driverState.generating}
+              generationMode={generationMode}
               transcripts={transcripts}
               selectedTranscriptId={selectedTranscriptId}
               onPlay={() => driver.play()}
               onPause={() => driver.pause()}
               onReset={() => driver.reset()}
               onSpeedChange={(speed) => driver.setSpeed(speed)}
+              onGenerationModeChange={handleGenerationModeChange}
               onTranscriptChange={handleTranscriptChange}
             />
           ) : null

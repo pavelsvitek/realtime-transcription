@@ -54,6 +54,49 @@ export type CardUpdate = {
   ops: CardUpdateOp[];
 };
 
+export type SessionContext = {
+  goal?: string;
+  participantSegment?: string;
+  hypothesis?: string;
+  additionalContext?: string;
+};
+
+export type SuggestionItemState = {
+  id: string;
+  text: string;
+  rationale: string;
+  disposition: ItemDisposition;
+};
+
+export type TranscriptChunkLine = {
+  speaker: string;
+  text: string;
+  atMs: number;
+};
+
+export type GenerateSuggestionsRequest = {
+  mode: SessionMode;
+  sessionContext?: SessionContext;
+  cards: Array<{
+    id: string;
+    title: string;
+    items: SuggestionItemState[];
+  }>;
+  transcriptChunk: TranscriptChunkLine[];
+};
+
+export type GeneratedSuggestion = {
+  cardId: string;
+  text: string;
+  rationale: string;
+};
+
+export type GenerateSuggestionsResponse = {
+  items: GeneratedSuggestion[];
+};
+
+export type GenerationMode = "stub" | "llm";
+
 export type GenerationContext = {
   mode: SessionMode;
   title: string;
@@ -92,6 +135,7 @@ export type CreateSessionInput = {
   mode: SessionMode;
   title?: string;
   speakers?: Record<string, { name: string; role?: string }>;
+  sessionContext?: SessionContext;
 };
 
 export type StubUpdatesFile = {
@@ -136,4 +180,7 @@ export interface ActiveSession {
   ): void;
 
   getGenerationContext(): GenerationContext;
+  buildGenerateRequest(): GenerateSuggestionsRequest;
+  getLatestFinalizedTranscriptAtMs(): number;
+  getNewWordCountSince(sinceMs: number): number;
 }

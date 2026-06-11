@@ -1,3 +1,9 @@
+import {
+  buildTranscriptWindow,
+  countWordsSince,
+  latestFinalizedAtMs,
+} from "@/lib/llm/transcript-window";
+import { TRANSCRIPT_WINDOW_MS } from "@/lib/llm/constants";
 import { formatElapsed } from "./format";
 import { getModeDefinition } from "./modes";
 import type {
@@ -5,6 +11,7 @@ import type {
   CardUpdate,
   CreateSessionInput,
   DispositionSnapshot,
+  GenerateSuggestionsRequest,
   GenerationContext,
   ItemDisposition,
   SessionRecord,
@@ -13,7 +20,7 @@ import type {
 } from "./types";
 
 const LIVE_VISIBLE_CAP = 10;
-const RECENT_TRANSCRIPT_MS = 180_000;
+const RECENT_TRANSCRIPT_MS = TRANSCRIPT_WINDOW_MS;
 
 type InternalItem = {
   id: string;
@@ -362,6 +369,36 @@ export function createActiveSession(input: CreateSessionInput): ActiveSession {
             .map((item) => item.text),
         })),
       };
+    },
+
+    buildGenerateRequest(): GenerateSuggestionsRequest {
+      const view = buildView();
+
+      return {
+        mode: input.mode,
+        sessionContext: input.sessionContext,
+        cards: modeDef.cards.map((cardDef) => ({
+          id: cardDef.id,
+          title: cardDef.title,
+          items: items
+            .filter((item) => item.cardId === cardDef.id)
+            .map((item) => ({
+              id: item.id,
+              text: item.text,
+              rationale: item.rationale,
+              disposition: item.disposition,
+            })),
+        })),
+        transcriptChunk: buildTranscriptWindow(view.transcript, elapsedMs),
+      };
+    },
+
+    getLatestFinalizedTranscriptAtMs() {
+      return latestFinalizedAtMs(transcript);
+    },
+
+    getNewWordCountSince(sinceMs: number) {
+      return countWordsSince(transcript, sinceMs);
     },
   };
 
