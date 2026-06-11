@@ -4,6 +4,46 @@
       "afterSegmentId": "seg-006",
       "updates": [
         {
+          "cardId": "needs",
+          "ops": [
+            {
+              "kind": "append",
+              "text": "Visibility into cross-team handoffs without parallel spreadsheets",
+              "rationale": "Teams keep a shadow Google Sheet because Flowstack doesn't show handoffs clearly."
+            },
+            {
+              "kind": "append",
+              "text": "Faster onboarding so new PMs trust the product without veteran workarounds",
+              "rationale": "New hires take 3–4 weeks before they trust Flowstack; veterans rely on untaught workarounds."
+            }
+          ]
+        },
+        {
+          "cardId": "follow-ups",
+          "ops": [
+            {
+              "kind": "append",
+              "text": "Ask how often they reconcile the shadow spreadsheet and who owns it",
+              "rationale": "Manual Friday reconciliation suggests a recurring workaround worth quantifying."
+            }
+          ]
+        },
+        {
+          "cardId": "topics",
+          "ops": [
+            {
+              "kind": "append",
+              "text": "Onboarding cliff and undocumented veteran workarounds",
+              "rationale": "Trust gap for new PMs vs mental models veterans built outside the UI."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "afterSegmentId": "seg-008",
+      "updates": [
+        {
           "cardId": "follow-ups",
           "ops": [
             {
@@ -26,7 +66,37 @@
       ]
     },
     {
-      "afterSegmentId": "seg-008",
+      "afterSegmentId": "seg-010",
+      "updates": [
+        {
+          "cardId": "needs",
+          "ops": [
+            {
+              "kind": "append",
+              "text": "Approvals surfaced in-product instead of stranded in email",
+              "rationale": "Simple requests sit pending for days because approvers live in email, not Flowstack."
+            }
+          ]
+        },
+        {
+          "cardId": "follow-ups",
+          "ops": [
+            {
+              "kind": "append",
+              "text": "Return to the approval bottleneck — who are the approvers and where do they work?",
+              "rationale": "They noted this thread on Tuesday but never followed up while still on the call."
+            },
+            {
+              "kind": "append",
+              "text": "Ask what the Friday spreadsheet reconciliation actually fixes",
+              "rationale": "Same missed call also surfaced the shadow spreadsheet workaround again."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "afterSegmentId": "seg-012",
       "updates": [
         {
           "cardId": "needs",
@@ -41,7 +111,52 @@
       ]
     },
     {
-      "afterSegmentId": "seg-010",
+      "afterSegmentId": "seg-014",
+      "updates": [
+        {
+          "cardId": "needs",
+          "ops": [
+            {
+              "kind": "append",
+              "text": "Signal over noise in alerts so blockers aren't buried",
+              "rationale": "Ops leads mute Flowstack alerts and miss real blockers in routine updates."
+            },
+            {
+              "kind": "append",
+              "text": "Richer deep links between Slack/Jira and in-product context",
+              "rationale": "People paste screenshots because links don't carry enough state across tools."
+            },
+            {
+              "kind": "append",
+              "text": "Leadership rollup view of where work is stuck",
+              "rationale": "Directors ping three people because there's no trusted rollup view."
+            }
+          ]
+        },
+        {
+          "cardId": "risks",
+          "ops": [
+            {
+              "kind": "append",
+              "text": "Workflow changes may spike support load without in-product guidance",
+              "rationale": "Support tickets spike for two weeks after workflow updates ship."
+            }
+          ]
+        },
+        {
+          "cardId": "topics",
+          "ops": [
+            {
+              "kind": "append",
+              "text": "Integration friction between Slack threads and Flowstack",
+              "rationale": "Context jumps between tools; screenshots substitute for portable state."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "afterSegmentId": "seg-016",
       "updates": [
         {
           "cardId": "risks",
@@ -66,7 +181,7 @@
       ]
     },
     {
-      "afterSegmentId": "seg-012",
+      "afterSegmentId": "seg-018",
       "updates": [
         {
           "cardId": "topics",
@@ -81,7 +196,7 @@
       ]
     },
     {
-      "afterSegmentId": "seg-014",
+      "afterSegmentId": "seg-020",
       "updates": [
         {
           "cardId": "risks",
@@ -106,7 +221,7 @@
       ]
     },
     {
-      "afterSegmentId": "seg-016",
+      "afterSegmentId": "seg-022",
       "updates": [
         {
           "cardId": "risks",
@@ -121,7 +236,7 @@
       ]
     },
     {
-      "afterSegmentId": "seg-018",
+      "afterSegmentId": "seg-024",
       "updates": [
         {
           "cardId": "topics",
@@ -146,7 +261,42 @@
       ]
     },
     {
-      "afterSegmentId": "seg-022",
+      "afterSegmentId": "seg-026",
+      "updates": [
+        {
+          "cardId": "needs",
+          "ops": [
+            {
+              "kind": "append",
+              "text": "Align PM speed, ops audit trail, and IT security requirements in one account",
+              "rationale": "Same customer voices conflicting jobs-to-be-done across stakeholders."
+            }
+          ]
+        },
+        {
+          "cardId": "risks",
+          "ops": [
+            {
+              "kind": "append",
+              "text": "Enterprise security reviews can block feature adoption after purchase",
+              "rationale": "Security reviews stall external sharing; customers want the product but can't enable features."
+            }
+          ]
+        },
+        {
+          "cardId": "topics",
+          "ops": [
+            {
+              "kind": "append",
+              "text": "Multi-stakeholder misalignment inside a single customer account",
+              "rationale": "PM, ops, and IT want different outcomes from the same deployment."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "afterSegmentId": "seg-030",
       "updates": [
         {
           "cardId": "needs",
@@ -161,7 +311,7 @@
       ]
     },
     {
-      "afterSegmentId": "seg-026",
+      "afterSegmentId": "seg-034",
       "updates": [
         {
           "cardId": "risks",
@@ -176,7 +326,42 @@
       ]
     },
     {
-      "afterSegmentId": "seg-028",
+      "afterSegmentId": "seg-036",
+      "updates": [
+        {
+          "cardId": "risks",
+          "ops": [
+            {
+              "kind": "append",
+              "text": "Seat economics and budget pushback may block expansion",
+              "rationale": "Small teams want fewer paid seats with broader read access; budget holders resist another tool."
+            }
+          ]
+        },
+        {
+          "cardId": "follow-ups",
+          "ops": [
+            {
+              "kind": "append",
+              "text": "Ask what proof of value leadership needs before renewing seats",
+              "rationale": "Reporting gap hurts procurement when they can't prove value without manual exports."
+            }
+          ]
+        },
+        {
+          "cardId": "topics",
+          "ops": [
+            {
+              "kind": "append",
+              "text": "Pricing, seat model, and proving ROI to budget holders",
+              "rationale": "Pricing and seat economics come up every quarter alongside stack consolidation pressure."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "afterSegmentId": "seg-038",
       "updates": [
         {
           "cardId": "follow-ups",
