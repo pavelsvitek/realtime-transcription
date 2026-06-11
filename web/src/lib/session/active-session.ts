@@ -268,12 +268,30 @@ export function createActiveSession(input: CreateSessionInput): ActiveSession {
       setItemDisposition(cardId, itemId, "pinned");
     },
 
+    unpinItem(cardId, itemId) {
+      const item = items.find((i) => i.id === itemId && i.cardId === cardId);
+      if (!item || item.disposition !== "pinned") return;
+
+      item.disposition = "active";
+      item.pinnedAtMs = undefined;
+      notify();
+    },
+
     discardItem(cardId, itemId) {
       setItemDisposition(cardId, itemId, "discarded");
     },
 
     markDone(cardId, itemId) {
       setItemDisposition(cardId, itemId, "done");
+    },
+
+    unmarkDone(cardId, itemId) {
+      const item = items.find((i) => i.id === itemId && i.cardId === cardId);
+      if (!item || item.disposition !== "done") return;
+
+      item.disposition = "active";
+      item.doneAtMs = undefined;
+      notify();
     },
 
     captureDispositionSnapshots(): DispositionSnapshot[] {

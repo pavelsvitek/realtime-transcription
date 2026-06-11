@@ -177,7 +177,9 @@ export function SessionPage() {
               card={card}
               onDiscard={(itemId) => session?.discardItem(card.id, itemId)}
               onPin={(itemId) => session?.pinItem(card.id, itemId)}
+              onUnpin={(itemId) => session?.unpinItem(card.id, itemId)}
               onDone={(itemId) => session?.markDone(card.id, itemId)}
+              onUndoDone={(itemId) => session?.unmarkDone(card.id, itemId)}
             />
           ))}
         </main>

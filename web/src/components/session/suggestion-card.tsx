@@ -18,7 +18,9 @@ type SuggestionCardProps = {
   card: CardView;
   onDiscard: (itemId: string) => void;
   onPin: (itemId: string) => void;
+  onUnpin: (itemId: string) => void;
   onDone: (itemId: string) => void;
+  onUndoDone: (itemId: string) => void;
 };
 
 const SCROLL_END_THRESHOLD_PX = 20;
@@ -81,7 +83,9 @@ export function SuggestionCard({
   card,
   onDiscard,
   onPin,
+  onUnpin,
   onDone,
+  onUndoDone,
 }: SuggestionCardProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const pinnedToBottomRef = useRef(true);
@@ -127,6 +131,7 @@ export function SuggestionCard({
           <AnimatePresence initial mode="popLayout">
             {card.items.map((item, index) => {
               const isDone = item.disposition === "done";
+              const isPinned = item.disposition === "pinned";
               const tier = recencyTier(card.items.length, index);
               const isNewest = !isDone && tier === 0;
 
@@ -163,14 +168,27 @@ export function SuggestionCard({
                       {item.text}
                     </p>
                     {isDone ? (
-                      <Check
-                        aria-hidden
-                        className="size-3.5 shrink-0 text-emerald-600"
-                      />
-                    ) : item.disposition === "pinned" ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-xs"
+                        aria-label="Mark as not done"
+                        onClick={() => onUndoDone(item.id)}
+                        className="size-6 shrink-0 text-emerald-600 hover:text-emerald-700"
+                      >
+                        <Check className="size-3.5" />
+                      </Button>
+                    ) : isPinned ? (
                       <Badge
                         variant="secondary"
-                        className="h-auto rounded-full bg-amber-100 px-1.5 py-px text-[9px] font-medium uppercase tracking-wide text-amber-800"
+                        render={
+                          <button
+                            type="button"
+                            aria-label="Unpin"
+                            onClick={() => onUnpin(item.id)}
+                          />
+                        }
+                        className="h-auto cursor-pointer rounded-full bg-amber-100 px-1.5 py-px text-[9px] font-medium uppercase tracking-wide text-amber-800 hover:bg-amber-200/80"
                       >
                         Pinned
                       </Badge>
@@ -210,10 +228,12 @@ export function SuggestionCard({
                             type="button"
                             variant="ghost"
                             size="xs"
-                            onClick={() => onPin(item.id)}
+                            onClick={() =>
+                              isPinned ? onUnpin(item.id) : onPin(item.id)
+                            }
                             className="h-auto px-1.5 py-0.5 text-[11px] text-muted-foreground"
                           >
-                            Pin
+                            {isPinned ? "Unpin" : "Pin"}
                           </Button>
                           <Button
                             type="button"

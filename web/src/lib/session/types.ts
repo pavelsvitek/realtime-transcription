@@ -124,8 +124,10 @@ export interface ActiveSession {
   applyCardUpdates(updates: CardUpdate[]): void;
 
   pinItem(cardId: string, itemId: string): void;
+  unpinItem(cardId: string, itemId: string): void;
   discardItem(cardId: string, itemId: string): void;
   markDone(cardId: string, itemId: string): void;
+  unmarkDone(cardId: string, itemId: string): void;
 
   captureDispositionSnapshots(): DispositionSnapshot[];
   reapplyDispositionSnapshots(
