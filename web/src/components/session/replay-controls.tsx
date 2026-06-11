@@ -2,6 +2,15 @@
 
 import type { TranscriptListItem } from "@/lib/replay/load-fixture";
 import { REPLAY_SPEED_OPTIONS } from "@/lib/replay/replay-speed";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 type ReplayControlsProps = {
   playing: boolean;
@@ -28,56 +37,59 @@ export function ReplayControls({
 }: ReplayControlsProps) {
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <button
+      <Button
         type="button"
         onClick={playing ? onPause : onPlay}
         title="Play / Pause (Space)"
-        className="rounded-lg bg-stone-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-stone-800"
       >
         {playing ? "Pause" : "Play"}
-      </button>
+      </Button>
 
-      <button
+      <Button
         type="button"
+        variant="outline"
         onClick={onReset}
         title="Reset (⌘ Backspace)"
-        className="rounded-lg border border-stone-200 bg-white px-3 py-1.5 text-sm font-medium text-stone-700 transition hover:bg-stone-50"
       >
         Reset
-      </button>
+      </Button>
 
-      <div
-        className="flex items-center rounded-lg border border-stone-200 bg-white p-0.5"
+      <ToggleGroup
+        value={[String(speed)]}
+        onValueChange={(values) => {
+          const next = values[0];
+          if (next) onSpeedChange(Number(next));
+        }}
+        variant="outline"
+        spacing={0}
+        size="sm"
         title="Speed (↑ / ↓) · Seek ±10s (← / →)"
       >
         {REPLAY_SPEED_OPTIONS.map((option) => (
-          <button
-            key={option}
-            type="button"
-            onClick={() => onSpeedChange(option)}
-            className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
-              speed === option
-                ? "bg-stone-900 text-white"
-                : "text-stone-600 hover:bg-stone-100"
-            }`}
-          >
+          <ToggleGroupItem key={option} value={String(option)}>
             {option}×
-          </button>
+          </ToggleGroupItem>
         ))}
-      </div>
+      </ToggleGroup>
 
       {transcripts.length > 1 ? (
-        <select
+        <Select
           value={selectedTranscriptId}
-          onChange={(e) => onTranscriptChange(e.target.value)}
-          className="rounded-lg border border-stone-200 bg-white px-2.5 py-1.5 text-sm text-stone-700"
+          onValueChange={(value) => {
+            if (value) onTranscriptChange(value);
+          }}
         >
-          {transcripts.map((transcript) => (
-            <option key={transcript.id} value={transcript.id}>
-              {transcript.title}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger size="default">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {transcripts.map((transcript) => (
+              <SelectItem key={transcript.id} value={transcript.id}>
+                {transcript.title}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       ) : null}
     </div>
   );

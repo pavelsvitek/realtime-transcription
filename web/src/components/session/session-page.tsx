@@ -132,7 +132,7 @@ export function SessionPage() {
 
   if (loading && !session) {
     return (
-      <div className="flex h-dvh items-center justify-center bg-stone-100 text-stone-600">
+      <div className="flex h-dvh items-center justify-center bg-muted text-muted-foreground">
         Loading transcript…
       </div>
     );
@@ -140,14 +140,14 @@ export function SessionPage() {
 
   if (error) {
     return (
-      <div className="flex h-dvh items-center justify-center bg-stone-100 text-red-600">
+      <div className="flex h-dvh items-center justify-center bg-muted text-destructive">
         {error}
       </div>
     );
   }
 
   return (
-    <div className="flex h-dvh flex-col bg-stone-100 text-stone-900">
+    <div className="flex h-dvh flex-col bg-muted text-foreground">
       <SessionHeader
         mode={view.modeLabel}
         elapsed={view.elapsedLabel}

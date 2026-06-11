@@ -1,8 +1,18 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
+import { Check } from "lucide-react";
 import { useEffect, useRef } from "react";
 import type { CardView } from "@/lib/session/types";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 type SuggestionCardProps = {
   card: CardView;
@@ -14,17 +24,17 @@ type SuggestionCardProps = {
 const SCROLL_END_THRESHOLD_PX = 20;
 
 const RECENCY_TEXT_TONES = [
-  "text-stone-950",
-  "text-stone-800",
-  "text-stone-700",
-  "text-stone-600",
+  "text-foreground",
+  "text-foreground/90",
+  "text-foreground/80",
+  "text-muted-foreground",
 ] as const;
 
 const RECENCY_RATIONALE_TONES = [
-  "text-stone-600",
-  "text-stone-500",
-  "text-stone-500",
-  "text-stone-400",
+  "text-muted-foreground",
+  "text-muted-foreground/90",
+  "text-muted-foreground/80",
+  "text-muted-foreground/70",
 ] as const;
 
 const ITEM_TRANSITION = {
@@ -67,23 +77,6 @@ function isScrolledToEnd(container: HTMLElement): boolean {
   );
 }
 
-function DoneCheckIcon() {
-  return (
-    <svg
-      aria-hidden
-      viewBox="0 0 16 16"
-      className="h-3.5 w-3.5 shrink-0 text-emerald-600"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M3.5 8.5 6.5 11.5 12.5 4.5" />
-    </svg>
-  );
-}
-
 export function SuggestionCard({
   card,
   onDiscard,
@@ -114,21 +107,21 @@ export function SuggestionCard({
   }, [card.items]);
 
   return (
-    <section className="flex h-full min-h-0 flex-col rounded-lg border border-stone-200 bg-white shadow-sm">
-      <header className="shrink-0 border-b border-stone-100 px-3 py-1.5">
-        <h2 className="text-[11px] font-normal tracking-wide text-stone-500">
+    <Card className="flex h-full min-h-0 gap-0 py-0 shadow-sm">
+      <CardHeader className="shrink-0 border-b py-1.5">
+        <CardTitle className="text-[11px] font-normal tracking-wide text-muted-foreground">
           {card.title}
-        </h2>
-      </header>
+        </CardTitle>
+      </CardHeader>
 
-      <div
+      <CardContent
         ref={scrollRef}
         onScroll={() => {
           const container = scrollRef.current;
           if (!container) return;
           pinnedToBottomRef.current = isScrolledToEnd(container);
         }}
-        className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden"
+        className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden px-0"
       >
         <ul className="mt-auto flex flex-col gap-1.5 p-2">
           <AnimatePresence initial mode="popLayout">
@@ -146,30 +139,41 @@ export function SuggestionCard({
                   animate={{ opacity: 1, y: 0 }}
                   exit={DISCARD_EXIT}
                   transition={ITEM_TRANSITION}
-                  className={`overflow-hidden rounded-md border ${
+                  className={cn(
+                    "overflow-hidden rounded-md border",
                     isDone
-                      ? "border-stone-100 bg-stone-50/70 px-2.5 py-1.5"
+                      ? "border-border/60 bg-muted/50 px-2.5 py-1.5"
                       : isNewest
-                        ? "border-stone-200 bg-white p-2.5 shadow-sm"
-                        : "border-stone-100 bg-stone-50 p-2.5"
-                  }`}
+                        ? "border-border bg-card p-2.5 shadow-sm"
+                        : "border-border/60 bg-muted/30 p-2.5",
+                  )}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <p
-                      className={`text-pretty text-sm leading-snug ${
+                      className={cn(
+                        "text-pretty text-sm leading-snug",
                         isDone
-                          ? "font-normal text-stone-500"
-                          : `${isNewest ? "font-medium" : "font-normal"} ${RECENCY_TEXT_TONES[tier]}`
-                      }`}
+                          ? "font-normal text-muted-foreground"
+                          : cn(
+                              isNewest ? "font-medium" : "font-normal",
+                              RECENCY_TEXT_TONES[tier],
+                            ),
+                      )}
                     >
                       {item.text}
                     </p>
                     {isDone ? (
-                      <DoneCheckIcon />
+                      <Check
+                        aria-hidden
+                        className="size-3.5 shrink-0 text-emerald-600"
+                      />
                     ) : item.disposition === "pinned" ? (
-                      <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-px text-[9px] font-medium uppercase tracking-wide text-amber-800">
+                      <Badge
+                        variant="secondary"
+                        className="h-auto rounded-full bg-amber-100 px-1.5 py-px text-[9px] font-medium uppercase tracking-wide text-amber-800"
+                      >
                         Pinned
-                      </span>
+                      </Badge>
                     ) : null}
                   </div>
 
@@ -184,33 +188,42 @@ export function SuggestionCard({
                         className="overflow-hidden"
                       >
                         <p
-                          className={`mt-1 text-xs leading-relaxed ${RECENCY_RATIONALE_TONES[tier]}`}
+                          className={cn(
+                            "mt-1 text-xs leading-relaxed",
+                            RECENCY_RATIONALE_TONES[tier],
+                          )}
                         >
                           {item.rationale}
                         </p>
 
                         <div className="mt-1.5 flex gap-0.5">
-                          <button
+                          <Button
                             type="button"
+                            variant="ghost"
+                            size="xs"
                             onClick={() => onDiscard(item.id)}
-                            className="rounded px-1.5 py-0.5 text-[11px] text-stone-500 transition hover:bg-stone-200/70 hover:text-stone-800"
+                            className="h-auto px-1.5 py-0.5 text-[11px] text-muted-foreground"
                           >
                             Discard
-                          </button>
-                          <button
+                          </Button>
+                          <Button
                             type="button"
+                            variant="ghost"
+                            size="xs"
                             onClick={() => onPin(item.id)}
-                            className="rounded px-1.5 py-0.5 text-[11px] text-stone-500 transition hover:bg-stone-200/70 hover:text-stone-800"
+                            className="h-auto px-1.5 py-0.5 text-[11px] text-muted-foreground"
                           >
                             Pin
-                          </button>
-                          <button
+                          </Button>
+                          <Button
                             type="button"
+                            variant="ghost"
+                            size="xs"
                             onClick={() => onDone(item.id)}
-                            className="rounded px-1.5 py-0.5 text-[11px] text-stone-500 transition hover:bg-stone-200/70 hover:text-stone-800"
+                            className="h-auto px-1.5 py-0.5 text-[11px] text-muted-foreground"
                           >
                             Done
-                          </button>
+                          </Button>
                         </div>
                       </motion.div>
                     ) : null}
@@ -226,13 +239,13 @@ export function SuggestionCard({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.3 }}
-              className="py-0.5 text-xs text-stone-400"
+              className="py-0.5 text-xs text-muted-foreground"
             >
               Waiting for suggestions…
             </motion.p>
           ) : null}
         </ul>
-      </div>
-    </section>
+      </CardContent>
+    </Card>
   );
 }

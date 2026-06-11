@@ -1,4 +1,7 @@
 import type { ReactNode } from "react";
+import { ThemeSwitch } from "@/components/theme-switch";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 type SessionHeaderProps = {
   mode: string;
@@ -14,30 +17,25 @@ export function SessionHeader({
   onFinish,
 }: SessionHeaderProps) {
   return (
-    <header className="flex shrink-0 flex-col gap-3 border-b border-stone-200 bg-white px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
+    <header className="flex shrink-0 flex-col gap-3 border-b border-border bg-background px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2">
-          <span className="relative flex h-2.5 w-2.5">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+          <span className="relative flex size-2.5">
+            <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+            <span className="relative inline-flex size-2.5 rounded-full bg-emerald-500" />
           </span>
-          <span className="text-sm font-medium text-stone-800">Live session</span>
+          <span className="text-sm font-medium text-foreground">Live session</span>
         </div>
-        <span className="rounded-full bg-stone-100 px-2.5 py-1 text-xs font-medium text-stone-700">
-          {mode}
-        </span>
-        <span className="text-xs text-stone-500">{elapsed}</span>
+        <Badge variant="secondary">{mode}</Badge>
+        <span className="text-xs text-muted-foreground">{elapsed}</span>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
         {controls}
-        <button
-          type="button"
-          onClick={onFinish}
-          className="rounded-lg border border-stone-200 bg-white px-3 py-1.5 text-sm font-medium text-stone-700 transition hover:bg-stone-50"
-        >
+        <ThemeSwitch />
+        <Button type="button" variant="outline" onClick={onFinish}>
           Finish session
-        </button>
+        </Button>
       </div>
     </header>
   );
