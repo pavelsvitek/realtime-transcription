@@ -1,9 +1,14 @@
 mod commands;
-mod config;
+pub mod config;
 mod error;
+mod eval;
 mod ipc;
 mod state;
-mod transcription;
+pub mod transcription;
+
+pub use eval::wer::{evaluate as evaluate_wer, WerReport};
+pub use config::AppConfig;
+pub use transcription::{AudioSource, LoadedModels, TranscriptionService};
 
 use state::TranscriptionHandle;
 use tracing_subscriber::EnvFilter;
@@ -29,6 +34,7 @@ pub fn run() {
             greet,
             commands::transcription::start_transcription,
             commands::transcription::stop_transcription,
+            commands::transcription::export_transcript,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

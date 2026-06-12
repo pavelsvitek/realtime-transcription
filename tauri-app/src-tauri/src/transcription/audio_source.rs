@@ -37,6 +37,13 @@ pub struct StreamLabels {
 }
 
 impl AudioSource {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Mic => "mic",
+            Self::SystemAudio => "system",
+        }
+    }
+
     pub fn labels(self) -> StreamLabels {
         match self {
             Self::Mic => StreamLabels {

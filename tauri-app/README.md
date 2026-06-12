@@ -63,6 +63,30 @@ cd src-tauri
 cargo test
 ```
 
+### Golden transcript evaluation
+
+Repeatable WER check against `test-youtube-video.txt` (reference) and `test-youtube-video.mp4` (~78s clip).
+
+| Phase | What | Command |
+| --- | --- | --- |
+| 1 | Manual capture — play video in Chrome, **Stop**, save transcript to `test-output/transcript.txt` | (UI) |
+| 2–4 | Score hypothesis vs reference, regression vs baseline | `pnpm test:golden` |
+| E2E | Headless system-audio + `ffplay` (~90s, smoke test; WER reported but not gated) | `pnpm test:golden:e2e` |
+
+Establish or refresh the baseline after a good Phase 1 run:
+
+```bash
+pnpm test:golden:baseline
+```
+
+Artifacts:
+
+- `test-output/baseline/report.json` — committed regression baseline (default max +2% WER drift)
+- `test-output/runs/<timestamp>/` — dated eval reports (gitignored)
+- `test-output/e2e-transcript.txt` — output of the E2E test (gitignored)
+
+`stop_transcription` returns a `TranscriptExport` (`text`, `wordCount`, `source`, `exportedAt`) for programmatic export; use `export_transcript` to write a file without stopping.
+
 ## Audio input sources
 
 The **Input** dropdown on the transcribe page selects the capture source:

@@ -1,0 +1,15 @@
+{
+  "referenceWords": 299,
+  "hypothesisWords": 233,
+  "substitutions": 15,
+  "insertions": 1,
+  "deletions": 67,
+  "wer": 0.2776,
+  "werPercent": 27.76,
+  "duplicateBigramCount": 0,
+  "normalizedReference": "matthew prince who s the ceo of cloudflare public company two weeks ago i laid off more than 20 of my workforce i didn t do it because cloudflare is struggling we posted record revenue growth have strong free cash flow and he says basically he s getting rid of measurers measurers are the people who manage people and who measure data they re unnecessary because of ai i thought the matthew prince note was horrible this was like from the pr school of retards okay here we go you could not have written a worse memo you reduce humans to a label called a measurer yeah and then you re like i m going to lay off all the measurers who cares what matthew prince thinks the reality is that if this is the way that you re going to message something as critical as this i think you did a horrible job and now you label these people and you put a scarlet letter on their back so now when they try to get a different job they re like oh you re one of the cloudflare measurers how does that help anybody there s enough of these tech ceos that are now public you can hear them you can understand them and i think what we re learning is man they re really good at one thing and they re not necessarily as good at all the other things and so i would say shut the fuck up get behind the keyboard just do your job and if you need to manage something just manage it but don t write these missives you re terrible at it all of you you re all terrible you suck at this thank you for coming to my ted talk",
+  "normalizedHypothesis": "matthew prince who s the ceo flare public company two weeks ago i laid off more than twenty percent of my workforce i didn t do it because clapford struggling we posted record revenue growth have strong free cash flow and he says basically he s getting rid of measures measure are the people rich people and data they re unnecessary because of ai i prince note was horrible this was like from the pr school of retards okay we go you could not have written worst memo you reduce summons to a label the measurer and then you re like i m cares what matthew prince thinks the reality is that if this is the way that you re going to message some critical is this you did a horrible job you label these people back so now when they try to job they re like oh you re one player there s enough of ceos that are now public you can hear them you can understand them and i think what we re learning is meant they re really good at one thing and they re not necessarily as good at all the other things and so i behind the keyboard just do your job manage it but don t write sis you re terrible all of you you re all horrible you suck at this coming to my ted talk",
+  "referenceFile": "/Users/pavel/Projects/realtime-transcription/tauri-app/test-youtube-video.txt",
+  "hypothesisFile": "/Users/pavel/Projects/realtime-transcription/tauri-app/test-output/transcript.txt",
+  "evaluatedAt": "2026-06-12T20:14:07.019294+00:00"
+}

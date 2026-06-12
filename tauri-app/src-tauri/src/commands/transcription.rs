@@ -1,5 +1,8 @@
+use std::path::PathBuf;
+
 use tauri::{AppHandle, State};
 
+use crate::ipc::transcript::TranscriptExport;
 use crate::state::TranscriptionHandle;
 use crate::transcription::AudioSource;
 
@@ -29,14 +32,27 @@ pub async fn start_transcription(
 pub async fn stop_transcription(
     app: AppHandle,
     state: State<'_, TranscriptionHandle>,
-) -> Result<(), String> {
+) -> Result<TranscriptExport, String> {
     tracing::info!("stop_transcription command invoked");
 
-    state
+    let export = state
         .service
-        .stop(&app)
+        .stop(Some(&app))
         .map_err(|e| e.to_user_message())?;
 
     tracing::info!("stop_transcription command completed");
-    Ok(())
+    Ok(export)
+}
+
+#[tauri::command]
+pub async fn export_transcript(
+    state: State<'_, TranscriptionHandle>,
+    path: String,
+) -> Result<TranscriptExport, String> {
+    tracing::info!(%path, "export_transcript command invoked");
+
+    state
+        .service
+        .export_to_file(PathBuf::from(path).as_path())
+        .map_err(|e| e.to_user_message())
 }

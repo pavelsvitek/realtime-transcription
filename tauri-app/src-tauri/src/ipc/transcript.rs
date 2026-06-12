@@ -39,6 +39,17 @@ pub struct MicLevel {
     pub rms: f32,
 }
 
+/// Full session transcript returned on stop or export.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TranscriptExport {
+    pub text: String,
+    pub word_count: usize,
+    pub speaker: String,
+    pub stream: String,
+    pub source: String,
+}
+
 #[derive(Debug, Clone)]
 pub enum TranscriptEvent {
     Partial(TranscriptPartial),

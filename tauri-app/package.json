@@ -7,7 +7,10 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "test:golden": "bash scripts/run-golden-test.sh",
+    "test:golden:e2e": "bash scripts/run-golden-test.sh --e2e",
+    "test:golden:baseline": "bash scripts/run-golden-test.sh --update-baseline"
   },
   "dependencies": {
     "react": "^19.1.0",
