@@ -1,0 +1,9 @@
+Read this aloud at a normal, steady pace. Pause briefly at each paragraph break.
+
+The quick brown fox jumps over the lazy dog. This sentence is a simple test of real-time transcription accuracy. Every word should appear exactly once, forming a coherent paragraph without any duplication.
+
+Let's try transcribing again. We'll see if there is something missing or mis-appearing. Maybe it's going to be good, maybe it's going to need another fix. Let's see — we are trying to implement live speech-to-text, and now we want to understand how it works.
+
+Numbers and names are useful checks too: my name is Pavel, today is June twelfth, and the year is twenty twenty-six. If those come through clearly, punctuation and capitalization may still be imperfect, and that is okay for now.
+
+Finish with a short closing line: thank you for listening, and please stop transcribing when you are done.

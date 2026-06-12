@@ -21,6 +21,9 @@ export function useTranscription() {
   const unlistenRefs = useRef<UnlistenFn[]>([]);
 
   useEffect(() => {
+    let cancelled = false;
+    const unlisteners: UnlistenFn[] = [];
+
     const setup = async () => {
       const unlistenPartial = await listen<TranscriptPayload>(
         EVENT_TRANSCRIPT_PARTIAL,
@@ -46,6 +49,11 @@ export function useTranscription() {
           });
         }
       );
+      if (cancelled) {
+        unlistenPartial();
+        return;
+      }
+      unlisteners.push(unlistenPartial);
 
       const unlistenCommit = await listen<TranscriptPayload>(
         EVENT_TRANSCRIPT_COMMIT,
@@ -55,6 +63,18 @@ export function useTranscription() {
             const withoutTentative = prev.filter(
               (s) => !(s.isPartial && s.id === "tentative")
             );
+
+            // Append to the last committed segment to form a flowing paragraph.
+            const last = withoutTentative[withoutTentative.length - 1];
+            if (last && !last.isPartial) {
+              const updated = [...withoutTentative];
+              updated[updated.length - 1] = {
+                ...last,
+                text: last.text + " " + payload.text,
+              };
+              return updated;
+            }
+
             return [
               ...withoutTentative,
               {
@@ -68,6 +88,11 @@ export function useTranscription() {
           });
         }
       );
+      if (cancelled) {
+        unlistenCommit();
+        return;
+      }
+      unlisteners.push(unlistenCommit);
 
       const unlistenStatus = await listen<TranscriptionStatusPayload>(
         EVENT_TRANSCRIPTION_STATUS,
@@ -81,18 +106,20 @@ export function useTranscription() {
           }
         }
       );
+      if (cancelled) {
+        unlistenStatus();
+        return;
+      }
+      unlisteners.push(unlistenStatus);
 
-      unlistenRefs.current = [
-        unlistenPartial,
-        unlistenCommit,
-        unlistenStatus,
-      ];
+      unlistenRefs.current = unlisteners;
     };
 
     setup();
 
     return () => {
-      unlistenRefs.current.forEach((fn) => fn());
+      cancelled = true;
+      unlisteners.forEach((fn) => fn());
       unlistenRefs.current = [];
     };
   }, []);
