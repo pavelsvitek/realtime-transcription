@@ -48,10 +48,11 @@ pub enum TranscriptEvent {
 }
 
 pub mod event_names {
-    pub const PARTIAL: &str = "transcript.partial";
-    pub const COMMIT: &str = "transcript.commit";
-    pub const STATUS: &str = "transcription.status";
-    pub const MIC_LEVEL: &str = "transcription.mic_level";
+    // Tauri 2 allows alphanumeric, '-', '/', ':', '_' — not '.'
+    pub const PARTIAL: &str = "transcript/partial";
+    pub const COMMIT: &str = "transcript/commit";
+    pub const STATUS: &str = "transcription/status";
+    pub const MIC_LEVEL: &str = "transcription/mic_level";
 }
 
 #[cfg(test)]

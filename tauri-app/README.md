@@ -20,15 +20,15 @@ cd ~/Library/Application\ Support/com.pavel.tauri-app/models
 # Whisper model (small.en for dev, ~466 MB)
 curl -L -O https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin
 
-# Silero VAD model
-curl -L -O https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-silero-vad.bin
+# Silero VAD model (~885 KB) — must be from ggml-org/whisper-vad, not ggerganov/whisper.cpp
+curl -L -o ggml-silero-v6.2.0.bin https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v6.2.0.bin
 ```
 
 Or override paths via environment variables:
 
 ```bash
 export WHISPER_MODEL_PATH=/path/to/your/ggml-small.en.bin
-export VAD_MODEL_PATH=/path/to/your/ggml-silero-vad.bin
+export VAD_MODEL_PATH=/path/to/your/ggml-silero-v6.2.0.bin
 ```
 
 ### Available models

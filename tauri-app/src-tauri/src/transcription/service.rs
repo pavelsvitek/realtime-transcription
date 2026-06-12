@@ -8,7 +8,7 @@ use crate::config::AppConfig;
 use crate::error::AppError;
 use crate::ipc::transcript::*;
 use crate::transcription::asr::LoadedModels;
-use crate::transcription::mic_input::{self, MicConfig};
+use crate::transcription::mic_input;
 use crate::transcription::worker;
 
 const AUDIO_CHANNEL_BOUND: usize = 64;
@@ -95,19 +95,14 @@ impl TranscriptionService {
         let models = models_guard.as_ref().unwrap();
         let model_name = models.model_name.clone();
 
-        // Create ASR pipeline
-        let pipeline = models
-            .create_pipeline(&config)
-            .map_err(|e| AppError::Asr(format!("{e:#}")))?;
-
-        // Open mic
-        let mic_config = MicConfig {
-            sample_rate: config.sample_rate as u32,
-            channels: config.channels,
-        };
+        // Open mic at device-native sample rate (typically 48 kHz); ASR resamples internally.
         let (audio_tx, audio_rx) = mpsc::sync_channel::<Vec<f32>>(AUDIO_CHANNEL_BOUND);
-        let stream = mic_input::open_mic_stream(&mic_config, audio_tx)
+        let opened = mic_input::open_mic_stream(audio_tx)
             .map_err(|e| AppError::Capture(format!("{e:#}")))?;
+
+        let pipeline = models
+            .create_pipeline(&config.language, opened.sample_rate)
+            .map_err(|e| AppError::Asr(format!("{e:#}")))?;
 
         // Spawn worker
         let stop_flag = Arc::new(AtomicBool::new(false));
@@ -128,7 +123,7 @@ impl TranscriptionService {
         *running = Some(RunningState {
             stop_flag,
             worker_handle,
-            _stream: SendStream(stream),
+            _stream: SendStream(opened.stream),
         });
 
         // Drop models lock before emitting

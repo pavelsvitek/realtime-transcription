@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 const DEFAULT_WHISPER_MODEL: &str = "ggml-small.en.bin";
-const DEFAULT_VAD_MODEL: &str = "ggml-silero-vad.bin";
+const DEFAULT_VAD_MODEL: &str = "ggml-silero-v6.2.0.bin";
 const APP_SUPPORT_SUBDIR: &str = "com.pavel.tauri-app/models";
 
 #[derive(Debug, Clone)]

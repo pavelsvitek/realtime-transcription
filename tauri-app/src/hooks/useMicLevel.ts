@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type { MicLevelPayload } from "../lib/transcript-types";
+import { EVENT_TRANSCRIPTION_MIC_LEVEL } from "../lib/tauri-events";
 
 const RMS_THRESHOLD = 0.01;
 const DEBOUNCE_MS = 300;
@@ -20,7 +21,7 @@ export function useMicLevel(isActive: boolean) {
 
     const setup = async () => {
       unlistenRef.current = await listen<MicLevelPayload>(
-        "transcription.mic_level",
+        EVENT_TRANSCRIPTION_MIC_LEVEL,
         (event) => {
           if (!mounted) return;
           const now = Date.now();

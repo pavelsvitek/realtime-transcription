@@ -1,51 +1,72 @@
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+use cpal::{SampleFormat, SizedSample};
 use std::sync::mpsc;
+use yamabiko_whisper::{downmix_interleaved, AudioSample};
 
-pub struct MicConfig {
+/// Captured mic stream and the sample rate fed into the ASR pipeline (mono).
+pub struct OpenedMic {
+    pub stream: cpal::Stream,
     pub sample_rate: u32,
-    pub channels: u16,
 }
 
-impl Default for MicConfig {
-    fn default() -> Self {
-        Self {
-            sample_rate: 16_000,
-            channels: 1,
-        }
-    }
-}
-
-pub fn build_stream_config(config: &MicConfig) -> cpal::StreamConfig {
-    cpal::StreamConfig {
-        channels: config.channels,
-        sample_rate: cpal::SampleRate(config.sample_rate),
-        buffer_size: cpal::BufferSize::Default,
-    }
-}
-
-pub fn open_mic_stream(
-    config: &MicConfig,
-    sender: mpsc::SyncSender<Vec<f32>>,
-) -> anyhow::Result<cpal::Stream> {
+pub fn open_mic_stream(sender: mpsc::SyncSender<Vec<f32>>) -> anyhow::Result<OpenedMic> {
     let host = cpal::default_host();
     let device = host
         .default_input_device()
         .ok_or_else(|| anyhow::anyhow!("No input device available"))?;
 
     let device_name = device.name().unwrap_or_else(|_| "unknown".into());
+    let supported = device
+        .default_input_config()
+        .map_err(|e| anyhow::anyhow!("Failed to query default input config: {e}"))?;
+
+    let sample_rate = supported.sample_rate().0;
+    let channels = supported.channels() as usize;
+    let sample_format = supported.sample_format();
+    let stream_config: cpal::StreamConfig = supported.into();
+
     tracing::info!(
         device = %device_name,
-        sample_rate = config.sample_rate,
-        channels = config.channels,
-        "Opening mic input"
+        sample_rate,
+        channels,
+        ?sample_format,
+        "Opening mic input (ASR pipeline will resample to 16 kHz mono)"
     );
 
-    let stream_config = build_stream_config(config);
+    let stream = match sample_format {
+        SampleFormat::F32 => build_input_stream::<f32>(&device, &stream_config, channels, sender)?,
+        SampleFormat::F64 => build_input_stream::<f64>(&device, &stream_config, channels, sender)?,
+        SampleFormat::I8 => build_input_stream::<i8>(&device, &stream_config, channels, sender)?,
+        SampleFormat::I16 => build_input_stream::<i16>(&device, &stream_config, channels, sender)?,
+        SampleFormat::I32 => build_input_stream::<i32>(&device, &stream_config, channels, sender)?,
+        SampleFormat::I64 => build_input_stream::<i64>(&device, &stream_config, channels, sender)?,
+        SampleFormat::U8 => build_input_stream::<u8>(&device, &stream_config, channels, sender)?,
+        SampleFormat::U16 => build_input_stream::<u16>(&device, &stream_config, channels, sender)?,
+        SampleFormat::U32 => build_input_stream::<u32>(&device, &stream_config, channels, sender)?,
+        SampleFormat::U64 => build_input_stream::<u64>(&device, &stream_config, channels, sender)?,
+        other => anyhow::bail!("Unsupported sample format: {other:?}"),
+    };
 
-    let stream = device.build_input_stream(
-        &stream_config,
-        move |data: &[f32], _: &cpal::InputCallbackInfo| {
-            if sender.try_send(data.to_vec()).is_err() {
+    stream.play()?;
+    tracing::info!("Mic stream started");
+
+    Ok(OpenedMic { stream, sample_rate })
+}
+
+fn build_input_stream<T>(
+    device: &cpal::Device,
+    config: &cpal::StreamConfig,
+    channels: usize,
+    sender: mpsc::SyncSender<Vec<f32>>,
+) -> anyhow::Result<cpal::Stream>
+where
+    T: SizedSample + AudioSample + Send + 'static,
+{
+    Ok(device.build_input_stream(
+        config,
+        move |data: &[T], _: &cpal::InputCallbackInfo| {
+            let mono = downmix_interleaved(data, channels);
+            if sender.try_send(mono).is_err() {
                 tracing::warn!("Audio channel full, dropping frame");
             }
         },
@@ -53,12 +74,7 @@ pub fn open_mic_stream(
             tracing::error!(%err, "cpal stream error");
         },
         None,
-    )?;
-
-    stream.play()?;
-    tracing::info!("Mic stream started");
-
-    Ok(stream)
+    )?)
 }
 
 /// Compute RMS of a mono f32 audio buffer, returned in [0.0, 1.0].
@@ -73,24 +89,6 @@ pub fn compute_rms(samples: &[f32]) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn build_stream_config_maps_correctly() {
-        let config = MicConfig {
-            sample_rate: 44_100,
-            channels: 2,
-        };
-        let stream_config = build_stream_config(&config);
-        assert_eq!(stream_config.sample_rate.0, 44_100);
-        assert_eq!(stream_config.channels, 2);
-    }
-
-    #[test]
-    fn default_mic_config_is_16khz_mono() {
-        let config = MicConfig::default();
-        assert_eq!(config.sample_rate, 16_000);
-        assert_eq!(config.channels, 1);
-    }
 
     #[test]
     fn rms_of_silence_is_zero() {

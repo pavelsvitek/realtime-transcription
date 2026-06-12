@@ -178,6 +178,20 @@ Keep IPC payloads small. Raw audio stays in Rust until written to disk or sent o
 
 Evaluate later: FFmpeg bindings for encoding, `cpal` for cross-platform mic if needed beyond CoreAudio-specific paths.
 
+## Supported macOS Versions
+
+| macOS | Metal GPU | Notes |
+| --- | --- | --- |
+| 14.x (Sonoma) | CPU fallback | `MTLResidencySetDescriptor` (Metal 4) unavailable; ggml-metal detects this at runtime and falls back to CPU inference |
+| 15.0+ (Sequoia) | Full Metal acceleration | All ggml-metal APIs available; GPU used automatically |
+
+This is controlled by `MACOSX_DEPLOYMENT_TARGET = "14.0"` in `tauri-app/src-tauri/.cargo/config.toml`. Setting the deployment target to 14.0 tells the compiler to:
+
+1. **Weak-link** macOS 15+ Metal symbols (e.g. `MTLResidencySetDescriptor`) so the binary loads without `dyld` errors on macOS 14
+2. **Preserve `@available` runtime guards** in ggml-metal so the code checks OS version before calling newer APIs
+
+The binary's `LC_BUILD_VERSION` reflects `minos 14.0` with `sdk 15.x`, meaning a single binary works on both macOS 14 and 15+. Without this setting, the SDK version (15.x) becomes the implicit minimum, and the binary crashes on macOS 14 with `dyld: Symbol not found`.
+
 ## macOS Permissions & Entitlements
 
 Expect to request:

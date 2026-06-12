@@ -48,20 +48,24 @@ impl LoadedModels {
         })
     }
 
-    pub fn create_pipeline(&self, config: &AppConfig) -> anyhow::Result<AsrPipeline> {
+    pub fn create_pipeline(
+        &self,
+        language: &str,
+        input_sample_rate: u32,
+    ) -> anyhow::Result<AsrPipeline> {
         let processor = self
             .whisper_model
-            .create_processor_with_vad(&config.language, &self.vad_model)
+            .create_processor_with_vad(language, &self.vad_model)
             .map_err(|e| anyhow::anyhow!("Failed to create ASR processor: {e}"))?;
 
-        let audio_config = AudioInputConfig::new(config.sample_rate, config.channels as usize);
+        // Mic capture downmixes to mono before push_mono; pipeline resamples to 16 kHz.
+        let audio_config = AudioInputConfig::new(input_sample_rate, 1);
         let pipeline = AsrPipeline::new(processor, audio_config)
             .map_err(|e| anyhow::anyhow!("Failed to create ASR pipeline: {e}"))?;
 
         tracing::info!(
-            sample_rate = config.sample_rate,
-            channels = config.channels,
-            language = %config.language,
+            input_sample_rate,
+            language = %language,
             "ASR pipeline created"
         );
 

@@ -6,6 +6,11 @@ import type {
   TranscriptPayload,
   TranscriptionStatusPayload,
 } from "../lib/transcript-types";
+import {
+  EVENT_TRANSCRIPT_COMMIT,
+  EVENT_TRANSCRIPT_PARTIAL,
+  EVENT_TRANSCRIPTION_STATUS,
+} from "../lib/tauri-events";
 
 export function useTranscription() {
   const [segments, setSegments] = useState<TranscriptSegment[]>([]);
@@ -18,7 +23,7 @@ export function useTranscription() {
   useEffect(() => {
     const setup = async () => {
       const unlistenPartial = await listen<TranscriptPayload>(
-        "transcript.partial",
+        EVENT_TRANSCRIPT_PARTIAL,
         (event) => {
           const payload = event.payload;
           setSegments((prev) => {
@@ -43,7 +48,7 @@ export function useTranscription() {
       );
 
       const unlistenCommit = await listen<TranscriptPayload>(
-        "transcript.commit",
+        EVENT_TRANSCRIPT_COMMIT,
         (event) => {
           const payload = event.payload;
           setSegments((prev) => {
@@ -65,7 +70,7 @@ export function useTranscription() {
       );
 
       const unlistenStatus = await listen<TranscriptionStatusPayload>(
-        "transcription.status",
+        EVENT_TRANSCRIPTION_STATUS,
         (event) => {
           const payload = event.payload;
           setIsActive(payload.active);
@@ -94,9 +99,11 @@ export function useTranscription() {
 
   const start = useCallback(async () => {
     setError(null);
+    setIsLoading(true);
     try {
       await invoke("start_transcription");
     } catch (e) {
+      setIsLoading(false);
       setError(String(e));
     }
   }, []);
