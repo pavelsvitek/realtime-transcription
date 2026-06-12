@@ -4,25 +4,25 @@ overview: "Add a mic-only live transcription page to the Tauri app: Rust capture
 todos:
   - id: rust-deps-service
     content: Scaffold Rust module tree per organization guidelines; add deps and TranscriptionService (capture + yamabiko-whisper pipeline + managed state)
-    status: pending
+    status: completed
   - id: tauri-ipc
     content: Implement start/stop commands and transcript.partial / transcript.commit / transcription.status events
-    status: pending
+    status: completed
   - id: macos-perms
     content: Add NSMicrophoneUsageDescription to tauri.conf.json
-    status: pending
+    status: completed
   - id: react-page
     content: Build TranscribePage with Start/Stop, useTranscription hook, and auto-scrolling TranscriptFeed with User labels
-    status: pending
+    status: completed
   - id: architecture-md
     content: Create ARCHITECTURE.md with module layout, principles, decisions, and testing approach
     status: completed
   - id: rust-tests
     content: Write unit tests for service lifecycle, event mapping, config resolution, and shutdown ordering
-    status: pending
+    status: completed
   - id: dev-docs-test
     content: Document model download paths in README and verify end-to-end mic transcription manually
-    status: pending
+    status: completed
 isProject: false
 ---
 
@@ -225,11 +225,11 @@ async fn stop_transcription(state: State<'_, TranscriptionHandle>) -> Result<(),
 
 **Events** (Rust → React):
 
-| Event                     | Payload                                                               |
-| ------------------------- | --------------------------------------------------------------------- |
-| `transcript.partial`      | `{ speaker: "User", stream: "mic", text, startMs, endMs, segmentId }` |
-| `transcript.commit`       | `{ speaker: "User", stream: "mic", text, startMs, endMs, segmentId }` |
-| `transcription.status`    | `{ active: bool, loading?: bool, model?: string, error?: string }`    |
+| Event                     | Payload                                                                |
+| ------------------------- | ---------------------------------------------------------------------- |
+| `transcript.partial`      | `{ speaker: "User", stream: "mic", text, startMs, endMs, segmentId }`  |
+| `transcript.commit`       | `{ speaker: "User", stream: "mic", text, startMs, endMs, segmentId }`  |
+| `transcription.status`    | `{ active: bool, loading?: bool, model?: string, error?: string }`     |
 | `transcription.mic_level` | `{ rms: number }` — emitted ~10 Hz while active; `rms` in `[0.0, 1.0]` |
 
 - **Partial vs commit:** Map yamabiko-whisper tentative hypothesis → `transcript.partial`; committed words → `transcript.commit` (aperçu pattern from doc).
@@ -270,7 +270,7 @@ Replace the scaffold [`tauri-app/src/App.tsx`](tauri-app/src/App.tsx) with a ded
 | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Start button    | Calls `start_transcription`; disabled while active                                                                                                                                  |
 | Stop button     | Calls `stop_transcription`; disabled when idle                                                                                                                                      |
-| Mic indicator   | Mic icon next to the Start/Stop button. **Gray**: idle or silent. **Green**: receiving audio (`rms > 0.01`). **Red**: error (permission denied, device lost). See details below      |
+| Mic indicator   | Mic icon next to the Start/Stop button. **Gray**: idle or silent. **Green**: receiving audio (`rms > 0.01`). **Red**: error (permission denied, device lost). See details below     |
 | Transcript feed | `overflow-y: auto`, `flex: 1`, `min-height: 0`                                                                                                                                      |
 | Auto-scroll     | `useEffect` on segment list — set `scrollTop = scrollHeight` (same pattern as [`web/src/components/session/transcript-panel.tsx`](web/src/components/session/transcript-panel.tsx)) |
 | Line rendering  | Speaker label **`User`** in bold, partial text muted + optional cursor, committed text normal                                                                                       |
@@ -282,12 +282,12 @@ Replace the scaffold [`tauri-app/src/App.tsx`](tauri-app/src/App.tsx) with a ded
 
 **States:**
 
-| State    | Color  | When                                                                 |
-| -------- | ------ | -------------------------------------------------------------------- |
-| Idle     | Gray   | Transcription not active                                             |
-| Active   | Green  | Transcription active and `rms > 0.01` (audio is being received)     |
-| Silent   | Gray   | Transcription active but `rms <= 0.01` (mic open but no sound)      |
-| Error    | Red    | `transcription.status` contains an `error` field (device lost, permission denied) |
+| State  | Color | When                                                                              |
+| ------ | ----- | --------------------------------------------------------------------------------- |
+| Idle   | Gray  | Transcription not active                                                          |
+| Active | Green | Transcription active and `rms > 0.01` (audio is being received)                   |
+| Silent | Gray  | Transcription active but `rms <= 0.01` (mic open but no sound)                    |
+| Error  | Red   | `transcription.status` contains an `error` field (device lost, permission denied) |
 
 **Implementation:**
 
