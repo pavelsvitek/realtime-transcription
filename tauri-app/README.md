@@ -17,8 +17,9 @@ The app needs two GGML model files. Download them into the app support directory
 mkdir -p ~/Library/Application\ Support/com.pavel.tauri-app/models
 cd ~/Library/Application\ Support/com.pavel.tauri-app/models
 
-# Whisper model (small.en for dev, ~466 MB)
-curl -L -O https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin
+# Whisper model — large-v3-turbo recommended (~1.5 GB); small.en is a lighter fallback (~466 MB)
+curl -L -O https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin
+# curl -L -O https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin
 
 # Silero VAD model (~885 KB) — must be from ggml-org/whisper-vad, not ggerganov/whisper.cpp
 curl -L -o ggml-silero-v6.2.0.bin https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v6.2.0.bin
@@ -35,8 +36,8 @@ export VAD_MODEL_PATH=/path/to/your/ggml-silero-v6.2.0.bin
 
 | Model | Size | Speed (Metal) | English WER | Notes |
 | --- | --- | --- | --- | --- |
-| `ggml-small.en` | ~466 MB | ~6-12x realtime | ~3.4% | Default for dev |
-| `ggml-large-v3-turbo` | ~1.5 GB | ~8-10x realtime | ~2.5% | Recommended for production |
+| `ggml-large-v3-turbo` | ~1.5 GB | ~8-10x realtime | ~2.5% | **Default when installed** (~9% WER on golden file test) |
+| `ggml-small.en` | ~466 MB | ~6-12x realtime | ~3.4% | Fallback if large model absent (~22% WER on golden file test) |
 | `ggml-base.en` | ~142 MB | ~7-16x realtime | ~5% | Low-power fallback |
 
 ## Development

@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 const DEFAULT_WHISPER_MODEL: &str = "ggml-small.en.bin";
+const PREFERRED_WHISPER_MODEL: &str = "ggml-large-v3-turbo.bin";
 const DEFAULT_VAD_MODEL: &str = "ggml-silero-v6.2.0.bin";
 const APP_SUPPORT_SUBDIR: &str = "com.pavel.tauri-app/models";
 
@@ -19,7 +20,7 @@ impl AppConfig {
 
         let whisper_model_path = std::env::var("WHISPER_MODEL_PATH")
             .map(PathBuf::from)
-            .unwrap_or_else(|_| models_dir.join(DEFAULT_WHISPER_MODEL));
+            .unwrap_or_else(|_| Self::default_whisper_model_path(&models_dir));
 
         let vad_model_path = std::env::var("VAD_MODEL_PATH")
             .map(PathBuf::from)
@@ -31,6 +32,16 @@ impl AppConfig {
             sample_rate: 16_000,
             channels: 1,
             language: "en".into(),
+        }
+    }
+
+    /// Prefer `ggml-large-v3-turbo.bin` when present, else `ggml-small.en.bin`.
+    pub fn default_whisper_model_path(models_dir: &std::path::Path) -> PathBuf {
+        let preferred = models_dir.join(PREFERRED_WHISPER_MODEL);
+        if preferred.exists() {
+            preferred
+        } else {
+            models_dir.join(DEFAULT_WHISPER_MODEL)
         }
     }
 
@@ -91,15 +102,13 @@ mod tests {
         std::env::remove_var("WHISPER_MODEL_PATH");
         std::env::remove_var("VAD_MODEL_PATH");
         let config = AppConfig::load();
+        let path = config.whisper_model_path.to_string_lossy();
 
-        assert!(config
-            .whisper_model_path
-            .to_string_lossy()
-            .contains(APP_SUPPORT_SUBDIR));
-        assert!(config
-            .whisper_model_path
-            .to_string_lossy()
-            .ends_with(DEFAULT_WHISPER_MODEL));
+        assert!(path.contains(APP_SUPPORT_SUBDIR));
+        assert!(
+            path.ends_with(DEFAULT_WHISPER_MODEL) || path.ends_with(PREFERRED_WHISPER_MODEL),
+            "unexpected default whisper path: {path}"
+        );
     }
 
     #[test]
