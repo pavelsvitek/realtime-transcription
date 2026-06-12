@@ -15,7 +15,7 @@ Hedy is a desktop AI assistant for meetings. It captures system and microphone a
 
 - **Live meeting assistance** — microphone access to detect meeting activity and provide in-call help
 - **System audio capture** — records and analyzes audio from other apps (Zoom, Teams, Meet, etc.)
-- **Real-time transcription** — Whisper-based speech recognition (see architecture)
+- **Real-time transcription** — multi-engine STT: Whisper (default), Parakeet (optional), Cloud STT, or Deepgram (see [Transcription architecture](#transcription-architecture))
 - **On-device LLM** — local inference via bundled Llama model
 - **Tray / background operation** — `tray_manager` framework; runs as a desktop utility
 
@@ -39,6 +39,165 @@ Hedy is a desktop AI assistant for meetings. It captures system and microphone a
 - **Auto-update:** Sparkle framework (`SUFeedURL` → `https://macos-update-xml.hedy.bot/appcast.xml`)
 - **Analytics:** Firebase (analytics collection deactivated in plist, but Firebase SDKs bundled)
 - **Crash reporting:** Sentry
+
+## Transcription architecture
+
+Hedy does **not** use Whisper alone for real-time transcription. Bundle inspection (v3.4.0) shows a **multi-engine STT stack** with user-selectable speech engines and automatic fallbacks.
+
+### Speech engine types
+
+Four `SpeechEngineType` values are exposed in settings:
+
+| Engine | Class | Role |
+| --- | --- | --- |
+| `whisper` | `WhisperEngine` | Default on-device engine; always registered |
+| `parakeet` | `ParakeetEngine` | Optional on-device engine; **Apple Silicon only**; labeled **(Beta)** on macOS |
+| `cloud` | `CloudSTT` | Hedy cloud transcription; falls back to on-device on failure |
+| `deepgram` | `DeepgramProvider` | User-supplied Deepgram API key; real-time WebSocket on macOS |
+
+**Default behaviour:** `SessionController` defaults to `WhisperEngine` when no engine is resolved. If `ParakeetEngine` is not registered, session start falls back to Whisper. Recovery paths also default to Whisper.
+
+**Fallback chain observed:**
+
+```
+Cloud STT failure → on-device transcription (Whisper)
+Parakeet unavailable → WhisperEngine
+GPU OOM on requested model → downgrade to smaller Whisper model
+Whisper GPU crash → CPU mode for stability
+```
+
+### Real-time Whisper models (whisper.cpp)
+
+Whisper runs via a **custom fork of whisper.cpp** (`hedy_bindings`) in `whisper.framework`, with **GGML Metal** acceleration on Apple Silicon and CPU-only on Intel Macs.
+
+#### Bundled GGML models (`flutter_assets/assets/models/`)
+
+| File | Size | Purpose |
+| --- | --- | --- |
+| `ggml-small-q8_0.bin` | 252 MB | Default bundled model; recommended on **Intel Mac** |
+| `ggml-base-q8_0.bin` | 78 MB | Smaller/faster variant bundled alongside small |
+| `ggml-silero-v6.2.0.bin` | 864 KB | Voice activity detection (VAD) for auto-pause and silence detection |
+
+VAD model source: [ggml-org/whisper-vad](https://huggingface.co/ggml-org/whisper-vad) on Hugging Face.
+
+#### Optional download (Settings → model size)
+
+| File | Source | Notes |
+| --- | --- | --- |
+| `ggml-large-v3-turbo-q8_0.bin` | `https://dl.hedy.ai/models/ggml-large-v3-turbo-q8_0.bin` | **Recommended on Apple Silicon**; highest accuracy, especially non-English |
+| `ggml-large-v3-turbo-q5_0.bin` | (referenced in binary) | Lower-bitrate variant |
+
+UI copy: *"For Intel Macs, the 'Small' model is recommended. For newer Apple Silicon Macs, the 'Large' model is recommended."*
+
+#### Real-time processing (WhisperEngine)
+
+- Audio format: **16 kHz mono PCM** (`-ar 16000 -ac 1`)
+- Chunked inference via `_processChunkWithWhisper` and custom bindings
+- Two whisper.cpp entry points:
+  - `whisper_full_short` — used for **real-time mode** (short audio windows)
+  - `whisper_full` — full/batch processing (import, finalize, summary)
+- Custom binding log: `run_whisper_full: strategy=%s, beam_size=%d, samples=%d`
+- VAD integration: `run_whisper_configure_vad`; auto-pause requires VAD when using on-device transcription
+- GPU: Metal enabled on Apple Silicon; disabled on Intel; auto-fallback to CPU if GPU prep crashes
+- Custom vocabulary terms are injected into the Whisper prompt for domain jargon
+
+#### Transcript update cadence (battery vs latency)
+
+User setting balances real-time freshness vs power:
+
+| Setting | Behaviour |
+| --- | --- |
+| Faster | Near-instant transcript updates; higher CPU/battery use |
+| Normal / Slower | Less frequent updates (~2×/minute on slower); recommended when live features not needed |
+
+### Real-time Parakeet models (FluidAudio / CoreML)
+
+When the user enables and downloads **Local Speech Recognition (Parakeet)** (~2.5 GB), Hedy switches to the **FluidAudio** Swift SDK via `fluid_audio_plugin` and `ParakeetEngine`.
+
+| Aspect | Detail |
+| --- | --- |
+| Original model | [NVIDIA Parakeet TDT 0.6B v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3) |
+| On-device format | CoreML: `FluidInference/parakeet-tdt-0.6b-v3-coreml` |
+| Streaming manager | `SlidingWindowAsrManager` (sliding-window chunked ASR) |
+| Hardware | **Apple Silicon only** — strings: *"Parakeet models require Apple Silicon"* |
+| Languages | English + 25 European languages; UI warns to switch to Whisper if wrong language detected |
+| Status on macOS | **(Parakeet) [Beta]** |
+| Model cache | `~/.cache/fluidaudio/Models` (downloaded on first use) |
+
+**Speaker diarization** (with Parakeet): FluidInference `speaker-diarization-coreml` (pyannote + WeSpeaker embeddings). Offline re-diarization runs at session finalize via `offlineDiarize`.
+
+### Other ASR models in FluidAudio (bundled library, not primary UI engines)
+
+The native binary embeds FluidAudio support for additional models that may be used internally or in future builds:
+
+| Model | Variant | Use case |
+| --- | --- | --- |
+| Parakeet EOU 120M | 160ms / 320ms / 1280ms chunks | True streaming ASR with end-of-utterance detection (English) |
+| Parakeet TDT v2 | CoreML | English-only, higher recall |
+| Parakeet CTC 0.6B / 110M | CoreML | CTC decoding variants |
+| Qwen3-ASR 0.6B | f32 / int8 CoreML | Multilingual streaming (2-model pipeline) |
+| Nemotron Speech Streaming 0.6B | 80–1120ms chunks | NVIDIA streaming ASR |
+| Cohere Transcribe 03-2026 | q8 CoreML | Cohere ASR pipeline |
+| Silero VAD | CoreML (`silero-vad-coreml`) | Voice activity detection (ANE) |
+
+Hedy's user-facing engines for live sessions are **Whisper** and **Parakeet**; the Parakeet path uses `SlidingWindowAsrManager` with TDT v3, not the separate EOU 120M model (though that code is present in FluidAudio).
+
+### Cloud transcription
+
+- **Cloud STT** — Hedy-hosted; `[CloudSTT] Set up real-time audio streaming for macOS`; falls back to on-device on disconnect/failure
+- **Deepgram** — BYO API key; secure WebSocket; batch and streaming paths
+- Cloud providers also referenced for audio normalization: OpenAI, Vertex AI (batch/post-processing, not primary live engine)
+
+### Transcription pipeline diagram
+
+```mermaid
+flowchart TB
+    subgraph capture [Audio Capture]
+        Mic[Microphone]
+        SysAudio[System Audio - macos_audio_capture]
+    end
+
+    subgraph engines [STT Engines - user selectable]
+        Cloud[Cloud STT]
+        Deepgram[Deepgram WebSocket]
+        Parakeet[ParakeetEngine - FluidAudio]
+        Whisper[WhisperEngine - whisper.cpp]
+    end
+
+    subgraph whisper_models [Whisper GGML Models]
+        Small[ggml-small-q8_0 - bundled]
+        Base[ggml-base-q8_0 - bundled]
+        Large[ggml-large-v3-turbo-q8_0 - download]
+        VAD[ggml-silero-v6.2.0 - VAD]
+    end
+
+    subgraph parakeet_models [Parakeet CoreML - download]
+        TDT[parakeet-tdt-0.6b-v3-coreml]
+        Diar[speaker-diarization-coreml]
+    end
+
+    Mic --> engines
+    SysAudio --> engines
+
+    Whisper --> whisper_models
+    Parakeet --> parakeet_models
+
+    engines --> Transcript[Live Transcript UI]
+    Transcript --> LLM[On-device Llama + Cloud LLM suggestions]
+```
+
+### Answer: which model for real-time?
+
+| Scenario | Model used |
+| --- | --- |
+| Default local (most users) | **Whisper `ggml-small-q8_0`** (Intel default) or user-selected size |
+| Apple Silicon, user downloads large model | **Whisper `ggml-large-v3-turbo-q8_0`** |
+| User enables Parakeet (Beta) | **Parakeet TDT 0.6B v3** via CoreML + `SlidingWindowAsrManager` |
+| User selects Cloud STT | Hedy cloud (model not visible in bundle) |
+| User provides Deepgram key | Deepgram cloud model |
+| Session import / offline batch | `whisper_full` on same GGML models |
+
+**Whisper is the default real-time engine.** Parakeet is the higher-quality optional path on Apple Silicon, not Whisper.
 
 ## Technical architecture
 
@@ -150,7 +309,7 @@ Fonts: Inter, Playfair Display, Onest, Material Icons, Lucide.
 | --- | --- | --- |
 | Desktop shell | Flutter macOS | Tauri (in `tauri-app/`) |
 | UI | Dart / Flutter widgets | Web (React) in Tauri webview |
-| Transcription | Whisper (on-device) | TBD |
+| Transcription | Whisper.cpp (default) or Parakeet TDT v3 CoreML (optional); Cloud STT / Deepgram | TBD |
 | Live LLM suggestions | Llama (on-device) + cloud | Cloud LLM API (`web/`) |
 | Shared mobile codebase | Yes (`bot.hedy.mobile`) | No |
 
