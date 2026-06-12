@@ -1,0 +1,24 @@
+# macOS Capturing Audio
+
+## The Complexities of Microphone Integration
+
+Capturing a two-way VoIP conversation fundamentally necessitates recording both the remote participants (via the VoIP application's output captured by SCK) and the local user (via the local hardware microphone). Apple recognized this requirement and, in macOS 15 (Sequoia), introduced native microphone capture directly within the `SCStreamConfiguration` by exposing a `captureMicrophone` boolean property.
+
+However, relying exclusively on ScreenCaptureKit's native microphone mixing introduces severe architectural, synchronization, and acoustic constraints that must be carefully managed. When `captureMicrophone` is enabled, the operating system attempts to deliver the microphone audio through the same, or parallel, SCK pipeline. A primary complication arises from inherent clock drift. The system audio captured via SCK's virtual tap and the microphone audio captured via the physical CoreAudio hardware interface are governed by fundamentally different hardware and software clocks.
+
+Because the local microphone naturally picks up the system audio playing through the user's external speakers, an acoustic feedback loop or echo effect is highly likely unless aggressive Acoustic Echo Cancellation (AEC) is applied to the signal. Developers attempting to manually mix these streams using `AVAudioEngine` frequently encounter scenarios where connecting an `AVAudioPlayerNode` (fed by the SCK stream) to the `mainMixerNode` inadvertently plays the captured audio back through the physical speakers, creating an infinite, deafening feedback loop.
+
+To mitigate this, developers often explore the VoiceProcessingIO (VPIO) Audio Unit provided by CoreAudio. VPIO is a highly specialized hardware-accelerated interface available on modern Apple devices that provides OS-level Acoustic Echo Cancellation and automatic gain control. By routing the microphone capture through VPIO rather than a standard input node, the system automatically analyzes the system output and subtracts it from the microphone input, yielding a clean voice track. However, VoiceProcessingIO is exceptionally rigid; its stream format requires linear PCM, canonical flags, and exact sample rates. Furthermore, activating VPIO inherently triggers macOS's system-wide "ducking" behavior, which lowers the volume of all other applications (such as Spotify or Apple Music) while the capture session is active—a behavior that cannot be programmatically disabled and may irritate end-users. It is also known that mixing AUHAL (Audio Unit Hardware Abstraction Layer) microphone access with ScreenCaptureKit's internal virtual audio device can lead to silent failures and exclusive-access conflicts, particularly in the macOS 15 Sequoia environment.
+
+## Diarization and the Necessity of Isolated Tracks
+
+Beyond hardware echo, there is a profound machine learning imperative for keeping the system audio and microphone audio strictly separated. Modern meeting transcription and summarization applications rely entirely on a process known as "speaker diarization"—the algorithmic partitioning of an audio stream into homogeneous segments according to speaker identity (answering the question: "who spoke when?").
+
+When the system audio (containing the remote participants) and the local microphone audio are mixed into a single, monolithic audio track by the operating system or the capturing application, state-of-the-art machine learning models (such as Whisper combined with Pyannote or Sortformer) struggle immensely to differentiate overlapping speech. Relying purely on machine diarization for a mixed track often results in high Diarization Error Rates (DER) and "walls of text" where speaker turns are missed or hallucinated.
+
+The architecturally superior pattern is **Dual-Track Isolation**, which requires capturing the streams independently:
+
+- **Track A (Remote Audio):** Captured strictly via ScreenCaptureKit, utilizing the `SCContentFilter` targeting the VoIP application.
+- **Track B (Local Audio):** Captured via a separate, dedicated CoreAudio `AVAudioEngine` input node (potentially utilizing VPIO for echo cancellation) or a cleanly separated ScreenCaptureKit microphone stream, completely bypassing any internal macOS mixing.
+
+By persisting these isolated streams to disk as a multi-channel audio file (e.g., Left channel assigned strictly to the Microphone, Right channel assigned strictly to the VoIP Application), or as separate files entirely, the application provides perfect, pre-separated audio for downstream Natural Language Processing engines. Advanced systems, such as Wisply, utilize this dual audio capture method alongside models like FluidAudio to achieve exceptionally low error rates (e.g., 17.7% DER on the AMI dataset), matching academic benchmarks by avoiding the necessity of untangling overlapping audio algorithmically.
