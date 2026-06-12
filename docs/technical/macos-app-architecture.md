@@ -2,7 +2,7 @@
 
 Architecture and technical constraints for the native macOS desktop app: **TypeScript/React frontend**, **Rust backend**, **Tauri v2** shell.
 
-For microphone echo, clock drift, VPIO trade-offs, and dual-track diarization rationale, see [macos-capturing-audio.md](./macos-capturing-audio.md).
+For microphone echo, clock drift, VPIO trade-offs, and dual-track diarization rationale, see [macos-capturing-audio.md](./macos-capturing-audio.md). For how the captured streams become a live speaker-attributed transcript, see [realtime-transcription.md](./realtime-transcription.md).
 
 ## Chosen Stack
 
