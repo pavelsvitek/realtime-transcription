@@ -28,3 +28,4 @@ test-youtube-video.mp4
 # Golden test artifacts (baseline is committed)
 test-output/runs/
 test-output/e2e-transcript.txt
+test-output/diagnostic/
