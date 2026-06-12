@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
+  AudioSource,
   TranscriptSegment,
   TranscriptPayload,
   TranscriptionStatusPayload,
@@ -35,7 +36,7 @@ export function useTranscription() {
             );
             const segment: TranscriptSegment = {
               id: "tentative",
-              speaker: "User",
+              speaker: payload.speaker,
               text: payload.text,
               isPartial: true,
               startMs: payload.startMs,
@@ -64,9 +65,9 @@ export function useTranscription() {
               (s) => !(s.isPartial && s.id === "tentative")
             );
 
-            // Append to the last committed segment to form a flowing paragraph.
+            // Append to the last committed segment from the same speaker.
             const last = withoutTentative[withoutTentative.length - 1];
-            if (last && !last.isPartial) {
+            if (last && !last.isPartial && last.speaker === payload.speaker) {
               const updated = [...withoutTentative];
               updated[updated.length - 1] = {
                 ...last,
@@ -79,7 +80,7 @@ export function useTranscription() {
               ...withoutTentative,
               {
                 id: payload.segmentId,
-                speaker: "User",
+                speaker: payload.speaker,
                 text: payload.text,
                 isPartial: false,
                 startMs: payload.startMs,
@@ -124,11 +125,11 @@ export function useTranscription() {
     };
   }, []);
 
-  const start = useCallback(async () => {
+  const start = useCallback(async (source: AudioSource) => {
     setError(null);
     setIsLoading(true);
     try {
-      await invoke("start_transcription");
+      await invoke("start_transcription", { source });
     } catch (e) {
       setIsLoading(false);
       setError(String(e));

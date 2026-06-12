@@ -1,6 +1,8 @@
+export type AudioSource = "mic" | "system";
+
 export type TranscriptSegment = {
   id: string;
-  speaker: "User";
+  speaker: string;
   text: string;
   isPartial: boolean;
   startMs: number;

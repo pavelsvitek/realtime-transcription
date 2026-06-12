@@ -1,17 +1,24 @@
 use tauri::{AppHandle, State};
 
 use crate::state::TranscriptionHandle;
+use crate::transcription::AudioSource;
 
 #[tauri::command]
 pub async fn start_transcription(
     app: AppHandle,
     state: State<'_, TranscriptionHandle>,
+    source: Option<String>,
 ) -> Result<(), String> {
-    tracing::info!("start_transcription command invoked");
+    let audio_source = source
+        .as_deref()
+        .and_then(AudioSource::parse)
+        .unwrap_or_else(AudioSource::default_for_testing);
+
+    tracing::info!(?audio_source, "start_transcription command invoked");
 
     state
         .service
-        .start(app)
+        .start(app, audio_source)
         .map_err(|e| e.to_user_message())?;
 
     tracing::info!("start_transcription command completed");

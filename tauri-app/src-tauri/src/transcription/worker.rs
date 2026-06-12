@@ -5,7 +5,7 @@ use std::sync::Arc;
 use yamabiko_whisper::AsrPipeline;
 
 use crate::ipc::transcript::*;
-use crate::transcription::labels;
+use crate::transcription::audio_source::StreamLabels;
 use crate::transcription::mic_input;
 
 /// Runs the transcription worker loop.
@@ -18,6 +18,7 @@ use crate::transcription::mic_input;
 pub fn run_worker<E>(
     audio_rx: Receiver<Vec<f32>>,
     mut pipeline: AsrPipeline,
+    labels: StreamLabels,
     emit: E,
     stop: Arc<AtomicBool>,
     segment_counter: Arc<std::sync::atomic::AtomicU64>,
@@ -43,7 +44,13 @@ pub fn run_worker<E>(
         match pipeline.push_mono(&chunk) {
             Ok(Some(output)) => {
                 chunks_processed += 1;
-                emit_process_output(&output.committed, &output.tentative, &emit, &segment_counter);
+                emit_process_output(
+                    &output.committed,
+                    &output.tentative,
+                    labels,
+                    &emit,
+                    &segment_counter,
+                );
             }
             Ok(None) => {
                 tracing::trace!(chunk_len = chunk.len(), "Buffered, no ASR pass yet");
@@ -64,7 +71,13 @@ pub fn run_worker<E>(
     // Flush remaining audio
     match pipeline.finish() {
         Ok(output) if !output.is_empty() => {
-            emit_process_output(&output.committed, &output.tentative, &emit, &segment_counter);
+            emit_process_output(
+                &output.committed,
+                &output.tentative,
+                labels,
+                &emit,
+                &segment_counter,
+            );
         }
         Ok(_) => {}
         Err(e) => {
@@ -85,6 +98,7 @@ fn join_words(words: &[yamabiko_whisper::Word]) -> (String, u64, u64) {
 fn emit_process_output<E>(
     committed: &[yamabiko_whisper::Word],
     tentative: &[yamabiko_whisper::Word],
+    labels: StreamLabels,
     emit: &E,
     segment_counter: &Arc<std::sync::atomic::AtomicU64>,
 ) where
@@ -95,8 +109,8 @@ fn emit_process_output<E>(
         let (text, start_ms, end_ms) = join_words(committed);
         tracing::debug!(text = %text, words = committed.len(), "Committed");
         emit(TranscriptEvent::Commit(TranscriptCommit {
-            speaker: labels::USER.into(),
-            stream: labels::MIC_STREAM.into(),
+            speaker: labels.speaker.into(),
+            stream: labels.stream.into(),
             text,
             start_ms,
             end_ms,
@@ -108,8 +122,8 @@ fn emit_process_output<E>(
         let (text, start_ms, end_ms) = join_words(tentative);
         tracing::debug!(text = %text, "Tentative");
         emit(TranscriptEvent::Partial(TranscriptPartial {
-            speaker: labels::USER.into(),
-            stream: labels::MIC_STREAM.into(),
+            speaker: labels.speaker.into(),
+            stream: labels.stream.into(),
             text,
             start_ms,
             end_ms,
@@ -121,8 +135,16 @@ fn emit_process_output<E>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::transcription::labels;
     use std::sync::Mutex;
     use yamabiko_whisper::Word;
+
+    fn mic_labels() -> StreamLabels {
+        StreamLabels {
+            speaker: labels::USER,
+            stream: labels::MIC_STREAM,
+        }
+    }
 
     fn word(text: &str, start: f64, end: f64) -> Word {
         Word { text: text.into(), start, end }
@@ -153,7 +175,7 @@ mod tests {
         };
 
         let committed = vec![word("hello", 0.1, 0.5), word("world", 0.5, 1.0)];
-        emit_process_output(&committed, &[], &emit, &counter);
+        emit_process_output(&committed, &[], mic_labels(), &emit, &counter);
 
         let events = events.lock().unwrap();
         assert_eq!(events.len(), 1);
@@ -180,7 +202,7 @@ mod tests {
         };
 
         let tentative = vec![word("testing", 1.0, 1.5), word("now", 1.5, 2.0)];
-        emit_process_output(&[], &tentative, &emit, &counter);
+        emit_process_output(&[], &tentative, mic_labels(), &emit, &counter);
 
         let events = events.lock().unwrap();
         assert_eq!(events.len(), 1);
@@ -208,7 +230,7 @@ mod tests {
 
         let committed = vec![word("done", 0.0, 0.5)];
         let tentative = vec![word("maybe", 0.5, 1.0)];
-        emit_process_output(&committed, &tentative, &emit, &counter);
+        emit_process_output(&committed, &tentative, mic_labels(), &emit, &counter);
 
         let events = events.lock().unwrap();
         assert_eq!(events.len(), 2);

@@ -8,21 +8,16 @@ use crate::config::AppConfig;
 use crate::error::AppError;
 use crate::ipc::transcript::*;
 use crate::transcription::asr::LoadedModels;
-use crate::transcription::mic_input;
+use crate::transcription::audio_source::AudioSource;
+use crate::transcription::capture;
 use crate::transcription::worker;
 
 const AUDIO_CHANNEL_BOUND: usize = 64;
 
-/// Wrapper to make `cpal::Stream` Send-safe. The stream is only created/dropped
-/// from the service's start/stop methods behind a Mutex, so this is safe.
-/// The inner field is read (kept alive) until dropped in `stop()`.
-struct SendStream(#[allow(dead_code)] cpal::Stream);
-unsafe impl Send for SendStream {}
-
 struct RunningState {
     stop_flag: Arc<AtomicBool>,
     worker_handle: JoinHandle<()>,
-    _stream: SendStream,
+    _capture: capture::OpenedCapture,
 }
 
 pub struct TranscriptionService {
@@ -45,13 +40,13 @@ impl TranscriptionService {
         self.running.lock().unwrap().is_some()
     }
 
-    pub fn start(&self, app_handle: AppHandle) -> Result<(), AppError> {
+    pub fn start(&self, app_handle: AppHandle, source: AudioSource) -> Result<(), AppError> {
         let mut running = self.running.lock().unwrap();
         if running.is_some() {
             return Err(AppError::AlreadyRunning);
         }
 
-        tracing::info!("Starting transcription");
+        tracing::info!(?source, "Starting transcription");
 
         let config = AppConfig::load();
 
@@ -95,14 +90,15 @@ impl TranscriptionService {
         let models = models_guard.as_ref().unwrap();
         let model_name = models.model_name.clone();
 
-        // Open mic at device-native sample rate (typically 48 kHz); ASR resamples internally.
         let (audio_tx, audio_rx) = mpsc::sync_channel::<Vec<f32>>(AUDIO_CHANNEL_BOUND);
-        let opened = mic_input::open_mic_stream(audio_tx)
+        let opened = capture::open_capture(source, audio_tx)
             .map_err(|e| AppError::Capture(format!("{e:#}")))?;
 
         let pipeline = models
             .create_pipeline(&config.language, opened.sample_rate)
             .map_err(|e| AppError::Asr(format!("{e:#}")))?;
+
+        let stream_labels = source.labels();
 
         // Spawn worker
         let stop_flag = Arc::new(AtomicBool::new(false));
@@ -116,14 +112,21 @@ impl TranscriptionService {
                 let emit = move |event: TranscriptEvent| {
                     emit_to_app(&app_clone, event);
                 };
-                worker::run_worker(audio_rx, pipeline, emit, stop_clone, counter);
+                worker::run_worker(
+                    audio_rx,
+                    pipeline,
+                    stream_labels,
+                    emit,
+                    stop_clone,
+                    counter,
+                );
             })
             .map_err(|e| AppError::Capture(format!("Failed to spawn worker: {e}")))?;
 
         *running = Some(RunningState {
             stop_flag,
             worker_handle,
-            _stream: SendStream(opened.stream),
+            _capture: opened,
         });
 
         // Drop models lock before emitting
@@ -155,8 +158,8 @@ impl TranscriptionService {
         // 1. Signal the worker to stop
         state.stop_flag.store(true, Ordering::Relaxed);
 
-        // 2. Drop the cpal stream (stops audio callbacks, closes sender side)
-        drop(state._stream);
+        // 2. Drop the capture handle (stops audio callbacks, closes sender side)
+        drop(state._capture);
 
         // 3. Wait for worker to drain and exit
         if let Err(e) = state.worker_handle.join() {

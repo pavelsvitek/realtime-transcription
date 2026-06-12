@@ -1,9 +1,12 @@
+import { useState } from "react";
 import { useTranscription } from "../hooks/useTranscription";
 import { useMicLevel } from "../hooks/useMicLevel";
 import { MicIndicator } from "../components/MicIndicator";
 import { TranscriptFeed } from "../components/TranscriptFeed";
+import type { AudioSource } from "../lib/transcript-types";
 
 export function TranscribePage() {
+  const [audioSource, setAudioSource] = useState<AudioSource>("system");
   const { segments, isActive, isLoading, error, model, start, stop, clear } =
     useTranscription();
   const micActive = useMicLevel(isActive);
@@ -16,6 +19,17 @@ export function TranscribePage() {
           {model && <span className="model-badge">{model}</span>}
         </div>
         <div className="header-controls">
+          <label className="source-select">
+            <span className="source-select-label">Input</span>
+            <select
+              value={audioSource}
+              onChange={(e) => setAudioSource(e.target.value as AudioSource)}
+              disabled={isActive || isLoading}
+            >
+              <option value="system">Chrome / system audio</option>
+              <option value="mic">Microphone</option>
+            </select>
+          </label>
           <MicIndicator
             isActive={isActive}
             micActive={micActive}
@@ -24,7 +38,7 @@ export function TranscribePage() {
           {!isActive ? (
             <button
               className="btn btn-start"
-              onClick={start}
+              onClick={() => start(audioSource)}
               disabled={isLoading}
             >
               {isLoading ? "Loading model..." : "Start"}
@@ -53,7 +67,9 @@ export function TranscribePage() {
       <footer className="page-footer">
         <span className="status-text">
           {isActive
-            ? "Listening..."
+            ? audioSource === "system"
+              ? "Capturing Chrome audio..."
+              : "Listening..."
             : segments.length > 0
               ? `${segments.filter((s) => !s.isPartial).length} segments`
               : "Ready"}

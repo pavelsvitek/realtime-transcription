@@ -23,7 +23,7 @@ tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 yamabiko-whisper = { version = "0.2", features = ["metal"] }
-cpal = "0.15"
+cpal = "0.17"
 tokio = { version = "1", features = ["sync"] }
 thiserror = "2"
 anyhow = "1"

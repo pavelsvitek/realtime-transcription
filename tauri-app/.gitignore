@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# test-youtube-video.txt
+test-youtube-video.mp4

@@ -46,7 +46,9 @@ pnpm install
 pnpm tauri dev
 ```
 
-On first launch, grant microphone permission when prompted by macOS.
+On first launch, grant permissions when prompted by macOS:
+- **Microphone** — when using the Mic input source
+- **System Audio Recording** — when using Chrome / system audio (macOS 14.2+). If capture is silent, open **System Settings → Privacy & Security → System Audio Recording Only** and enable this app, then restart it.
 
 ### Rust logging
 
@@ -61,15 +63,38 @@ cd src-tauri
 cargo test
 ```
 
+## Audio input sources
+
+The **Input** dropdown on the transcribe page selects the capture source:
+
+| Source | Use case | Label in UI |
+| --- | --- | --- |
+| **Chrome / system audio** (default) | Play a YouTube video in Chrome on the default output; transcribes what you hear through the speakers/headphones | **Remote** |
+| **Microphone** | Speak into the mic | **User** |
+
+Override the default with an environment variable:
+
+```bash
+export TRANSCRIPTION_AUDIO_SOURCE=mic   # or system
+```
+
+### Repeatable YouTube test
+
+1. Open Chrome and queue a video (e.g. your `test-readaloud.txt` read by a TTS video, or any fixed clip).
+2. Select **Chrome / system audio** in the app.
+3. Click **Start**, then play the video in Chrome.
+4. Transcript lines appear under **Remote** as the video plays.
+5. Click **Stop** when done.
+
 ## Manual Test Plan
 
 1. `pnpm tauri dev`
-2. Grant microphone permission when prompted
-3. Click **Start** -- speak -- see partial (gray) then committed (solid) lines labeled **User**
-4. Transcript panel scrolls to bottom as new text arrives
-5. Mic indicator turns green when audio is detected
-6. Click **Stop** -- capture ends, no new segments
-7. Restart app -- Start again works (no leaked mic handle)
+2. Grant system-audio or microphone permission when prompted
+3. **System audio:** play a YouTube clip in Chrome — see **Remote** lines
+4. **Mic:** switch input to Microphone, click **Start**, speak — see **User** lines
+5. Transcript panel scrolls to bottom as new text arrives
+6. Click **Stop** — capture ends, no new segments
+7. Restart app — Start again works (no leaked capture handle)
 
 ## Architecture
 
