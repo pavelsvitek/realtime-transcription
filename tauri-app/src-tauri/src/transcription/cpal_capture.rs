@@ -23,7 +23,7 @@ pub fn open_input_stream(
     open_stream_with_config(device, &device_name, supported.into(), channels, sample_format, sender)
 }
 
-/// Opens a loopback stream on the default output device (macOS 14.2+).
+/// Opens a loopback stream on the default output device (macOS 15+).
 pub fn open_loopback_stream(
     device: &cpal::Device,
     sender: mpsc::SyncSender<Vec<f32>>,

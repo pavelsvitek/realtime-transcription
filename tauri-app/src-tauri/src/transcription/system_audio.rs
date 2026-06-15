@@ -1,6 +1,6 @@
 //! System audio capture for repeatable Chrome/YouTube testing.
 //!
-//! On macOS 14.2+, uses cpal's Core Audio loopback tap on the default output
+//! On macOS 15+, uses cpal's Core Audio loopback tap on the default output
 //! device so anything playing through the speakers (e.g. a YouTube tab in Chrome)
 //! is transcribed without a virtual audio cable.
 

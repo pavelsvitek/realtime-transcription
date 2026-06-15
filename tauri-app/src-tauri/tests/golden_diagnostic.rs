@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use tauri_app_lib::{evaluate_wer, AppConfig, LoadedModels};
-use yamabiko_whisper::Word;
+use tauri_app_lib::transcription::AsrWord;
 
 fn app_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -54,7 +54,7 @@ fn ffmpeg_decode_mono_f32(video: &Path, sample_rate: u32) -> Vec<f32> {
         .collect()
 }
 
-fn join_words(words: &[Word]) -> String {
+fn join_words(words: &[AsrWord]) -> String {
     words
         .iter()
         .map(|w| w.text.as_str())

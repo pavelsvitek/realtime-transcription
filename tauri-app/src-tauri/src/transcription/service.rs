@@ -12,6 +12,7 @@ use crate::ipc::transcript::*;
 use crate::transcription::asr::LoadedModels;
 use crate::transcription::audio_source::AudioSource;
 use crate::transcription::capture;
+use crate::transcription::model::{self, ModelId};
 use crate::transcription::transcript_store::TranscriptStore;
 use crate::transcription::worker;
 
@@ -28,6 +29,7 @@ struct RunningState {
 pub struct TranscriptionService {
     running: Mutex<Option<RunningState>>,
     models: Mutex<Option<LoadedModels>>,
+    loaded_model_id: Mutex<Option<ModelId>>,
     segment_counter: Arc<AtomicU64>,
     transcript: TranscriptStore,
     last_export: Mutex<Option<TranscriptExport>>,
@@ -38,6 +40,7 @@ impl TranscriptionService {
         Self {
             running: Mutex::new(None),
             models: Mutex::new(None),
+            loaded_model_id: Mutex::new(None),
             segment_counter: Arc::new(AtomicU64::new(0)),
             transcript: TranscriptStore::new(),
             last_export: Mutex::new(None),
@@ -50,29 +53,52 @@ impl TranscriptionService {
     }
 
     pub fn start(&self, app_handle: AppHandle, source: AudioSource) -> Result<(), AppError> {
-        self.start_internal(Some(app_handle), source)
+        self.start_with_model(app_handle, source, ModelId::default_selection())
     }
 
     /// Start without a Tauri app handle (golden tests / headless runs).
     pub fn start_headless(&self, source: AudioSource) -> Result<(), AppError> {
-        self.start_internal(None, source)
+        self.start_internal(None, source, ModelId::default_selection())
+    }
+
+    pub fn start_with_model(
+        &self,
+        app_handle: AppHandle,
+        source: AudioSource,
+        model_id: ModelId,
+    ) -> Result<(), AppError> {
+        self.start_internal(Some(app_handle), source, model_id)
+    }
+
+    pub fn set_model(&self, model_id: ModelId) -> Result<(), AppError> {
+        model::save_selected_model(model_id)
+            .map_err(|e| AppError::ModelLoad(format!("Failed to save model selection: {e}")))?;
+
+        let mut models = self.models.lock().unwrap();
+        let mut loaded_id = self.loaded_model_id.lock().unwrap();
+        if *loaded_id != Some(model_id) {
+            *models = None;
+            *loaded_id = None;
+        }
+        Ok(())
     }
 
     fn start_internal(
         &self,
         app_handle: Option<AppHandle>,
         source: AudioSource,
+        model_id: ModelId,
     ) -> Result<(), AppError> {
         let mut running = self.running.lock().unwrap();
         if running.is_some() {
             return Err(AppError::AlreadyRunning);
         }
 
-        tracing::info!(?source, "Starting transcription");
+        tracing::info!(?source, model = %model_id.as_str(), "Starting transcription");
         self.transcript.clear();
         *self.last_export.lock().unwrap() = None;
 
-        let config = AppConfig::load();
+        let config = AppConfig::for_model(model_id);
 
         if let Some(app) = &app_handle {
             let _ = app.emit(
@@ -86,33 +112,9 @@ impl TranscriptionService {
             );
         }
 
-        let mut models_guard = self.models.lock().unwrap();
-        if models_guard.is_none() {
-            config.validate().map_err(|e| AppError::ModelLoad(e))?;
+        self.ensure_models_loaded(model_id, &config, app_handle.as_ref())?;
 
-            match LoadedModels::load(&config) {
-                Ok(loaded) => {
-                    *models_guard = Some(loaded);
-                }
-                Err(e) => {
-                    let msg = format!("{e:#}");
-                    tracing::error!(error = %msg, "Model loading failed");
-                    if let Some(app) = &app_handle {
-                        let _ = app.emit(
-                            event_names::STATUS,
-                            TranscriptionStatus {
-                                active: false,
-                                loading: None,
-                                model: None,
-                                error: Some(msg.clone()),
-                            },
-                        );
-                    }
-                    return Err(AppError::ModelLoad(msg));
-                }
-            }
-        }
-
+        let models_guard = self.models.lock().unwrap();
         let models = models_guard.as_ref().unwrap();
         let model_name = models.model_name.clone();
 
@@ -176,6 +178,48 @@ impl TranscriptionService {
         }
 
         tracing::info!("Transcription started");
+        Ok(())
+    }
+
+    fn ensure_models_loaded(
+        &self,
+        model_id: ModelId,
+        config: &AppConfig,
+        app_handle: Option<&AppHandle>,
+    ) -> Result<(), AppError> {
+        let mut models_guard = self.models.lock().unwrap();
+        let mut loaded_id = self.loaded_model_id.lock().unwrap();
+
+        let needs_reload = models_guard.is_none() || *loaded_id != Some(model_id);
+        if !needs_reload {
+            return Ok(());
+        }
+
+        config.validate().map_err(|e| AppError::ModelLoad(e))?;
+
+        match LoadedModels::load_model(model_id, config) {
+            Ok(loaded) => {
+                *models_guard = Some(loaded);
+                *loaded_id = Some(model_id);
+            }
+            Err(e) => {
+                let msg = format!("{e:#}");
+                tracing::error!(error = %msg, "Model loading failed");
+                if let Some(app) = app_handle {
+                    let _ = app.emit(
+                        event_names::STATUS,
+                        TranscriptionStatus {
+                            active: false,
+                            loading: None,
+                            model: None,
+                            error: Some(msg.clone()),
+                        },
+                    );
+                }
+                return Err(AppError::ModelLoad(msg));
+            }
+        }
+
         Ok(())
     }
 

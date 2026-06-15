@@ -2,11 +2,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Receiver;
 use std::sync::Arc;
 
-use yamabiko_whisper::AsrPipeline;
-
 use crate::ipc::transcript::*;
 use crate::transcription::audio_source::StreamLabels;
 use crate::transcription::mic_input;
+use crate::transcription::pipeline::{AsrWord, StreamingPipeline};
 
 /// Runs the transcription worker loop.
 ///
@@ -17,7 +16,7 @@ use crate::transcription::mic_input;
 /// in production it wraps `AppHandle::emit`, in tests it collects into a `Vec`.
 pub fn run_worker<E>(
     audio_rx: Receiver<Vec<f32>>,
-    mut pipeline: AsrPipeline,
+    mut pipeline: StreamingPipeline,
     labels: StreamLabels,
     emit: E,
     stop: Arc<AtomicBool>,
@@ -88,7 +87,7 @@ pub fn run_worker<E>(
     tracing::info!(chunks_processed, "Transcription worker stopped");
 }
 
-fn join_words(words: &[yamabiko_whisper::Word]) -> (String, u64, u64) {
+fn join_words(words: &[AsrWord]) -> (String, u64, u64) {
     let text: String = words.iter().map(|w| w.text.as_str()).collect::<Vec<_>>().join(" ");
     let start_ms = words.first().map(|w| (w.start * 1000.0) as u64).unwrap_or(0);
     let end_ms = words.last().map(|w| (w.end * 1000.0) as u64).unwrap_or(0);
@@ -96,8 +95,8 @@ fn join_words(words: &[yamabiko_whisper::Word]) -> (String, u64, u64) {
 }
 
 fn emit_process_output<E>(
-    committed: &[yamabiko_whisper::Word],
-    tentative: &[yamabiko_whisper::Word],
+    committed: &[AsrWord],
+    tentative: &[AsrWord],
     labels: StreamLabels,
     emit: &E,
     segment_counter: &Arc<std::sync::atomic::AtomicU64>,
@@ -137,7 +136,6 @@ mod tests {
     use super::*;
     use crate::transcription::labels;
     use std::sync::Mutex;
-    use yamabiko_whisper::Word;
 
     fn mic_labels() -> StreamLabels {
         StreamLabels {
@@ -146,8 +144,12 @@ mod tests {
         }
     }
 
-    fn word(text: &str, start: f64, end: f64) -> Word {
-        Word { text: text.into(), start, end }
+    fn word(text: &str, start: f64, end: f64) -> AsrWord {
+        AsrWord {
+            text: text.into(),
+            start,
+            end,
+        }
     }
 
     #[test]

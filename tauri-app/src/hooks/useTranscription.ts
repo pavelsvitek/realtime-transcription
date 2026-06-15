@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
   AudioSource,
+  TranscriptionModel,
   TranscriptSegment,
   TranscriptPayload,
   TranscriptionStatusPayload,
@@ -13,13 +14,57 @@ import {
   EVENT_TRANSCRIPTION_STATUS,
 } from "../lib/tauri-events";
 
+const MODEL_STORAGE_KEY = "transcription-model";
+
 export function useTranscription() {
   const [segments, setSegments] = useState<TranscriptSegment[]>([]);
   const [isActive, setIsActive] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [model, setModel] = useState<string | null>(null);
+  const [models, setModels] = useState<TranscriptionModel[]>([]);
+  const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   const unlistenRefs = useRef<UnlistenFn[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadModels = async () => {
+      try {
+        const listed = await invoke<TranscriptionModel[]>(
+          "list_transcription_models"
+        );
+        if (cancelled) return;
+        setModels(listed);
+
+        const saved = localStorage.getItem(MODEL_STORAGE_KEY);
+        const savedModel = listed.find((m) => m.id === saved);
+        const defaultModel =
+          savedModel ??
+          listed.find((m) => m.available) ??
+          listed[0] ??
+          null;
+
+        if (defaultModel) {
+          setSelectedModelId(defaultModel.id);
+          if (saved !== defaultModel.id) {
+            localStorage.setItem(MODEL_STORAGE_KEY, defaultModel.id);
+          }
+          await invoke("set_transcription_model", { model: defaultModel.id });
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setError(String(e));
+        }
+      }
+    };
+
+    loadModels();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -65,7 +110,6 @@ export function useTranscription() {
               (s) => !(s.isPartial && s.id === "tentative")
             );
 
-            // Append to the last committed segment from the same speaker.
             const last = withoutTentative[withoutTentative.length - 1];
             if (last && !last.isPartial && last.speaker === payload.speaker) {
               const updated = [...withoutTentative];
@@ -125,16 +169,33 @@ export function useTranscription() {
     };
   }, []);
 
-  const start = useCallback(async (source: AudioSource) => {
-    setError(null);
-    setIsLoading(true);
+  const selectModel = useCallback(async (id: string) => {
+    setSelectedModelId(id);
+    localStorage.setItem(MODEL_STORAGE_KEY, id);
     try {
-      await invoke("start_transcription", { source });
+      await invoke("set_transcription_model", { model: id });
+      setError(null);
     } catch (e) {
-      setIsLoading(false);
       setError(String(e));
     }
   }, []);
+
+  const start = useCallback(
+    async (source: AudioSource) => {
+      setError(null);
+      setIsLoading(true);
+      try {
+        await invoke("start_transcription", {
+          source,
+          model: selectedModelId,
+        });
+      } catch (e) {
+        setIsLoading(false);
+        setError(String(e));
+      }
+    },
+    [selectedModelId]
+  );
 
   const stop = useCallback(async () => {
     try {
@@ -148,5 +209,21 @@ export function useTranscription() {
     setSegments([]);
   }, []);
 
-  return { segments, isActive, isLoading, error, model, start, stop, clear };
+  const selectedModel =
+    models.find((m) => m.id === selectedModelId) ?? null;
+
+  return {
+    segments,
+    isActive,
+    isLoading,
+    error,
+    model,
+    models,
+    selectedModelId,
+    selectedModel,
+    selectModel,
+    start,
+    stop,
+    clear,
+  };
 }

@@ -1,5 +1,7 @@
 use std::path::PathBuf;
 
+use crate::transcription::model::{self, ModelId};
+
 const DEFAULT_WHISPER_MODEL: &str = "ggml-small.en.bin";
 const PREFERRED_WHISPER_MODEL: &str = "ggml-large-v3-turbo.bin";
 const DEFAULT_VAD_MODEL: &str = "ggml-silero-v6.2.0.bin";
@@ -7,6 +9,7 @@ const APP_SUPPORT_SUBDIR: &str = "com.pavel.tauri-app/models";
 
 #[derive(Debug, Clone)]
 pub struct AppConfig {
+    pub model_id: ModelId,
     pub whisper_model_path: PathBuf,
     pub vad_model_path: PathBuf,
     pub sample_rate: u32,
@@ -16,17 +19,27 @@ pub struct AppConfig {
 
 impl AppConfig {
     pub fn load() -> Self {
+        let model_id = ModelId::default_selection();
+        Self::for_model(model_id)
+    }
+
+    pub fn for_model(model_id: ModelId) -> Self {
         let models_dir = Self::default_models_dir();
 
         let whisper_model_path = std::env::var("WHISPER_MODEL_PATH")
             .map(PathBuf::from)
-            .unwrap_or_else(|_| Self::default_whisper_model_path(&models_dir));
+            .unwrap_or_else(|_| {
+                model_id
+                    .whisper_model_path(&models_dir)
+                    .unwrap_or_else(|| Self::default_whisper_model_path(&models_dir))
+            });
 
         let vad_model_path = std::env::var("VAD_MODEL_PATH")
             .map(PathBuf::from)
             .unwrap_or_else(|_| models_dir.join(DEFAULT_VAD_MODEL));
 
         Self {
+            model_id,
             whisper_model_path,
             vad_model_path,
             sample_rate: 16_000,
@@ -53,17 +66,28 @@ impl AppConfig {
     }
 
     pub fn validate(&self) -> Result<(), String> {
-        if !self.whisper_model_path.exists() {
-            return Err(format!(
-                "Whisper model not found at {}",
-                self.whisper_model_path.display()
-            ));
-        }
-        if !self.vad_model_path.exists() {
-            return Err(format!(
-                "VAD model not found at {}",
-                self.vad_model_path.display()
-            ));
+        match self.model_id {
+            ModelId::WhisperSmallEn | ModelId::WhisperLargeV3Turbo => {
+                if !self.whisper_model_path.exists() {
+                    return Err(format!(
+                        "Whisper model not found at {}",
+                        self.whisper_model_path.display()
+                    ));
+                }
+                if !self.vad_model_path.exists() {
+                    return Err(format!(
+                        "VAD model not found at {}",
+                        self.vad_model_path.display()
+                    ));
+                }
+            }
+            ModelId::CanaryQwenCoreML => {
+                let (available, reason) =
+                    model::check_canary_available_public(&model::canary_models_dir());
+                if !available {
+                    return Err(reason.unwrap_or_else(|| "Canary model unavailable".into()));
+                }
+            }
         }
         Ok(())
     }
@@ -114,6 +138,7 @@ mod tests {
     #[test]
     fn validate_fails_for_missing_model() {
         let config = AppConfig {
+            model_id: ModelId::WhisperSmallEn,
             whisper_model_path: PathBuf::from("/nonexistent/model.bin"),
             vad_model_path: PathBuf::from("/nonexistent/vad.bin"),
             sample_rate: 16_000,

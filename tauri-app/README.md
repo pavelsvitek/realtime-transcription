@@ -7,6 +7,7 @@ Real-time speech-to-text transcription using [yamabiko-whisper](https://crates.i
 - [Rust](https://rustup.rs/) (stable)
 - [Node.js](https://nodejs.org/) + [pnpm](https://pnpm.io/)
 - [CMake](https://cmake.org/) (required by whisper-rs-sys): `brew install cmake`
+- macOS **15.0 (Sequoia) or newer** — required for CoreML stateful inference (Canary model)
 - macOS with Apple Silicon (M1+) recommended
 
 ## Model Setup (one-time)
@@ -49,7 +50,7 @@ pnpm tauri dev
 
 On first launch, grant permissions when prompted by macOS:
 - **Microphone** — when using the Mic input source
-- **System Audio Recording** — when using Chrome / system audio (macOS 14.2+). If capture is silent, open **System Settings → Privacy & Security → System Audio Recording Only** and enable this app, then restart it.
+- **System Audio Recording** — when using Chrome / system audio. If capture is silent, open **System Settings → Privacy & Security → System Audio Recording Only** and enable this app, then restart it.
 
 ### Rust logging
 
