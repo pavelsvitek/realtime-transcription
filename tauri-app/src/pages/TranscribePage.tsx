@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { useTranscription } from "../hooks/useTranscription";
-import { useMicLevel } from "../hooks/useMicLevel";
 import { MicIndicator } from "../components/MicIndicator";
 import { TranscriptFeed } from "../components/TranscriptFeed";
+import { useMicLevel } from "../hooks/useMicLevel";
+import { useTranscription } from "../hooks/useTranscription";
 import type { AudioSource } from "../lib/transcript-types";
 
 export function TranscribePage() {
@@ -27,7 +27,7 @@ export function TranscribePage() {
     <main className="page">
       <header className="page-header">
         <div className="header-left">
-          <h1 className="page-title">Live Transcription</h1>
+          <h1 className="page-title">New chat</h1>
           {model && <span className="model-badge">{model}</span>}
         </div>
         <div className="header-controls">
