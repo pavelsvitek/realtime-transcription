@@ -1,9 +1,18 @@
 import { useEffect, useRef } from "react";
+import { formatTime } from "../lib/format";
 import type { TranscriptSegment } from "../lib/transcript-types";
 
 type TranscriptFeedProps = {
   segments: TranscriptSegment[];
 };
+
+function lineClassName(segment: TranscriptSegment): string {
+  const streamClass =
+    segment.stream === "mic"
+      ? "transcript-line--user"
+      : "transcript-line--remote";
+  return `transcript-line ${streamClass}`;
+}
 
 export function TranscriptFeed({ segments }: TranscriptFeedProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -23,7 +32,10 @@ export function TranscriptFeed({ segments }: TranscriptFeedProps) {
       ) : (
         <ol className="transcript-list">
           {segments.map((segment) => (
-            <li key={segment.id} className="transcript-line">
+            <li key={segment.id} className={lineClassName(segment)}>
+              <span className="transcript-time">
+                {formatTime(segment.startMs)}
+              </span>
               <span className="transcript-speaker">{segment.speaker}</span>
               <span
                 className={

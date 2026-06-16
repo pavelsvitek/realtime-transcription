@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Sidebar, type AppPage } from "./Sidebar";
+import { TitleBar } from "./TitleBar";
 
 interface AppLayoutProps {
   currentPage: AppPage;
@@ -11,7 +12,12 @@ export function AppLayout({ currentPage, onNavigate, children }: AppLayoutProps)
   return (
     <div className="app-shell">
       <Sidebar currentPage={currentPage} onNavigate={onNavigate} />
-      <div className="app-main">{children}</div>
+      <div className="app-main">
+        <TitleBar>
+
+        </TitleBar>
+        <div className="app-content">{children}</div>
+      </div>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-export type AudioSource = "mic" | "system";
+export type AudioSource = "mic" | "system" | "both";
 
 export type TranscriptionModel = {
   id: string;
@@ -11,9 +11,11 @@ export type TranscriptionModel = {
 export type TranscriptSegment = {
   id: string;
   speaker: string;
+  stream: "mic" | "system";
   text: string;
   isPartial: boolean;
   startMs: number;
+  endMs: number;
 };
 
 export type TranscriptPayload = {

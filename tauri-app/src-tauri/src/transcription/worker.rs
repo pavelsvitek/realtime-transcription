@@ -37,8 +37,11 @@ pub fn run_worker<E>(
             }
         };
 
-        let rms = mic_input::compute_rms(&chunk);
-        emit(TranscriptEvent::MicLevel(MicLevel { rms }));
+        // Only the mic stream drives the mic-level indicator; system level is not meaningful.
+        if labels.stream == crate::transcription::labels::MIC_STREAM {
+            let rms = mic_input::compute_rms(&chunk);
+            emit(TranscriptEvent::MicLevel(MicLevel { rms }));
+        }
 
         match pipeline.push_mono(&chunk) {
             Ok(Some(output)) => {
@@ -126,7 +129,7 @@ fn emit_process_output<E>(
             text,
             start_ms,
             end_ms,
-            segment_id: "tentative".into(),
+            segment_id: format!("tentative-{}", labels.stream),
         }));
     }
 }
@@ -215,7 +218,33 @@ mod tests {
                 assert_eq!(p.text, "testing now");
                 assert_eq!(p.start_ms, 1000);
                 assert_eq!(p.end_ms, 2000);
-                assert_eq!(p.segment_id, "tentative");
+                assert_eq!(p.segment_id, "tentative-mic");
+            }
+            _ => panic!("Expected Partial event"),
+        }
+    }
+
+    #[test]
+    fn partial_segment_id_is_stream_scoped() {
+        let counter = Arc::new(std::sync::atomic::AtomicU64::new(0));
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let events_clone = events.clone();
+        let emit = move |event: TranscriptEvent| {
+            events_clone.lock().unwrap().push(event);
+        };
+
+        let sys_labels = StreamLabels {
+            speaker: labels::REMOTE,
+            stream: labels::SYSTEM_STREAM,
+        };
+        let tentative = vec![word("remote", 0.0, 0.5)];
+        emit_process_output(&[], &tentative, sys_labels, &emit, &counter);
+
+        let events = events.lock().unwrap();
+        match &events[0] {
+            TranscriptEvent::Partial(p) => {
+                assert_eq!(p.segment_id, "tentative-system");
+                assert_eq!(p.stream, "system");
             }
             _ => panic!("Expected Partial event"),
         }

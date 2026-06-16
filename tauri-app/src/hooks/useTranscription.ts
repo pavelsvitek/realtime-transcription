@@ -13,6 +13,7 @@ import {
   EVENT_TRANSCRIPT_PARTIAL,
   EVENT_TRANSCRIPTION_STATUS,
 } from "../lib/tauri-events";
+import { applyTranscriptEvent } from "../lib/transcript-timeline";
 
 const MODEL_STORAGE_KEY = "transcription-model";
 
@@ -74,25 +75,9 @@ export function useTranscription() {
       const unlistenPartial = await listen<TranscriptPayload>(
         EVENT_TRANSCRIPT_PARTIAL,
         (event) => {
-          const payload = event.payload;
-          setSegments((prev) => {
-            const idx = prev.findIndex(
-              (s) => s.isPartial && s.id === "tentative"
-            );
-            const segment: TranscriptSegment = {
-              id: "tentative",
-              speaker: payload.speaker,
-              text: payload.text,
-              isPartial: true,
-              startMs: payload.startMs,
-            };
-            if (idx >= 0) {
-              const next = [...prev];
-              next[idx] = segment;
-              return next;
-            }
-            return [...prev, segment];
-          });
+          setSegments((prev) =>
+            applyTranscriptEvent(prev, event.payload, "partial")
+          );
         }
       );
       if (cancelled) {
@@ -104,33 +89,9 @@ export function useTranscription() {
       const unlistenCommit = await listen<TranscriptPayload>(
         EVENT_TRANSCRIPT_COMMIT,
         (event) => {
-          const payload = event.payload;
-          setSegments((prev) => {
-            const withoutTentative = prev.filter(
-              (s) => !(s.isPartial && s.id === "tentative")
-            );
-
-            const last = withoutTentative[withoutTentative.length - 1];
-            if (last && !last.isPartial && last.speaker === payload.speaker) {
-              const updated = [...withoutTentative];
-              updated[updated.length - 1] = {
-                ...last,
-                text: last.text + " " + payload.text,
-              };
-              return updated;
-            }
-
-            return [
-              ...withoutTentative,
-              {
-                id: payload.segmentId,
-                speaker: payload.speaker,
-                text: payload.text,
-                isPartial: false,
-                startMs: payload.startMs,
-              },
-            ];
-          });
+          setSegments((prev) =>
+            applyTranscriptEvent(prev, event.payload, "commit")
+          );
         }
       );
       if (cancelled) {

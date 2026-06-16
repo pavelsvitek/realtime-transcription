@@ -33,5 +33,9 @@ pub fn open_capture(
                 _guard: CaptureGuard::System(opened),
             })
         }
+        AudioSource::Both => {
+            // `Both` is a session-level mode; callers must open Mic and SystemAudio separately.
+            panic!("open_capture called with AudioSource::Both — open each stream individually");
+        }
     }
 }

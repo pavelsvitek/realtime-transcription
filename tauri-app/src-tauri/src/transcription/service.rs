@@ -18,12 +18,19 @@ use crate::transcription::worker;
 
 const AUDIO_CHANNEL_BOUND: usize = 64;
 
-struct RunningState {
-    stop_flag: Arc<AtomicBool>,
+/// One capture + worker pair for a single audio stream.
+struct StreamPair {
     worker_handle: JoinHandle<()>,
     _capture: capture::OpenedCapture,
+}
+
+struct RunningState {
+    stop_flag: Arc<AtomicBool>,
     source: AudioSource,
-    labels: crate::transcription::audio_source::StreamLabels,
+    /// Present when `source` is `Mic` or `Both`.
+    mic: Option<StreamPair>,
+    /// Present when `source` is `SystemAudio` or `Both`.
+    system: Option<StreamPair>,
 }
 
 pub struct TranscriptionService {
@@ -118,49 +125,63 @@ impl TranscriptionService {
         let models = models_guard.as_ref().unwrap();
         let model_name = models.model_name.clone();
 
-        let (audio_tx, audio_rx) = mpsc::sync_channel::<Vec<f32>>(AUDIO_CHANNEL_BOUND);
-        let opened = capture::open_capture(source, audio_tx)
-            .map_err(|e| AppError::Capture(format!("{e:#}")))?;
-
-        let pipeline = models
-            .create_pipeline(&config.language, opened.sample_rate)
-            .map_err(|e| AppError::Asr(format!("{e:#}")))?;
-
-        let stream_labels = source.labels();
         let stop_flag = Arc::new(AtomicBool::new(false));
-        let stop_clone = stop_flag.clone();
         let counter = self.segment_counter.clone();
         let transcript = self.transcript.clone();
-        let emit_app = app_handle.clone();
 
-        let worker_handle = std::thread::Builder::new()
-            .name("transcription-worker".into())
-            .spawn(move || {
-                let emit = |event: TranscriptEvent| {
-                    if let TranscriptEvent::Commit(c) = &event {
-                        transcript.append_commit(&c.text);
-                    }
-                    if let Some(app) = &emit_app {
-                        emit_to_app(app, event);
-                    }
-                };
-                worker::run_worker(
-                    audio_rx,
-                    pipeline,
-                    stream_labels,
-                    emit,
-                    stop_clone,
+        let (mic, system) = match source {
+            AudioSource::Both => {
+                let mic = spawn_stream_worker(
+                    AudioSource::Mic,
+                    models,
+                    &config.language,
+                    stop_flag.clone(),
+                    counter.clone(),
+                    transcript.clone(),
+                    app_handle.clone(),
+                )?;
+                let system = spawn_stream_worker(
+                    AudioSource::SystemAudio,
+                    models,
+                    &config.language,
+                    stop_flag.clone(),
                     counter,
-                );
-            })
-            .map_err(|e| AppError::Capture(format!("Failed to spawn worker: {e}")))?;
+                    transcript,
+                    app_handle.clone(),
+                )?;
+                (Some(mic), Some(system))
+            }
+            AudioSource::Mic => {
+                let pair = spawn_stream_worker(
+                    AudioSource::Mic,
+                    models,
+                    &config.language,
+                    stop_flag.clone(),
+                    counter,
+                    transcript,
+                    app_handle.clone(),
+                )?;
+                (Some(pair), None)
+            }
+            AudioSource::SystemAudio => {
+                let pair = spawn_stream_worker(
+                    AudioSource::SystemAudio,
+                    models,
+                    &config.language,
+                    stop_flag.clone(),
+                    counter,
+                    transcript,
+                    app_handle.clone(),
+                )?;
+                (None, Some(pair))
+            }
+        };
 
         *running = Some(RunningState {
             stop_flag,
-            worker_handle,
-            _capture: opened,
             source,
-            labels: stream_labels,
+            mic,
+            system,
         });
 
         drop(models_guard);
@@ -240,10 +261,22 @@ impl TranscriptionService {
         tracing::info!("Stopping transcription");
 
         state.stop_flag.store(true, Ordering::Relaxed);
-        drop(state._capture);
 
-        if let Err(e) = state.worker_handle.join() {
-            tracing::error!("Worker thread panicked: {e:?}");
+        // Drop captures first to close audio channels, then join workers.
+        // Both captures must be closed before either join so workers can drain and exit.
+        let pairs: Vec<StreamPair> = [state.mic, state.system].into_iter().flatten().collect();
+        let handles: Vec<JoinHandle<()>> = pairs
+            .into_iter()
+            .map(|StreamPair { worker_handle, _capture }| {
+                drop(_capture);
+                worker_handle
+            })
+            .collect();
+
+        for handle in handles {
+            if let Err(e) = handle.join() {
+                tracing::error!("Worker thread panicked: {e:?}");
+            }
         }
 
         let export = self.build_export(state.source, self.transcript.text());
@@ -286,16 +319,63 @@ impl TranscriptionService {
     }
 
     fn build_export(&self, source: AudioSource, text: String) -> TranscriptExport {
-        let labels = source.labels();
+        let (speaker, stream) = match source {
+            AudioSource::Both => ("Both".to_string(), "both".to_string()),
+            s => {
+                let labels = s.labels();
+                (labels.speaker.to_string(), labels.stream.to_string())
+            }
+        };
         let word_count = text.split_whitespace().count();
         TranscriptExport {
             text,
             word_count,
-            speaker: labels.speaker.to_string(),
-            stream: labels.stream.to_string(),
+            speaker,
+            stream,
             source: source.as_str().to_string(),
         }
     }
+}
+
+/// Opens a single audio capture, creates an ASR pipeline, and spawns a worker thread.
+///
+/// `source` must be `Mic` or `SystemAudio` — never `Both`.
+fn spawn_stream_worker(
+    source: AudioSource,
+    models: &LoadedModels,
+    language: &str,
+    stop_flag: Arc<AtomicBool>,
+    segment_counter: Arc<AtomicU64>,
+    transcript: TranscriptStore,
+    app_handle: Option<AppHandle>,
+) -> Result<StreamPair, AppError> {
+    let (audio_tx, audio_rx) = mpsc::sync_channel::<Vec<f32>>(AUDIO_CHANNEL_BOUND);
+    let opened = capture::open_capture(source, audio_tx)
+        .map_err(|e| AppError::Capture(format!("{e:#}")))?;
+    let pipeline = models
+        .create_pipeline(language, opened.sample_rate)
+        .map_err(|e| AppError::Asr(format!("{e:#}")))?;
+    let labels = source.labels();
+
+    let worker_handle = std::thread::Builder::new()
+        .name(format!("transcription-worker-{}", source.as_str()))
+        .spawn(move || {
+            let emit = |event: TranscriptEvent| {
+                if let TranscriptEvent::Commit(c) = &event {
+                    transcript.append_commit(&c.text);
+                }
+                if let Some(app) = &app_handle {
+                    emit_to_app(app, event);
+                }
+            };
+            worker::run_worker(audio_rx, pipeline, labels, emit, stop_flag, segment_counter);
+        })
+        .map_err(|e| AppError::Capture(format!("Failed to spawn worker: {e}")))?;
+
+    Ok(StreamPair {
+        worker_handle,
+        _capture: opened,
+    })
 }
 
 fn emit_to_app(app_handle: &AppHandle, event: TranscriptEvent) {

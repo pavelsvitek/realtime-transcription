@@ -9,6 +9,8 @@ pub enum AudioSource {
     Mic,
     /// macOS ScreenCaptureKit — captures Chrome (or display audio as fallback).
     SystemAudio,
+    /// Open mic and system audio simultaneously, running independent ASR pipelines.
+    Both,
 }
 
 impl AudioSource {
@@ -16,6 +18,7 @@ impl AudioSource {
         match s {
             "mic" => Some(Self::Mic),
             "system" | "system_audio" => Some(Self::SystemAudio),
+            "both" => Some(Self::Both),
             _ => None,
         }
     }
@@ -41,9 +44,14 @@ impl AudioSource {
         match self {
             Self::Mic => "mic",
             Self::SystemAudio => "system",
+            Self::Both => "both",
         }
     }
 
+    /// Returns stream labels for single-source modes.
+    ///
+    /// Panics on `Both` — callers handling `Both` must use
+    /// `AudioSource::Mic.labels()` and `AudioSource::SystemAudio.labels()` directly.
     pub fn labels(self) -> StreamLabels {
         match self {
             Self::Mic => StreamLabels {
@@ -54,6 +62,10 @@ impl AudioSource {
                 speaker: labels::REMOTE,
                 stream: labels::SYSTEM_STREAM,
             },
+            Self::Both => panic!(
+                "AudioSource::Both has no single stream labels; \
+                 use AudioSource::Mic.labels() and AudioSource::SystemAudio.labels() separately"
+            ),
         }
     }
 }
@@ -70,5 +82,22 @@ mod tests {
             Some(AudioSource::SystemAudio)
         );
         assert_eq!(AudioSource::parse("unknown"), None);
+    }
+
+    #[test]
+    fn parse_both() {
+        assert_eq!(AudioSource::parse("both"), Some(AudioSource::Both));
+        assert_eq!(AudioSource::Both.as_str(), "both");
+    }
+
+    #[test]
+    fn labels_for_individual_sources() {
+        let mic = AudioSource::Mic.labels();
+        assert_eq!(mic.speaker, "User");
+        assert_eq!(mic.stream, "mic");
+
+        let sys = AudioSource::SystemAudio.labels();
+        assert_eq!(sys.speaker, "Remote");
+        assert_eq!(sys.stream, "system");
     }
 }

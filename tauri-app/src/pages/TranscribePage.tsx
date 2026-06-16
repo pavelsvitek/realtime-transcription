@@ -55,6 +55,7 @@ export function TranscribePage() {
             >
               <option value="system">Chrome / system audio</option>
               <option value="mic">Microphone</option>
+              <option value="both">Mic + system</option>
             </select>
           </label>
           <MicIndicator
@@ -100,9 +101,11 @@ export function TranscribePage() {
       <footer className="page-footer">
         <span className="status-text">
           {isActive
-            ? audioSource === "system"
-              ? "Capturing Chrome audio..."
-              : "Listening..."
+            ? audioSource === "both"
+              ? "Capturing mic + system audio..."
+              : audioSource === "system"
+                ? "Capturing Chrome audio..."
+                : "Listening..."
             : segments.length > 0
               ? `${segments.filter((s) => !s.isPartial).length} segments`
               : "Ready"}
