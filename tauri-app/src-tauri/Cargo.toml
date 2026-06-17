@@ -22,11 +22,7 @@ tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-yamabiko-whisper = { version = "0.2", features = ["metal"] }
-coreml-native = { version = "0.2", features = ["ndarray"] }
-tokenizers = "0.21"
-rustfft = "6"
-ndarray = "0.16"
+base64 = "0.22"
 cpal = "0.17"
 tokio = { version = "1", features = ["sync"] }
 thiserror = "2"
@@ -37,4 +33,3 @@ uuid = { version = "1", features = ["v4"] }
 
 [dev-dependencies]
 serial_test = "3"
-

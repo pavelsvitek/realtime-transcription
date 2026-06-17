@@ -32,8 +32,6 @@ pub fn run() {
         .manage(TranscriptionHandle::default())
         .invoke_handler(tauri::generate_handler![
             greet,
-            commands::transcription::list_transcription_models,
-            commands::transcription::set_transcription_model,
             commands::transcription::start_transcription,
             commands::transcription::stop_transcription,
             commands::transcription::export_transcript,

@@ -44,7 +44,7 @@ fn eval_phase1_transcript_against_reference() {
 }
 
 #[test]
-#[ignore = "requires macOS, Whisper models, system audio permission, ffplay (~90s)"]
+#[ignore = "requires macOS, WhisperKit helper/model setup, system audio permission, ffplay (~90s)"]
 fn golden_system_audio_e2e() {
     if std::env::consts::OS != "macos" {
         eprintln!("Skipping: macOS only");
@@ -101,20 +101,14 @@ fn golden_system_audio_e2e() {
 
     assert_eq!(report.duplicate_bigram_count, 0, "duplicate bigrams detected");
 
-    // Headless loopback often drops frames under load; Phase 1 manual capture is the
-    // regression baseline. Set GOLDEN_E2E_MAX_WER (e.g. 0.55) to enforce a quality gate.
-    if let Ok(max) = std::env::var("GOLDEN_E2E_MAX_WER") {
-        let max: f64 = max.parse().expect("GOLDEN_E2E_MAX_WER must be a float");
-        assert!(
-            report.wer < max,
-            "WER {:.1}% exceeds GOLDEN_E2E_MAX_WER={}",
-            report.wer * 100.0,
-            max
-        );
-    } else {
-        eprintln!(
-            "E2E smoke passed (non-empty, no dup bigrams). \
-             Set GOLDEN_E2E_MAX_WER to enforce WER threshold."
-        );
-    }
+    let max = std::env::var("GOLDEN_E2E_MAX_WER")
+        .ok()
+        .map(|raw| raw.parse().expect("GOLDEN_E2E_MAX_WER must be a float"))
+        .unwrap_or(0.08);
+    assert!(
+        report.wer < max,
+        "WER {:.1}% exceeds GOLDEN_E2E_MAX_WER={}",
+        report.wer * 100.0,
+        max
+    );
 }

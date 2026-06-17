@@ -66,7 +66,6 @@ struct PipelineTranscripts {
     committed_only: String,
     with_finish: String,
     asr_passes: u64,
-    audio_sec: f64,
 }
 
 fn transcribe_from_pcm(
@@ -77,22 +76,26 @@ fn transcribe_from_pcm(
     chunk_samples: usize,
 ) -> PipelineTranscripts {
     let mut pipeline = models
-        .create_pipeline(language, sample_rate)
+        .create_pipeline(language, sample_rate, "system")
         .expect("create pipeline");
 
     let mut committed_only = String::new();
     let mut asr_passes = 0u64;
 
     for chunk in pcm.chunks(chunk_samples.max(1)) {
-        if let Ok(Some(output)) = pipeline.push_mono(chunk) {
-            asr_passes += 1;
-            if !output.committed.is_empty() {
-                let text = join_words(&output.committed);
-                if !committed_only.is_empty() {
-                    committed_only.push(' ');
+        match pipeline.push_mono(chunk) {
+            Ok(Some(output)) => {
+                asr_passes += 1;
+                if !output.committed.is_empty() {
+                    let text = join_words(&output.committed);
+                    if !committed_only.is_empty() {
+                        committed_only.push(' ');
+                    }
+                    committed_only.push_str(&text);
                 }
-                committed_only.push_str(&text);
             }
+            Ok(None) => {}
+            Err(e) => panic!("push_mono: {e:#}"),
         }
     }
 
@@ -110,7 +113,6 @@ fn transcribe_from_pcm(
         committed_only,
         with_finish,
         asr_passes,
-        audio_sec: pcm.len() as f64 / sample_rate as f64,
     }
 }
 
@@ -128,14 +130,14 @@ fn print_wer(label: &str, hypothesis: &str, reference: &str) -> tauri_app_lib::W
 }
 
 #[test]
-#[ignore = "requires Whisper models and ffmpeg (~60s)"]
+#[ignore = "requires WhisperKit helper/model setup and ffmpeg (~60s)"]
 fn diagnose_model_vs_commit_strategy() {
     let root = app_root();
     let video = root.join("test-youtube-video.mp4");
     assert!(video.exists(), "missing {}", video.display());
 
     let config = AppConfig::load();
-    config.validate().expect("model paths");
+    config.validate().expect("WhisperKit setup");
     let models = LoadedModels::load(&config).expect("load models");
 
     // Match typical macOS loopback capture: 48 kHz, ~21 ms cpal callbacks.
@@ -197,6 +199,6 @@ fn diagnose_model_vs_commit_strategy() {
         );
     }
 
-    assert!(!file.committed_only.is_empty());
-    assert!(file_committed.wer < 0.60, "file pipeline WER sanity");
+    assert!(!file.with_finish.is_empty());
+    assert!(file_finished.wer < 0.10, "file pipeline WER sanity");
 }

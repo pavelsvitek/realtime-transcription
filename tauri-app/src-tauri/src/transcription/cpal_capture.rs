@@ -1,7 +1,6 @@
 use cpal::traits::{DeviceTrait, StreamTrait};
-use cpal::{SampleFormat, SizedSample, StreamConfig};
+use cpal::{FromSample, Sample, SampleFormat, SizedSample, StreamConfig};
 use std::sync::mpsc;
-use yamabiko_whisper::{downmix_interleaved, AudioSample};
 
 pub struct OpenedCpalStream {
     pub stream: cpal::Stream,
@@ -84,7 +83,8 @@ fn build_input_stream<T>(
     sender: mpsc::SyncSender<Vec<f32>>,
 ) -> anyhow::Result<cpal::Stream>
 where
-    T: SizedSample + AudioSample + Send + 'static,
+    T: SizedSample + Sample + Send + 'static,
+    f32: FromSample<T>,
 {
     Ok(device.build_input_stream(
         config,
@@ -99,4 +99,24 @@ where
         },
         None,
     )?)
+}
+
+fn downmix_interleaved<T>(data: &[T], channels: usize) -> Vec<f32>
+where
+    T: Sample,
+    f32: FromSample<T>,
+{
+    if channels <= 1 {
+        return data.iter().map(|sample| sample.to_sample::<f32>()).collect();
+    }
+
+    let mut mono = Vec::with_capacity(data.len() / channels);
+    for frame in data.chunks_exact(channels) {
+        let sum: f32 = frame
+            .iter()
+            .map(|sample| sample.to_sample::<f32>())
+            .sum();
+        mono.push(sum / channels as f32);
+    }
+    mono
 }

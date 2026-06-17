@@ -1,22 +1,10 @@
-use yamabiko_whisper::{AsrPipeline as WhisperPipeline, Word};
-
-use super::canary::CanaryEngine;
+use super::whisperkit::WhisperkitPipeline;
 
 #[derive(Debug, Clone)]
 pub struct AsrWord {
     pub text: String,
     pub start: f64,
     pub end: f64,
-}
-
-impl From<&Word> for AsrWord {
-    fn from(word: &Word) -> Self {
-        Self {
-            text: word.text.clone(),
-            start: word.start,
-            end: word.end,
-        }
-    }
 }
 
 #[derive(Debug, Default)]
@@ -31,35 +19,20 @@ impl AsrOutput {
     }
 }
 
-pub enum StreamingPipeline {
-    Whisper(WhisperPipeline),
-    Canary(CanaryEngine),
+pub struct StreamingPipeline {
+    helper: WhisperkitPipeline,
 }
 
 impl StreamingPipeline {
+    pub fn new(helper: WhisperkitPipeline) -> Self {
+        Self { helper }
+    }
+
     pub fn push_mono(&mut self, samples: &[f32]) -> anyhow::Result<Option<AsrOutput>> {
-        match self {
-            Self::Whisper(pipeline) => {
-                let output = pipeline.push_mono(samples)?;
-                Ok(output.map(|out| AsrOutput {
-                    committed: out.committed.iter().map(AsrWord::from).collect(),
-                    tentative: out.tentative.iter().map(AsrWord::from).collect(),
-                }))
-            }
-            Self::Canary(engine) => engine.push_mono(samples),
-        }
+        self.helper.push_mono(samples)
     }
 
     pub fn finish(&mut self) -> anyhow::Result<AsrOutput> {
-        match self {
-            Self::Whisper(pipeline) => {
-                let output = pipeline.finish()?;
-                Ok(AsrOutput {
-                    committed: output.committed.iter().map(AsrWord::from).collect(),
-                    tentative: output.tentative.iter().map(AsrWord::from).collect(),
-                })
-            }
-            Self::Canary(engine) => engine.finish(),
-        }
+        self.helper.finish()
     }
 }

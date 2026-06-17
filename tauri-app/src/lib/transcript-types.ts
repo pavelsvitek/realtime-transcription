@@ -1,13 +1,5 @@
 export type AudioSource = "mic" | "system" | "both";
 
-export type TranscriptionModel = {
-  id: string;
-  name: string;
-  available: boolean;
-  unavailableReason?: string;
-};
-
-
 export type TranscriptSegment = {
   id: string;
   speaker: string;

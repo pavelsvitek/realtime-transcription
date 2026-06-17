@@ -1,17 +1,14 @@
 use std::path::PathBuf;
 
-use crate::transcription::model::{self, ModelId};
+use crate::transcription::whisperkit::{self, ModelMetadata};
 
-const DEFAULT_WHISPER_MODEL: &str = "ggml-small.en.bin";
-const PREFERRED_WHISPER_MODEL: &str = "ggml-large-v3-turbo.bin";
-const DEFAULT_VAD_MODEL: &str = "ggml-silero-v6.2.0.bin";
 const APP_SUPPORT_SUBDIR: &str = "com.pavel.tauri-app/models";
 
 #[derive(Debug, Clone)]
 pub struct AppConfig {
-    pub model_id: ModelId,
-    pub whisper_model_path: PathBuf,
-    pub vad_model_path: PathBuf,
+    pub helper_path: PathBuf,
+    pub model_cache_dir: PathBuf,
+    pub model_metadata: ModelMetadata,
     pub sample_rate: u32,
     pub channels: u16,
     pub language: String,
@@ -19,43 +16,30 @@ pub struct AppConfig {
 
 impl AppConfig {
     pub fn load() -> Self {
-        let model_id = ModelId::default_selection();
-        Self::for_model(model_id)
-    }
-
-    pub fn for_model(model_id: ModelId) -> Self {
-        let models_dir = Self::default_models_dir();
-
-        let whisper_model_path = std::env::var("WHISPER_MODEL_PATH")
+        let model_cache_dir = Self::default_model_cache_dir();
+        let helper_path = std::env::var("WHISPERKIT_BRIDGE_PATH")
             .map(PathBuf::from)
-            .unwrap_or_else(|_| {
-                model_id
-                    .whisper_model_path(&models_dir)
-                    .unwrap_or_else(|| Self::default_whisper_model_path(&models_dir))
+            .unwrap_or_else(|_| Self::default_helper_path());
+        let model_metadata = whisperkit::validate_installation(&helper_path, &model_cache_dir)
+            .unwrap_or_else(|_| ModelMetadata {
+                model: whisperkit::MODEL_NAME.into(),
+                model_path: String::new(),
+                cache_dir: model_cache_dir.to_string_lossy().into_owned(),
+                downloaded_at: String::new(),
             });
 
-        let vad_model_path = std::env::var("VAD_MODEL_PATH")
-            .map(PathBuf::from)
-            .unwrap_or_else(|_| models_dir.join(DEFAULT_VAD_MODEL));
-
         Self {
-            model_id,
-            whisper_model_path,
-            vad_model_path,
+            helper_path,
+            model_cache_dir,
+            model_metadata,
             sample_rate: 16_000,
             channels: 1,
             language: "en".into(),
         }
     }
 
-    /// Prefer `ggml-large-v3-turbo.bin` when present, else `ggml-small.en.bin`.
-    pub fn default_whisper_model_path(models_dir: &std::path::Path) -> PathBuf {
-        let preferred = models_dir.join(PREFERRED_WHISPER_MODEL);
-        if preferred.exists() {
-            preferred
-        } else {
-            models_dir.join(DEFAULT_WHISPER_MODEL)
-        }
+    pub fn validate(&self) -> Result<(), String> {
+        whisperkit::validate_installation(&self.helper_path, &self.model_cache_dir).map(|_| ())
     }
 
     pub fn default_models_dir() -> PathBuf {
@@ -65,89 +49,33 @@ impl AppConfig {
             .join(APP_SUPPORT_SUBDIR)
     }
 
-    pub fn validate(&self) -> Result<(), String> {
-        match self.model_id {
-            ModelId::WhisperSmallEn | ModelId::WhisperLargeV3Turbo => {
-                if !self.whisper_model_path.exists() {
-                    return Err(format!(
-                        "Whisper model not found at {}",
-                        self.whisper_model_path.display()
-                    ));
-                }
-                if !self.vad_model_path.exists() {
-                    return Err(format!(
-                        "VAD model not found at {}",
-                        self.vad_model_path.display()
-                    ));
-                }
-            }
-            ModelId::CanaryQwenCoreML => {
-                let (available, reason) =
-                    model::check_canary_available_public(&model::canary_models_dir());
-                if !available {
-                    return Err(reason.unwrap_or_else(|| "Canary model unavailable".into()));
-                }
-            }
-        }
-        Ok(())
+    pub fn default_model_cache_dir() -> PathBuf {
+        Self::default_models_dir().join(whisperkit::CACHE_SUBDIR)
+    }
+
+    pub fn default_helper_path() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("src-tauri has parent")
+            .join("whisperkit-helper/.build/release/whisperkit-bridge")
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serial_test::serial;
 
     #[test]
-    #[serial]
-    fn env_var_overrides_default_whisper_path() {
-        let custom = "/tmp/test-model.bin";
-        std::env::set_var("WHISPER_MODEL_PATH", custom);
-        let config = AppConfig::load();
-        std::env::remove_var("WHISPER_MODEL_PATH");
-
-        assert_eq!(config.whisper_model_path, PathBuf::from(custom));
-    }
-
-    #[test]
-    #[serial]
-    fn env_var_overrides_default_vad_path() {
-        let custom = "/tmp/test-vad.bin";
-        std::env::set_var("VAD_MODEL_PATH", custom);
-        let config = AppConfig::load();
-        std::env::remove_var("VAD_MODEL_PATH");
-
-        assert_eq!(config.vad_model_path, PathBuf::from(custom));
-    }
-
-    #[test]
-    #[serial]
     fn defaults_use_app_support_dir() {
-        std::env::remove_var("WHISPER_MODEL_PATH");
-        std::env::remove_var("VAD_MODEL_PATH");
         let config = AppConfig::load();
-        let path = config.whisper_model_path.to_string_lossy();
-
-        assert!(path.contains(APP_SUPPORT_SUBDIR));
-        assert!(
-            path.ends_with(DEFAULT_WHISPER_MODEL) || path.ends_with(PREFERRED_WHISPER_MODEL),
-            "unexpected default whisper path: {path}"
-        );
+        let cache = config.model_cache_dir.to_string_lossy();
+        assert!(cache.contains(APP_SUPPORT_SUBDIR));
+        assert!(cache.ends_with(whisperkit::CACHE_SUBDIR));
     }
 
     #[test]
-    fn validate_fails_for_missing_model() {
-        let config = AppConfig {
-            model_id: ModelId::WhisperSmallEn,
-            whisper_model_path: PathBuf::from("/nonexistent/model.bin"),
-            vad_model_path: PathBuf::from("/nonexistent/vad.bin"),
-            sample_rate: 16_000,
-            channels: 1,
-            language: "en".into(),
-        };
-
-        let result = config.validate();
-        assert!(result.is_err());
-        assert!(result.unwrap_err().contains("Whisper model not found"));
+    fn helper_default_path_points_at_helper_package() {
+        let path = AppConfig::default_helper_path().to_string_lossy().into_owned();
+        assert!(path.contains("whisperkit-helper/.build/release/whisperkit-bridge"));
     }
 }

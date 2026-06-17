@@ -3,7 +3,7 @@
 #
 # Usage:
 #   ./scripts/run-golden-test.sh              # eval Phase 1 transcript vs reference
-#   ./scripts/run-golden-test.sh --e2e        # full macOS loopback + ffplay run (~2 min)
+#   ./scripts/run-golden-test.sh --e2e        # full macOS loopback + ffplay run (~2 min, gated)
 #   ./scripts/run-golden-test.sh --update-baseline
 #
 set -euo pipefail

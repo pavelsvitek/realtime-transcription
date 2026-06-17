@@ -1,45 +1,36 @@
 # Tauri Transcription App
 
-Real-time speech-to-text transcription using [yamabiko-whisper](https://crates.io/crates/yamabiko-whisper) (whisper.cpp + Silero VAD) running locally on-device with Metal acceleration.
+Real-time speech-to-text transcription using a bundled WhisperKit helper on macOS.
 
 ## Prerequisites
 
 - [Rust](https://rustup.rs/) (stable)
 - [Node.js](https://nodejs.org/) + [pnpm](https://pnpm.io/)
-- [CMake](https://cmake.org/) (required by whisper-rs-sys): `brew install cmake`
-- macOS **15.0 (Sequoia) or newer** — required for CoreML stateful inference (Canary model)
+- full Xcode installation with command-line tools selected via `xcode-select`
 - macOS with Apple Silicon (M1+) recommended
 
-## Model Setup (one-time)
+## WhisperKit Setup (one-time)
 
-The app needs two GGML model files. Download them into the app support directory:
-
-```bash
-mkdir -p ~/Library/Application\ Support/com.pavel.tauri-app/models
-cd ~/Library/Application\ Support/com.pavel.tauri-app/models
-
-# Whisper model — large-v3-turbo recommended (~1.5 GB); small.en is a lighter fallback (~466 MB)
-curl -L -O https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin
-# curl -L -O https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin
-
-# Silero VAD model (~885 KB) — must be from ggml-org/whisper-vad, not ggerganov/whisper.cpp
-curl -L -o ggml-silero-v6.2.0.bin https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v6.2.0.bin
-```
-
-Or override paths via environment variables:
+Build the Swift helper and download the WhisperKit model:
 
 ```bash
-export WHISPER_MODEL_PATH=/path/to/your/ggml-small.en.bin
-export VAD_MODEL_PATH=/path/to/your/ggml-silero-v6.2.0.bin
+./scripts/setup-whisperkit.sh
 ```
 
-### Available models
+This builds:
 
-| Model | Size | Speed (Metal) | English WER | Notes |
-| --- | --- | --- | --- | --- |
-| `ggml-large-v3-turbo` | ~1.5 GB | ~8-10x realtime | ~2.5% | **Default when installed** (~9% WER on golden file test) |
-| `ggml-small.en` | ~466 MB | ~6-12x realtime | ~3.4% | Fallback if large model absent (~22% WER on golden file test) |
-| `ggml-base.en` | ~142 MB | ~7-16x realtime | ~5% | Low-power fallback |
+- helper binary: `whisperkit-helper/.build/release/whisperkit-bridge`
+- model cache root: `~/Library/Application Support/com.pavel.tauri-app/models/whisperkit`
+
+The fixed model for this repo is:
+
+- `large-v3-v20240930_626MB`
+
+Optional override for the helper binary:
+
+```bash
+export WHISPERKIT_BRIDGE_PATH=/absolute/path/to/whisperkit-bridge
+```
 
 ## Development
 
@@ -73,7 +64,7 @@ Repeatable WER check against `test-youtube-video.txt` (reference) and `test-yout
 | --- | --- | --- |
 | 1 | Manual capture — play video in Chrome, **Stop**, save transcript to `test-output/transcript.txt` | (UI) |
 | 2–4 | Score hypothesis vs reference, regression vs baseline | `pnpm test:golden` |
-| E2E | Headless system-audio + `ffplay` (~90s, smoke test; WER reported but not gated) | `pnpm test:golden:e2e` |
+| E2E | Headless system-audio + `ffplay` (~2 min, gated) | `pnpm test:golden:e2e` |
 
 Establish or refresh the baseline after a good Phase 1 run:
 
@@ -87,7 +78,14 @@ Artifacts:
 - `test-output/runs/<timestamp>/` — dated eval reports (gitignored)
 - `test-output/e2e-transcript.txt` — output of the E2E test (gitignored)
 
-`stop_transcription` returns a `TranscriptExport` (`text`, `wordCount`, `source`, `exportedAt`) for programmatic export; use `export_transcript` to write a file without stopping.
+Current verification snapshot on June 17, 2026:
+
+- file-pipeline diagnostic WER: `2.8%`
+- headless system-audio E2E WER: `2.8%` via `pnpm test:golden:e2e`
+
+The Rust E2E test now enforces `WER < 8%` by default.
+
+`stop_transcription` returns a `TranscriptExport` for programmatic export; use `export_transcript` to write a file without stopping.
 
 ## Audio input sources
 
@@ -111,6 +109,21 @@ export TRANSCRIPTION_AUDIO_SOURCE=mic   # or system
 3. Click **Start**, then play the video in Chrome.
 4. Transcript lines appear under **Remote** as the video plays.
 5. Click **Stop** when done.
+
+## Realtime Chunking Notes
+
+WhisperKit's public docs and repo confirm realtime microphone streaming and streaming output, but the sources reviewed for this repo do **not** publish one canonical fixed chunk duration for realtime decoding.
+
+Relevant public context:
+
+- Whisper-style long-form processing still uses a roughly `30s` receptive-window model internally.
+- NVIDIA's public Canary demo uses `40s` offline-style chunks.
+
+This repo's integration behavior is therefore defined operationally:
+
+- audio capture callbacks are forwarded continuously from Rust to the WhisperKit helper
+- the helper refreshes the live partial transcript after `10s` of new audio to avoid loopback frame drops during expensive re-decodes
+- the final high-accuracy committed transcript is generated on `Stop`
 
 ## Manual Test Plan
 

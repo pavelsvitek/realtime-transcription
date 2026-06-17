@@ -13,10 +13,6 @@ export function TranscribePage() {
     isLoading,
     error,
     model,
-    models,
-    selectedModelId,
-    selectedModel,
-    selectModel,
     start,
     stop,
     clear,
@@ -31,21 +27,6 @@ export function TranscribePage() {
           {model && <span className="model-badge">{model}</span>}
         </div>
         <div className="header-controls">
-          <label className="source-select">
-            <span className="source-select-label">Model</span>
-            <select
-              value={selectedModelId ?? ""}
-              onChange={(e) => selectModel(e.target.value)}
-              disabled={isActive || isLoading || models.length === 0}
-            >
-              {models.map((m) => (
-                <option key={m.id} value={m.id} disabled={!m.available}>
-                  {m.name}
-                  {!m.available ? " (unavailable)" : ""}
-                </option>
-              ))}
-            </select>
-          </label>
           <label className="source-select">
             <span className="source-select-label">Input</span>
             <select
@@ -67,7 +48,7 @@ export function TranscribePage() {
             <button
               className="btn btn-start"
               onClick={() => start(audioSource)}
-              disabled={isLoading || !selectedModel?.available}
+              disabled={isLoading}
             >
               {isLoading ? "Loading model..." : "Start"}
             </button>
@@ -83,12 +64,6 @@ export function TranscribePage() {
           )}
         </div>
       </header>
-
-      {selectedModel && !selectedModel.available && selectedModel.unavailableReason && (
-        <div className="error-banner">
-          {selectedModel.unavailableReason}
-        </div>
-      )}
 
       {error && (
         <div className="error-banner">

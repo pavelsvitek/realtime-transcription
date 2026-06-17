@@ -29,3 +29,5 @@ test-youtube-video.mp4
 test-output/runs/
 test-output/e2e-transcript.txt
 test-output/diagnostic/
+
+whisperkit-helper/.build/
