@@ -4,7 +4,7 @@ overview: Guarantee a complete local model cache (CoreML models + tokenizer + wa
 todos:
   - id: swift-prefetch-all
     content: "Rewrite --download-only to fetch+persist EVERYTHING locally: CoreML models, tokenizer (set tokenizerFolder=cache), write a manifest, and warm CoreML specialization so subsequent loads are offline + fast"
-    status: pending
+    status: in_progress
   - id: swift-load-lifecycle
     content: "Rewrite main.swift init: load from local cache only (tokenizerFolder=cache, download:false), separate loadModels() from init, drop prewarm, verbose logging, cpuAndGPU compute toggle, corrupt-model recovery"
     status: pending
