@@ -26,6 +26,7 @@ impl AppConfig {
                 model_path: String::new(),
                 cache_dir: model_cache_dir.to_string_lossy().into_owned(),
                 downloaded_at: String::new(),
+                tokenizer_path: None,
             });
 
         Self {

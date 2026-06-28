@@ -7,6 +7,7 @@ use std::thread;
 use std::time::Duration;
 
 use tauri_app_lib::evaluate_wer;
+use tauri_app_lib::config::AppConfig;
 use tauri_app_lib::transcription::{AudioSource, TranscriptionService};
 
 fn app_root() -> PathBuf {
@@ -54,6 +55,13 @@ fn golden_system_audio_e2e() {
     let root = app_root();
     let video = root.join("test-youtube-video.mp4");
     assert!(video.exists(), "missing {}", video.display());
+
+    let config = AppConfig::load();
+    config.validate().unwrap_or_else(|err| {
+        panic!(
+            "WhisperKit cache incomplete: {err}\nRun: tauri-app/scripts/setup-whisperkit.sh"
+        );
+    });
 
     let service = TranscriptionService::new();
     service

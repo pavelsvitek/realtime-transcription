@@ -15,6 +15,8 @@ REF="$ROOT/test-youtube-video.txt"
 VIDEO="$ROOT/test-youtube-video.mp4"
 HYP="${HYPOTHESIS:-$ROOT/test-output/transcript.txt}"
 BASELINE="$ROOT/test-output/baseline/report.json"
+CACHE_DIR="$HOME/Library/Application Support/com.pavel.tauri-app/models/whisperkit"
+HELPER_BIN="$ROOT/whisperkit-helper/.build/release/whisperkit-bridge"
 RUN_E2E=0
 UPDATE_BASELINE=0
 SAVE_RUN=1
@@ -42,6 +44,15 @@ run_eval() {
   python3 "$ROOT/scripts/eval_wer.py" "$REF" "$hyp" --baseline "$BASELINE" "${extra[@]}"
 }
 
+ensure_whisperkit_cache() {
+  if [[ ! -x "$HELPER_BIN" ]]; then
+    echo "WhisperKit helper not built. Run tauri-app/scripts/setup-whisperkit.sh first." >&2
+    exit 1
+  fi
+  echo "Ensuring WhisperKit cache is complete (models + tokenizer)..." >&2
+  "$HELPER_BIN" --download-only --cache-dir "$CACHE_DIR"
+}
+
 if [[ "$RUN_E2E" -eq 1 ]]; then
   if [[ "$(uname)" != "Darwin" ]]; then
     echo "E2E golden test requires macOS (system audio loopback)" >&2
@@ -58,6 +69,8 @@ if [[ "$RUN_E2E" -eq 1 ]]; then
 
   E2E_OUT="$ROOT/test-output/e2e-transcript.txt"
   mkdir -p "$ROOT/test-output"
+
+  ensure_whisperkit_cache
 
   echo "Running headless golden E2E (cargo test)..." >&2
   (cd "$ROOT/src-tauri" && cargo test golden_system_audio_e2e -- --ignored --nocapture)

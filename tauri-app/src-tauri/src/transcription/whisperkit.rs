@@ -17,6 +17,13 @@ pub const MODEL_NAME: &str = "large-v3-v20240930_626MB";
 pub const MODEL_DISPLAY_NAME: &str = "WhisperKit large-v3 (626MB)";
 pub const CACHE_SUBDIR: &str = "whisperkit";
 pub const METADATA_FILE: &str = "model-info.json";
+const REQUIRED_MODEL_COMPONENTS: &[&str] = &[
+    "MelSpectrogram.mlmodelc",
+    "AudioEncoder.mlmodelc",
+    "TextDecoder.mlmodelc",
+];
+const INIT_READY_TIMEOUT: Duration = Duration::from_secs(60);
+const INIT_OVERALL_TIMEOUT: Duration = Duration::from_secs(300);
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ModelMetadata {
@@ -27,6 +34,8 @@ pub struct ModelMetadata {
     pub cache_dir: String,
     #[serde(rename = "downloadedAt")]
     pub downloaded_at: String,
+    #[serde(rename = "tokenizerPath")]
+    pub tokenizer_path: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -61,6 +70,8 @@ struct BasicRequest {
 enum HelperResponse {
     #[serde(rename = "ready")]
     Ready { model: String },
+    #[serde(rename = "loading")]
+    Loading { stage: String },
     #[serde(rename = "commit")]
     Commit {
         text: String,
@@ -89,6 +100,8 @@ enum HelperResponse {
         model_path: String,
         #[serde(rename = "cacheDir")]
         cache_dir: String,
+        #[serde(rename = "tokenizerPath")]
+        tokenizer_path: Option<String>,
     },
 }
 
@@ -150,24 +163,45 @@ impl WhisperkitPipeline {
             stream,
         })?;
 
-        match pipeline.responses.recv_timeout(Duration::from_secs(120)) {
-            Ok(Ok(HelperResponse::Ready { model })) => {
-                anyhow::ensure!(
-                    model == MODEL_NAME,
-                    "Helper started with unexpected model {model}"
-                );
-            }
-            Ok(Ok(HelperResponse::Error { message })) => {
-                anyhow::bail!("WhisperKit helper failed during init: {message}");
-            }
-            Ok(Ok(other)) => {
-                anyhow::bail!("Unexpected helper response during init: {other:?}");
-            }
-            Ok(Err(err)) => return Err(err),
-            Err(_) => anyhow::bail!("Timed out waiting for WhisperKit helper to become ready"),
-        }
+        Self::wait_for_ready(&pipeline.responses)?;
 
         Ok(pipeline)
+    }
+
+    fn wait_for_ready(responses: &Receiver<anyhow::Result<HelperResponse>>) -> anyhow::Result<()> {
+        let started = std::time::Instant::now();
+
+        loop {
+            if started.elapsed() >= INIT_OVERALL_TIMEOUT {
+                anyhow::bail!(
+                    "Timed out waiting for WhisperKit helper to become ready after {}s",
+                    INIT_OVERALL_TIMEOUT.as_secs()
+                );
+            }
+
+            match responses.recv_timeout(INIT_READY_TIMEOUT) {
+                Ok(Ok(HelperResponse::Ready { model })) => {
+                    anyhow::ensure!(
+                        model == MODEL_NAME,
+                        "Helper started with unexpected model {model}"
+                    );
+                    return Ok(());
+                }
+                Ok(Ok(HelperResponse::Loading { stage })) => {
+                    tracing::info!(stage = %stage, "WhisperKit helper loading");
+                }
+                Ok(Ok(HelperResponse::Error { message })) => {
+                    anyhow::bail!("WhisperKit helper failed during init: {message}");
+                }
+                Ok(Ok(other)) => {
+                    anyhow::bail!("Unexpected helper response during init: {other:?}");
+                }
+                Ok(Err(err)) => return Err(err),
+                Err(_) => {
+                    tracing::debug!("Still waiting for WhisperKit helper ready...");
+                }
+            }
+        }
     }
 
     pub fn push_mono(&mut self, samples: &[f32]) -> anyhow::Result<Option<AsrOutput>> {
@@ -213,7 +247,9 @@ impl WhisperkitPipeline {
                 }
                 HelperResponse::Error { message } => anyhow::bail!(message),
                 HelperResponse::Finished => break,
-                HelperResponse::Ready { .. } | HelperResponse::Downloaded { .. } => {}
+                HelperResponse::Ready { .. }
+                | HelperResponse::Downloaded { .. }
+                | HelperResponse::Loading { .. } => {}
             }
         }
 
@@ -244,7 +280,11 @@ impl WhisperkitPipeline {
                 }
                 Ok(Ok(HelperResponse::Finished)) => break,
                 Ok(Ok(HelperResponse::Error { message })) => anyhow::bail!(message),
-                Ok(Ok(HelperResponse::Ready { .. } | HelperResponse::Downloaded { .. })) => {}
+                Ok(Ok(
+                    HelperResponse::Ready { .. }
+                    | HelperResponse::Downloaded { .. }
+                    | HelperResponse::Loading { .. }
+                )) => {}
                 Ok(Err(err)) => return Err(err),
                 Err(_) => anyhow::bail!("Timed out waiting for WhisperKit helper to finish"),
             }
@@ -307,7 +347,64 @@ pub fn validate_installation(helper_path: &Path, cache_dir: &Path) -> Result<Mod
         ));
     }
 
+    for component in REQUIRED_MODEL_COMPONENTS {
+        let component_path = model_path.join(component);
+        if !component_path.exists() {
+            return Err(format!(
+                "WhisperKit model component {} is missing at {}. Re-run tauri-app/scripts/setup-whisperkit.sh.",
+                component,
+                component_path.display()
+            ));
+        }
+    }
+
+    if let Some(tokenizer_path) = metadata.tokenizer_path.as_ref() {
+        if !PathBuf::from(tokenizer_path).exists() {
+            return Err(format!(
+                "WhisperKit tokenizer not found at {}. Re-run tauri-app/scripts/setup-whisperkit.sh.",
+                tokenizer_path
+            ));
+        }
+    } else if find_tokenizer_json(cache_dir).is_none() {
+        return Err(format!(
+            "WhisperKit tokenizer is not cached under {}. Re-run tauri-app/scripts/setup-whisperkit.sh.",
+            cache_dir.display()
+        ));
+    }
+
     Ok(metadata)
+}
+
+fn find_tokenizer_json(cache_dir: &Path) -> Option<PathBuf> {
+    let mut matches = Vec::new();
+    collect_tokenizer_json(cache_dir, &mut matches);
+    if let Some(path) = matches
+        .iter()
+        .find(|path| path.to_string_lossy().contains("whisper-large-v3"))
+    {
+        return Some(path.clone());
+    }
+    matches.into_iter().next()
+}
+
+fn collect_tokenizer_json(dir: &Path, matches: &mut Vec<PathBuf>) {
+    let entries = match fs::read_dir(dir) {
+        Ok(entries) => entries,
+        Err(_) => return,
+    };
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            collect_tokenizer_json(&path, matches);
+        } else if path.file_name().and_then(|name| name.to_str()) == Some("tokenizer.json") {
+            matches.push(path);
+        }
+    }
+}
+
+pub fn cache_is_complete(helper_path: &Path, cache_dir: &Path) -> Result<(), String> {
+    validate_installation(helper_path, cache_dir).map(|_| ())
 }
 
 fn spawn_stderr_logger(stderr: ChildStderr) {

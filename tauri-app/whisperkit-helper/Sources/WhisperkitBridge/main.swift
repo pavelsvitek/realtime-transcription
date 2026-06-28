@@ -4,6 +4,11 @@ import WhisperKit
 private let modelName = "large-v3-v20240930_626MB"
 private let metadataFilename = "model-info.json"
 private let minimumRealtimeSamples = WhisperKit.sampleRate * 10
+private let requiredModelComponents = [
+    "MelSpectrogram.mlmodelc",
+    "AudioEncoder.mlmodelc",
+    "TextDecoder.mlmodelc",
+]
 
 private struct InitMessage: Decodable {
     let type: String
@@ -28,11 +33,17 @@ private struct DownloadedMessage: Encodable {
     let model: String
     let modelPath: String
     let cacheDir: String
+    let tokenizerPath: String
 }
 
 private struct ErrorMessage: Encodable {
     let type = "error"
     let message: String
+}
+
+private struct LoadingMessage: Encodable {
+    let type = "loading"
+    let stage: String
 }
 
 private struct ReadyMessage: Encodable {
@@ -63,6 +74,7 @@ private struct ModelMetadata: Codable {
     let modelPath: String
     let cacheDir: String
     let downloadedAt: String
+    let tokenizerPath: String?
 }
 
 private enum BridgeError: Error, LocalizedError {
@@ -70,6 +82,7 @@ private enum BridgeError: Error, LocalizedError {
     case invalidAudio(String)
     case missingMetadata(String)
     case unsupportedModel(String)
+    case incompleteCache(String)
 
     var errorDescription: String? {
         switch self {
@@ -80,6 +93,8 @@ private enum BridgeError: Error, LocalizedError {
         case let .missingMetadata(message):
             return message
         case let .unsupportedModel(message):
+            return message
+        case let .incompleteCache(message):
             return message
         }
     }
@@ -118,10 +133,13 @@ struct WhisperkitBridgeApp {
 
         let cacheDir = URL(fileURLWithPath: initMessage.cacheDir, isDirectory: true)
         let metadata = try loadMetadata(cacheDir: cacheDir)
+        try assertCacheComplete(cacheDir: cacheDir, metadata: metadata)
+
         let session = try await StreamSession(
             language: initMessage.language,
             inputSampleRate: initMessage.sampleRate,
             stream: initMessage.stream,
+            cacheDir: cacheDir,
             modelPath: metadata.modelPath
         )
 
@@ -146,56 +164,151 @@ struct WhisperkitBridgeApp {
         }
     }
 
+    /// Idempotent pre-flight: download, cache tokenizer, warm CoreML specialization.
     private static func downloadOnly(cacheDir: URL) async throws {
         try FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
 
-        let config = WhisperKitConfig(
-            model: modelName,
-            downloadBase: cacheDir,
-            verbose: true,
-            prewarm: true,
-            load: false,
-            download: true,
-            useBackgroundDownloadSession: false
-        )
-        let whisperKit = try await WhisperKit(config)
-        guard let modelFolder = whisperKit.modelFolder else {
-            throw BridgeError.missingMetadata("WhisperKit did not resolve a model folder after download")
+        let existingMetadata = try? loadMetadata(cacheDir: cacheDir)
+        if isCacheComplete(cacheDir: cacheDir, metadata: existingMetadata) {
+            let metadata = existingMetadata!
+            let tokenizerPath = metadata.tokenizerPath ?? findTokenizerJSON(in: cacheDir)?.path ?? ""
+            emit(DownloadedMessage(
+                model: modelName,
+                modelPath: metadata.modelPath,
+                cacheDir: cacheDir.path,
+                tokenizerPath: tokenizerPath
+            ))
+            return
         }
+
+        emit(LoadingMessage(stage: "downloading_models"))
+
+        let modelPath: String
+        if let metadata = existingMetadata,
+           FileManager.default.fileExists(atPath: metadata.modelPath),
+           modelComponentsExist(at: URL(fileURLWithPath: metadata.modelPath)) {
+            modelPath = metadata.modelPath
+        } else {
+            let downloadConfig = WhisperKitConfig(
+                model: modelName,
+                downloadBase: cacheDir,
+                tokenizerFolder: cacheDir,
+                computeOptions: computeOptions(),
+                verbose: true,
+                logLevel: .info,
+                prewarm: false,
+                load: false,
+                download: true,
+                useBackgroundDownloadSession: true
+            )
+            let downloader = try await WhisperKit(downloadConfig)
+            guard let modelFolder = downloader.modelFolder else {
+                throw BridgeError.missingMetadata("WhisperKit did not resolve a model folder after download")
+            }
+            modelPath = modelFolder.path
+        }
+
+        emit(LoadingMessage(stage: "loading_models"))
+        let whisperKit = try await loadWhisperKitOffline(
+            cacheDir: cacheDir,
+            modelFolder: modelPath
+        )
+
+        guard let tokenizerPath = findTokenizerJSON(in: cacheDir)?.path else {
+            throw BridgeError.incompleteCache(
+                "Tokenizer was not cached under \(cacheDir.path) after setup. Check network and re-run tauri-app/scripts/setup-whisperkit.sh."
+            )
+        }
+
+        try assertModelComponents(at: URL(fileURLWithPath: modelPath))
 
         let metadata = ModelMetadata(
             model: modelName,
-            modelPath: modelFolder.path,
+            modelPath: modelPath,
             cacheDir: cacheDir.path,
-            downloadedAt: ISO8601DateFormatter().string(from: Date())
+            downloadedAt: ISO8601DateFormatter().string(from: Date()),
+            tokenizerPath: tokenizerPath
         )
 
         let metadataURL = cacheDir.appending(path: metadataFilename)
         let data = try JSONEncoder().encode(metadata)
         try data.write(to: metadataURL, options: .atomic)
 
-        emit(DownloadedMessage(model: modelName, modelPath: modelFolder.path, cacheDir: cacheDir.path))
-    }
+        await whisperKit.unloadModels()
 
-    private static func cacheDirectory(from args: [String]) throws -> URL {
+        emit(DownloadedMessage(
+            model: modelName,
+            modelPath: modelPath,
+            cacheDir: cacheDir.path,
+            tokenizerPath: tokenizerPath
+        ))
+    }
+}
+
+private func loadWhisperKitOffline(
+    cacheDir: URL,
+    modelFolder: String
+) async throws -> WhisperKit {
+        emit(LoadingMessage(stage: "setup"))
+
+        let config = WhisperKitConfig(
+            model: modelName,
+            downloadBase: cacheDir,
+            modelFolder: modelFolder,
+            tokenizerFolder: cacheDir,
+            computeOptions: computeOptions(),
+            verbose: true,
+            logLevel: .info,
+            prewarm: false,
+            load: false,
+            download: false,
+            useBackgroundDownloadSession: true
+        )
+
+        let whisperKit = try await WhisperKit(config)
+
+        emit(LoadingMessage(stage: "specializing"))
+        do {
+            try await whisperKit.loadModels()
+        } catch {
+            throw BridgeError.missingMetadata(
+                "Failed to load WhisperKit models from local cache. Re-run tauri-app/scripts/setup-whisperkit.sh. Error: \(error.localizedDescription)"
+            )
+        }
+
+    return whisperKit
+}
+
+private func computeOptions() -> ModelComputeOptions {
+        let useANE = ProcessInfo.processInfo.environment["WHISPERKIT_USE_ANE"] == "1"
+        if useANE {
+            return ModelComputeOptions()
+        }
+        return ModelComputeOptions(
+            audioEncoderCompute: .cpuAndGPU,
+            textDecoderCompute: .cpuAndGPU
+    )
+}
+
+private func cacheDirectory(from args: [String]) throws -> URL {
         if let index = args.firstIndex(of: "--cache-dir"), args.indices.contains(index + 1) {
             return URL(fileURLWithPath: args[index + 1], isDirectory: true)
         }
 
-        return defaultCacheDirectory()
-    }
+    return defaultCacheDirectory()
+}
 
-    private static func defaultCacheDirectory() -> URL {
+private func defaultCacheDirectory() -> URL {
         let home = FileManager.default.homeDirectoryForCurrentUser
         return home
             .appending(path: "Library")
             .appending(path: "Application Support")
             .appending(path: "com.pavel.tauri-app")
             .appending(path: "models")
-            .appending(path: "whisperkit", directoryHint: .isDirectory)
-    }
+        .appending(path: "whisperkit", directoryHint: .isDirectory)
+}
 
-    private static func loadMetadata(cacheDir: URL) throws -> ModelMetadata {
+private func loadMetadata(cacheDir: URL) throws -> ModelMetadata {
         let metadataURL = cacheDir.appending(path: metadataFilename)
         guard FileManager.default.fileExists(atPath: metadataURL.path) else {
             throw BridgeError.missingMetadata(
@@ -210,8 +323,64 @@ struct WhisperkitBridgeApp {
                 "WhisperKit model path \(metadata.modelPath) does not exist. Re-run tauri-app/scripts/setup-whisperkit.sh."
             )
         }
-        return metadata
+    return metadata
+}
+
+private func isCacheComplete(cacheDir: URL, metadata: ModelMetadata?) -> Bool {
+        guard let metadata else { return false }
+        let modelURL = URL(fileURLWithPath: metadata.modelPath)
+        guard modelComponentsExist(at: modelURL) else { return false }
+
+        if let tokenizerPath = metadata.tokenizerPath,
+           FileManager.default.fileExists(atPath: tokenizerPath) {
+            return true
+        }
+
+    return findTokenizerJSON(in: cacheDir) != nil
+}
+
+private func assertCacheComplete(cacheDir: URL, metadata: ModelMetadata) throws {
+        guard isCacheComplete(cacheDir: cacheDir, metadata: metadata) else {
+            throw BridgeError.incompleteCache(
+                "WhisperKit cache at \(cacheDir.path) is incomplete (missing model components or tokenizer). Run tauri-app/scripts/setup-whisperkit.sh."
+            )
+        }
+    try assertModelComponents(at: URL(fileURLWithPath: metadata.modelPath))
+}
+
+private func modelComponentsExist(at modelURL: URL) -> Bool {
+        requiredModelComponents.allSatisfy { component in
+            FileManager.default.fileExists(atPath: modelURL.appendingPathComponent(component).path)
     }
+}
+
+private func assertModelComponents(at modelURL: URL) throws {
+        for component in requiredModelComponents {
+            let path = modelURL.appendingPathComponent(component).path
+            guard FileManager.default.fileExists(atPath: path) else {
+                throw BridgeError.incompleteCache(
+                    "Missing \(component) at \(path). Run tauri-app/scripts/setup-whisperkit.sh."
+                )
+            }
+    }
+}
+
+private func findTokenizerJSON(in cacheDir: URL) -> URL? {
+        guard let enumerator = FileManager.default.enumerator(
+            at: cacheDir,
+            includingPropertiesForKeys: [.isRegularFileKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            return nil
+        }
+
+        var matches: [URL] = []
+        for case let fileURL as URL in enumerator {
+            guard fileURL.lastPathComponent == "tokenizer.json" else { continue }
+            matches.append(fileURL)
+        }
+
+    return matches.first { $0.path.contains("whisper-large-v3") } ?? matches.first
 }
 
 private actor StreamSession {
@@ -223,21 +392,21 @@ private actor StreamSession {
     private var lastTranscribedSampleCount = 0
     private var lastTentativeFingerprint: String?
 
-    init(language: String, inputSampleRate: Int, stream: String, modelPath: String) async throws {
+    init(
+        language: String,
+        inputSampleRate: Int,
+        stream: String,
+        cacheDir: URL,
+        modelPath: String
+    ) async throws {
         self.language = language
         self.inputSampleRate = max(1, inputSampleRate)
         let _ = stream
 
-        let config = WhisperKitConfig(
-            model: modelName,
-            modelFolder: modelPath,
-            verbose: false,
-            logLevel: .error,
-            prewarm: true,
-            load: true,
-            download: false
+        self.whisperKit = try await loadWhisperKitOffline(
+            cacheDir: cacheDir,
+            modelFolder: modelPath
         )
-        self.whisperKit = try await WhisperKit(config)
     }
 
     func pushAudio(base64PCM16: String) async throws {

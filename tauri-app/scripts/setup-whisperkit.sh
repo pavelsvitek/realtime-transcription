@@ -20,7 +20,8 @@ echo "Building whisperkit-bridge..." >&2
 
 BIN="$HELPER_DIR/.build/release/whisperkit-bridge"
 
-echo "Downloading WhisperKit model..." >&2
+echo "Provisioning WhisperKit cache (CoreML models + tokenizer + warm specialization)..." >&2
+echo "This is idempotent — skips work when the cache is already complete." >&2
 "$BIN" --download-only --cache-dir "$CACHE_DIR"
 
 echo "Helper binary: $BIN"

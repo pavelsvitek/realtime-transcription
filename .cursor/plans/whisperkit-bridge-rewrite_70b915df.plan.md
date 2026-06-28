@@ -4,19 +4,19 @@ overview: Guarantee a complete local model cache (CoreML models + tokenizer + wa
 todos:
   - id: swift-prefetch-all
     content: "Rewrite --download-only to fetch+persist EVERYTHING locally: CoreML models, tokenizer (set tokenizerFolder=cache), write a manifest, and warm CoreML specialization so subsequent loads are offline + fast"
-    status: in_progress
+    status: completed
   - id: swift-load-lifecycle
     content: "Rewrite main.swift init: load from local cache only (tokenizerFolder=cache, download:false), separate loadModels() from init, drop prewarm, verbose logging, cpuAndGPU compute toggle, corrupt-model recovery"
-    status: pending
+    status: completed
   - id: preflight-cache-guard
     content: Add an idempotent pre-flight in setup-whisperkit.sh + run-golden-test.sh (and the e2e test) that ensures models+tokenizer are cached locally before running; fail fast with clear message if missing
-    status: pending
+    status: completed
   - id: rust-ready-progress
     content: Add Loading HelperResponse variant in whisperkit.rs and make the ready-wait reset on progress with a higher overall cap
-    status: pending
+    status: completed
   - id: rebuild-verify
     content: swift build -c release, run pre-flight cache step, manual init smoke test (must be offline-capable), then run golden_system_audio_e2e and confirm WER ~3%
-    status: pending
+    status: completed
 isProject: false
 ---
 
