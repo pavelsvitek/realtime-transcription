@@ -17,8 +17,17 @@ fn app_root() -> PathBuf {
         .to_path_buf()
 }
 
+fn golden_dataset_root() -> PathBuf {
+    app_root().join("golden-dataset")
+}
+
 fn reference_text() -> String {
-    fs::read_to_string(app_root().join("test-youtube-video.txt")).expect("reference transcript")
+    fs::read_to_string(
+        golden_dataset_root()
+            .join("transcripts")
+            .join("test-youtube-video.txt"),
+    )
+    .expect("reference transcript")
 }
 
 fn ffmpeg_decode_mono_f32(video: &Path, sample_rate: u32) -> Vec<f32> {
@@ -133,7 +142,9 @@ fn print_wer(label: &str, hypothesis: &str, reference: &str) -> tauri_app_lib::W
 #[ignore = "requires WhisperKit helper/model setup and ffmpeg (~60s)"]
 fn diagnose_model_vs_commit_strategy() {
     let root = app_root();
-    let video = root.join("test-youtube-video.mp4");
+    let video = golden_dataset_root()
+        .join("clips")
+        .join("test-youtube-video.mp4");
     assert!(video.exists(), "missing {}", video.display());
 
     let config = AppConfig::load();
@@ -201,4 +212,49 @@ fn diagnose_model_vs_commit_strategy() {
 
     assert!(!file.with_finish.is_empty());
     assert!(file_finished.wer < 0.10, "file pipeline WER sanity");
+}
+
+#[test]
+#[ignore = "requires WhisperKit helper/model setup and ffmpeg (~60s); invoked by generate-golden-transcript.sh"]
+fn generate_golden_transcript() {
+    let video_path = std::env::var("GOLDEN_VIDEO_PATH").expect("GOLDEN_VIDEO_PATH not set");
+    let output_path = std::env::var("GOLDEN_OUTPUT_PATH").expect("GOLDEN_OUTPUT_PATH not set");
+
+    let video = PathBuf::from(&video_path);
+    assert!(video.exists(), "missing video: {}", video.display());
+
+    let config = AppConfig::load();
+    config.validate().expect("WhisperKit setup");
+    let models = LoadedModels::load(&config).expect("load models");
+
+    let sample_rate = 48_000u32;
+    let chunk_samples = 1024usize;
+    let pcm = ffmpeg_decode_mono_f32(&video, sample_rate);
+
+    println!(
+        "Transcribing {} ({:.1}s @ {} Hz)...",
+        video.display(),
+        pcm.len() as f64 / sample_rate as f64,
+        sample_rate
+    );
+
+    let file = transcribe_from_pcm(
+        &models,
+        &config.language,
+        sample_rate,
+        &pcm,
+        chunk_samples,
+    );
+
+    assert!(!file.with_finish.is_empty(), "empty transcript");
+
+    let output = PathBuf::from(&output_path);
+    if let Some(parent) = output.parent() {
+        fs::create_dir_all(parent).ok();
+    }
+    fs::write(&output, &file.with_finish).expect("write golden transcript");
+
+    println!("Wrote golden transcript to {}", output.display());
+    println!("  words: {}", file.with_finish.split_whitespace().count());
+    println!("  ASR passes: {}", file.asr_passes);
 }

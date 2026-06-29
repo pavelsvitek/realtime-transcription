@@ -11,8 +11,9 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-REF="$ROOT/test-youtube-video.txt"
-VIDEO="$ROOT/test-youtube-video.mp4"
+GOLDEN_CLIP="${GOLDEN_CLIP:-test-youtube-video}"
+REF="$ROOT/golden-dataset/transcripts/${GOLDEN_CLIP}.txt"
+VIDEO="$ROOT/golden-dataset/clips/${GOLDEN_CLIP}.mp4"
 HYP="${HYPOTHESIS:-$ROOT/test-output/transcript.txt}"
 BASELINE="$ROOT/test-output/baseline/report.json"
 CACHE_DIR="$HOME/Library/Application Support/com.pavel.tauri-app/models/whisperkit"
@@ -73,8 +74,9 @@ if [[ "$RUN_E2E" -eq 1 ]]; then
   ensure_whisperkit_cache
 
   export GOLDEN_E2E_MAX_WER="${GOLDEN_E2E_MAX_WER:-0.05}"
+  export GOLDEN_CLIP
 
-  echo "Running headless golden E2E (cargo test, GOLDEN_E2E_MAX_WER=$GOLDEN_E2E_MAX_WER)..." >&2
+  echo "Running headless golden E2E (cargo test, clip=$GOLDEN_CLIP, GOLDEN_E2E_MAX_WER=$GOLDEN_E2E_MAX_WER)..." >&2
   (cd "$ROOT/src-tauri" && cargo test golden_system_audio_e2e -- --ignored --nocapture)
 
   if [[ -f "$ROOT/test-output/e2e-transcript.txt" ]]; then

@@ -25,7 +25,10 @@ dist-ssr
 *.sln
 *.sw?
 
+# Golden dataset videos (reference transcripts are committed)
+golden-dataset/clips/
 test-youtube-video.mp4
+test-youtube-video-2.mp4
 
 # Golden test artifacts (baseline is committed)
 test-output/runs/

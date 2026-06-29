@@ -1,4 +1,4 @@
-//! Golden transcript tests against test-youtube-video.{txt,mp4}.
+//! Golden transcript tests against golden-dataset clips and reference transcripts.
 
 use std::fs;
 use std::path::PathBuf;
@@ -17,8 +17,40 @@ fn app_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent().unwrap().to_path_buf()
 }
 
+fn golden_dataset_root() -> PathBuf {
+    app_root().join("golden-dataset")
+}
+
+fn golden_clip_name() -> String {
+    std::env::var("GOLDEN_CLIP").unwrap_or_else(|_| "test-youtube-video".into())
+}
+
 fn reference_text() -> String {
-    fs::read_to_string(app_root().join("test-youtube-video.txt")).expect("reference transcript")
+    fs::read_to_string(
+        golden_dataset_root()
+            .join("transcripts")
+            .join(format!("{}.txt", golden_clip_name())),
+    )
+    .expect("reference transcript")
+}
+
+fn video_duration_secs(video: &PathBuf) -> f64 {
+    let output = Command::new("ffprobe")
+        .args([
+            "-v",
+            "error",
+            "-show_entries",
+            "format=duration",
+            "-of",
+            "default=noprint_wrappers=1:nokey=1",
+            video.to_str().unwrap(),
+        ])
+        .output()
+        .expect("spawn ffprobe");
+    String::from_utf8_lossy(&output.stdout)
+        .trim()
+        .parse()
+        .unwrap_or(0.0)
 }
 
 #[test]
@@ -55,8 +87,11 @@ fn golden_system_audio_e2e() {
         return;
     }
 
+    let clip = golden_clip_name();
     let root = app_root();
-    let video = root.join("test-youtube-video.mp4");
+    let video = golden_dataset_root()
+        .join("clips")
+        .join(format!("{clip}.mp4"));
     assert!(video.exists(), "missing {}", video.display());
 
     let config = AppConfig::load();
@@ -102,8 +137,10 @@ fn golden_system_audio_e2e() {
 
     let report = evaluate_wer(&reference_text(), &export.text);
     let (captured_samples, dropped_samples, dropped_frames) = capture_stats();
-    let video_duration_s = 77.8_f64; // matches golden_diagnostic ffmpeg decode
+    let video_duration_s = video_duration_secs(&video);
     let expected_samples = (video_duration_s * 48_000.0) as u64;
+
+    println!("E2E clip: {clip}");
 
     println!(
         "E2E WER: {:.1}% (S={} I={} D={} dup_bi={})",

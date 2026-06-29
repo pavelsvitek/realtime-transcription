@@ -58,13 +58,21 @@ cargo test
 
 ### Golden transcript evaluation
 
-Repeatable WER check against `test-youtube-video.txt` (reference) and `test-youtube-video.mp4` (~78s clip).
+Repeatable WER check against the [golden dataset](golden-dataset/README.md). Reference transcripts live in `golden-dataset/transcripts/`; place MP4 clips in `golden-dataset/clips/` (gitignored).
 
 | Phase | What | Command |
 | --- | --- | --- |
 | 1 | Manual capture — play video in Chrome, **Stop**, save transcript to `test-output/transcript.txt` | (UI) |
 | 2–4 | Score hypothesis vs reference, regression vs baseline | `pnpm test:golden` |
 | E2E | Headless system-audio + `ffplay` (~2 min, gated) | `pnpm test:golden:e2e` |
+
+**Generate a reference transcript** from an MP4 (file pipeline, whole-file transcription):
+
+```bash
+./scripts/generate-golden-transcript.sh golden-dataset/clips/<clip>.mp4
+```
+
+See [golden-dataset/README.md](golden-dataset/README.md) for adding new clips and the full workflow.
 
 Establish or refresh the baseline after a good Phase 1 run:
 
@@ -83,7 +91,7 @@ Current verification snapshot on June 17, 2026:
 - file-pipeline diagnostic WER: `2.8%`
 - headless system-audio E2E WER: `2.8%` via `pnpm test:golden:e2e`
 
-The Rust E2E test now enforces `WER < 8%` by default.
+The Rust E2E test enforces `GOLDEN_E2E_MAX_WER` default `0.05` (5%).
 
 `stop_transcription` returns a `TranscriptExport` for programmatic export; use `export_transcript` to write a file without stopping.
 
