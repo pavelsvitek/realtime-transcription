@@ -41,7 +41,21 @@ pnpm tauri dev
 
 On first launch, grant permissions when prompted by macOS:
 - **Microphone** — when using the Mic input source
-- **System Audio Recording** — when using Chrome / system audio. If capture is silent, open **System Settings → Privacy & Security → System Audio Recording Only** and enable this app, then restart it.
+- **System Audio Recording** — when using Chrome / system audio. macOS may prompt the first time you start system-audio capture. If capture is silent, open **System Settings → Privacy & Security → System Audio Recording Only** (or **Screen & System Audio Recording** on some macOS versions) and enable **tauri-app**, then quit and restart the app.
+
+`pnpm tauri dev` launches via a dev `.app` bundle (`src-tauri/target/debug/tauri-app-dev.app`) using `open`, so macOS can attribute system-audio permission to `com.pavel.tauri-app`. Running the raw `target/debug/tauri-app` binary from a terminal will not trigger the permission prompt and loopback will be silent.
+
+To reset system-audio permission during development:
+
+```bash
+# Correct TCC service name for Core Audio loopback (not SystemAudioCapture):
+tccutil reset AudioCapture com.pavel.tauri-app
+
+# Or reset all apps' audio-capture grants:
+tccutil reset AudioCapture
+```
+
+If `tccutil reset AudioCapture com.pavel.tauri-app` fails, the app has not registered with TCC yet — start `pnpm tauri dev`, click **Start** with system audio, then check System Settings manually.
 
 ### Rust logging
 

@@ -30,6 +30,16 @@ pub fn run_worker<E>(
     tracing::info!("Transcription worker started");
     let mut chunks_processed: u64 = 0;
 
+    // Optional diagnostics for denied macOS AudioCapture permission: loopback opens but
+    // delivers silence (~-91 dB). Not required for capture itself — safe to remove this
+    // block (state below + the `SYSTEM_STREAM` branch in the mic-level check) if you
+    // prefer a leaner worker once dev .app launch + TCC grant are reliable.
+    let mut system_samples_seen: usize = 0;
+    let mut system_peak_rms: f32 = 0.0;
+    let mut system_silence_warned = false;
+    const SYSTEM_SILENCE_RMS_THRESHOLD: f32 = 0.001;
+    const SYSTEM_SILENCE_CHECK_SAMPLES: usize = 48_000 * 3;
+
     while !stop.load(Ordering::Relaxed) {
         let chunk = match audio_rx.recv_timeout(std::time::Duration::from_millis(100)) {
             Ok(chunk) => chunk,
@@ -40,10 +50,36 @@ pub fn run_worker<E>(
             }
         };
 
-        // Only the mic stream drives the mic-level indicator; system level is not meaningful.
+        // Only the mic stream drives the mic-level indicator.
         if labels.stream == crate::transcription::labels::MIC_STREAM {
             let rms = mic_input::compute_rms(&chunk);
             emit(TranscriptEvent::MicLevel(MicLevel { rms }));
+        } else if labels.stream == crate::transcription::labels::SYSTEM_STREAM {
+            // [silent-loopback diagnostic] see block comment above `system_samples_seen`
+            let rms = mic_input::compute_rms(&chunk);
+            system_peak_rms = system_peak_rms.max(rms);
+            system_samples_seen += chunk.len();
+            if !system_silence_warned && system_samples_seen >= SYSTEM_SILENCE_CHECK_SAMPLES {
+                system_silence_warned = true;
+                if system_peak_rms < SYSTEM_SILENCE_RMS_THRESHOLD {
+                    tracing::warn!(
+                        peak_rms = system_peak_rms,
+                        samples = system_samples_seen,
+                        "System audio loopback is silent — likely missing AudioCapture permission"
+                    );
+                    emit(TranscriptEvent::Status(TranscriptionStatus {
+                        active: true,
+                        loading: None,
+                        model: None,
+                        error: Some(
+                            "System audio capture is silent. Open System Settings → Privacy & Security \
+                             and allow system audio recording for tauri-app, then restart. \
+                             Reset: tccutil reset AudioCapture com.pavel.tauri-app"
+                                .into(),
+                        ),
+                    }));
+                }
+            }
         }
 
         if let Some(obs) = observer.as_mut() {

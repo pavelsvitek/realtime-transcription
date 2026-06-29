@@ -1,2 +1,8 @@
 [env]
 MACOSX_DEPLOYMENT_TARGET = "15.0"
+
+[target.aarch64-apple-darwin]
+runner = "../scripts/macos-exec-runner.sh"
+
+[target.x86_64-apple-darwin]
+runner = "../scripts/macos-exec-runner.sh"

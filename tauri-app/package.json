@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "tauri": "tauri",
+    "tauri": "DEBUG_SAVE=1 bash scripts/tauri.sh",
     "test:golden": "bash scripts/run-golden-test.sh",
     "test:golden:e2e": "bash scripts/run-golden-test.sh --e2e",
     "test:golden:baseline": "bash scripts/run-golden-test.sh --update-baseline"
