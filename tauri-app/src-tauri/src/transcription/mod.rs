@@ -3,6 +3,8 @@ pub use asr::LoadedModels;
 pub mod audio_source;
 pub mod capture;
 pub mod cpal_capture;
+pub mod debug_dump;
+pub mod flac_convert;
 pub mod labels;
 pub mod mic_input;
 pub mod pipeline;
@@ -13,6 +15,8 @@ pub mod whisperkit;
 pub mod worker;
 
 pub use audio_source::AudioSource;
-pub use cpal_capture::{capture_stats, reset_capture_stats};
+pub use cpal_capture::{capture_stats, reset_capture_stats, CaptureCounters};
+pub use debug_dump::{debug_save_enabled, DebugSession, StreamCaptureStats, StreamObserver};
+pub use flac_convert::convert_wav_to_flac_background;
 pub use pipeline::{AsrOutput, AsrWord, StreamingPipeline};
 pub use service::TranscriptionService;

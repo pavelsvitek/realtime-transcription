@@ -6,6 +6,8 @@ use super::mic_input;
 /// Keeps an audio input alive until dropped (stops capture).
 pub struct OpenedCapture {
     pub sample_rate: u32,
+    pub device_name: String,
+    pub counters: super::cpal_capture::CaptureCounters,
     _guard: CaptureGuard,
 }
 
@@ -23,6 +25,8 @@ pub fn open_capture(
             let opened = mic_input::open_mic_stream(sender)?;
             Ok(OpenedCapture {
                 sample_rate: opened.sample_rate,
+                device_name: opened.device_name,
+                counters: opened.counters,
                 _guard: CaptureGuard::Cpal(opened.stream),
             })
         }
@@ -30,6 +34,8 @@ pub fn open_capture(
             let opened = super::system_audio::open_system_audio_stream(sender)?;
             Ok(OpenedCapture {
                 sample_rate: opened.sample_rate,
+                device_name: opened.device_name.clone(),
+                counters: opened.counters.clone(),
                 _guard: CaptureGuard::System(opened),
             })
         }

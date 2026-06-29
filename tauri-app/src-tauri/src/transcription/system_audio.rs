@@ -12,6 +12,8 @@ use super::cpal_capture;
 pub struct SystemAudioCapture {
     pub stream: cpal::Stream,
     pub sample_rate: u32,
+    pub device_name: String,
+    pub counters: super::cpal_capture::CaptureCounters,
 }
 
 /// Captures system output audio (loopback) and forwards mono f32 chunks to `sender`.
@@ -32,5 +34,7 @@ pub fn open_system_audio_stream(
     Ok(SystemAudioCapture {
         stream: opened.stream,
         sample_rate: opened.sample_rate,
+        device_name: opened.device_name,
+        counters: opened.counters,
     })
 }

@@ -7,6 +7,8 @@ use super::cpal_capture;
 pub struct OpenedMic {
     pub stream: cpal::Stream,
     pub sample_rate: u32,
+    pub device_name: String,
+    pub counters: super::cpal_capture::CaptureCounters,
 }
 
 pub fn open_mic_stream(sender: mpsc::SyncSender<Vec<f32>>) -> anyhow::Result<OpenedMic> {
@@ -19,6 +21,8 @@ pub fn open_mic_stream(sender: mpsc::SyncSender<Vec<f32>>) -> anyhow::Result<Ope
     Ok(OpenedMic {
         stream: opened.stream,
         sample_rate: opened.sample_rate,
+        device_name: opened.device_name,
+        counters: opened.counters,
     })
 }
 

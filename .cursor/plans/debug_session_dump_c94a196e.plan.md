@@ -4,31 +4,31 @@ overview: Add a `DEBUG_SAVE=1` mode that streams raw audio to WAV files (convert
 todos:
   - id: gitignore
     content: Add `debug/` to `tauri-app/.gitignore`
-    status: pending
+    status: completed
   - id: dep-hound
     content: Add `hound` crate to Cargo.toml (or decide to write WAV manually)
-    status: pending
+    status: completed
   - id: flac-convert-module
     content: Create `flac_convert.rs` module -- spawns ffmpeg as a child process to convert WAV to FLAC, deletes WAV on success, logs warning on failure
-    status: pending
+    status: completed
   - id: device-name
     content: Propagate device name through `OpenedCpalStream` / `OpenedCapture` / `SystemAudioCapture`
-    status: pending
+    status: completed
   - id: debug-dump-module
     content: Create `debug_dump.rs` with `DebugSession`, `DebugStreamWriter`, WAV streaming, segment/timing recording, meta.json writing
-    status: pending
+    status: completed
   - id: integrate-service
     content: Wire `DebugSession` into `service.rs` start/stop lifecycle
-    status: pending
+    status: completed
   - id: integrate-worker
     content: Add `Option<DebugStreamWriter>` to `run_worker()`, tee audio, record timing and segments
-    status: pending
+    status: completed
   - id: test
     content: "Unit test: DebugStreamWriter produces valid WAV + correct JSON files"
-    status: pending
+    status: completed
   - id: test-flac
     content: "Unit test: flac_convert handles success, ffmpeg-not-found fallback, and conversion failure"
-    status: pending
+    status: completed
 isProject: false
 ---
 

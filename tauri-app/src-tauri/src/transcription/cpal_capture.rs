@@ -2,10 +2,28 @@ use cpal::traits::{DeviceTrait, StreamTrait};
 use cpal::{FromSample, Sample, SampleFormat, SizedSample, StreamConfig};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc;
+use std::sync::Arc;
 
 static DROPPED_SAMPLES: AtomicU64 = AtomicU64::new(0);
 static CAPTURED_SAMPLES: AtomicU64 = AtomicU64::new(0);
 static DROPPED_FRAMES: AtomicU64 = AtomicU64::new(0);
+
+#[derive(Clone, Default)]
+pub struct CaptureCounters {
+    captured: Arc<AtomicU64>,
+    dropped_samples: Arc<AtomicU64>,
+    dropped_frames: Arc<AtomicU64>,
+}
+
+impl CaptureCounters {
+    pub fn stats(&self) -> (u64, u64, u64) {
+        (
+            self.captured.load(Ordering::Relaxed),
+            self.dropped_samples.load(Ordering::Relaxed),
+            self.dropped_frames.load(Ordering::Relaxed),
+        )
+    }
+}
 
 /// Reset capture counters (call before each golden E2E run).
 pub fn reset_capture_stats() {
@@ -26,6 +44,8 @@ pub fn capture_stats() -> (u64, u64, u64) {
 pub struct OpenedCpalStream {
     pub stream: cpal::Stream,
     pub sample_rate: u32,
+    pub device_name: String,
+    pub counters: CaptureCounters,
 }
 
 /// Opens an input stream on `device` and forwards mono f32 chunks to `sender`.
@@ -77,24 +97,50 @@ fn open_stream_with_config(
         "Opening cpal audio stream (ASR pipeline will resample to 16 kHz mono)"
     );
 
+    let counters = CaptureCounters::default();
     let stream = match sample_format {
-        SampleFormat::F32 => build_input_stream::<f32>(device, &stream_config, channels, sender)?,
-        SampleFormat::F64 => build_input_stream::<f64>(device, &stream_config, channels, sender)?,
-        SampleFormat::I8 => build_input_stream::<i8>(device, &stream_config, channels, sender)?,
-        SampleFormat::I16 => build_input_stream::<i16>(device, &stream_config, channels, sender)?,
-        SampleFormat::I32 => build_input_stream::<i32>(device, &stream_config, channels, sender)?,
-        SampleFormat::I64 => build_input_stream::<i64>(device, &stream_config, channels, sender)?,
-        SampleFormat::U8 => build_input_stream::<u8>(device, &stream_config, channels, sender)?,
-        SampleFormat::U16 => build_input_stream::<u16>(device, &stream_config, channels, sender)?,
-        SampleFormat::U32 => build_input_stream::<u32>(device, &stream_config, channels, sender)?,
-        SampleFormat::U64 => build_input_stream::<u64>(device, &stream_config, channels, sender)?,
+        SampleFormat::F32 => {
+            build_input_stream::<f32>(device, &stream_config, channels, sender, counters.clone())?
+        }
+        SampleFormat::F64 => {
+            build_input_stream::<f64>(device, &stream_config, channels, sender, counters.clone())?
+        }
+        SampleFormat::I8 => {
+            build_input_stream::<i8>(device, &stream_config, channels, sender, counters.clone())?
+        }
+        SampleFormat::I16 => {
+            build_input_stream::<i16>(device, &stream_config, channels, sender, counters.clone())?
+        }
+        SampleFormat::I32 => {
+            build_input_stream::<i32>(device, &stream_config, channels, sender, counters.clone())?
+        }
+        SampleFormat::I64 => {
+            build_input_stream::<i64>(device, &stream_config, channels, sender, counters.clone())?
+        }
+        SampleFormat::U8 => {
+            build_input_stream::<u8>(device, &stream_config, channels, sender, counters.clone())?
+        }
+        SampleFormat::U16 => {
+            build_input_stream::<u16>(device, &stream_config, channels, sender, counters.clone())?
+        }
+        SampleFormat::U32 => {
+            build_input_stream::<u32>(device, &stream_config, channels, sender, counters.clone())?
+        }
+        SampleFormat::U64 => {
+            build_input_stream::<u64>(device, &stream_config, channels, sender, counters.clone())?
+        }
         other => anyhow::bail!("Unsupported sample format: {other:?}"),
     };
 
     stream.play()?;
     tracing::info!(device = %device_name, "cpal audio stream started");
 
-    Ok(OpenedCpalStream { stream, sample_rate })
+    Ok(OpenedCpalStream {
+        stream,
+        sample_rate,
+        device_name: device_name.to_string(),
+        counters,
+    })
 }
 
 fn build_input_stream<T>(
@@ -102,6 +148,7 @@ fn build_input_stream<T>(
     config: &StreamConfig,
     channels: usize,
     sender: mpsc::SyncSender<Vec<f32>>,
+    counters: CaptureCounters,
 ) -> anyhow::Result<cpal::Stream>
 where
     T: SizedSample + Sample + Send + 'static,
@@ -115,12 +162,19 @@ where
             if sender.try_send(mono).is_err() {
                 DROPPED_FRAMES.fetch_add(1, Ordering::Relaxed);
                 DROPPED_SAMPLES.fetch_add(sample_count, Ordering::Relaxed);
+                counters
+                    .dropped_frames
+                    .fetch_add(1, Ordering::Relaxed);
+                counters
+                    .dropped_samples
+                    .fetch_add(sample_count, Ordering::Relaxed);
                 tracing::warn!(
                     samples = sample_count,
                     "Audio channel full, dropping frame"
                 );
             } else {
                 CAPTURED_SAMPLES.fetch_add(sample_count, Ordering::Relaxed);
+                counters.captured.fetch_add(sample_count, Ordering::Relaxed);
             }
         },
         |err| {

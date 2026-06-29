@@ -12,6 +12,9 @@ use crate::ipc::transcript::*;
 use crate::transcription::asr::LoadedModels;
 use crate::transcription::audio_source::AudioSource;
 use crate::transcription::capture;
+use crate::transcription::cpal_capture::CaptureCounters;
+use crate::transcription::debug_dump::{DebugSession, StreamCaptureStats};
+use crate::transcription::flac_convert::convert_wav_to_flac_background;
 use crate::transcription::transcript_store::TranscriptStore;
 use crate::transcription::worker;
 use crate::transcription::whisperkit;
@@ -24,6 +27,8 @@ const AUDIO_CHANNEL_BOUND: usize = 8_192;
 struct StreamPair {
     worker_handle: JoinHandle<()>,
     _capture: capture::OpenedCapture,
+    stream: String,
+    counters: CaptureCounters,
 }
 
 struct RunningState {
@@ -33,6 +38,7 @@ struct RunningState {
     mic: Option<StreamPair>,
     /// Present when `source` is `SystemAudio` or `Both`.
     system: Option<StreamPair>,
+    debug: Option<Arc<DebugSession>>,
 }
 
 pub struct TranscriptionService {
@@ -99,6 +105,8 @@ impl TranscriptionService {
 
         self.ensure_models_loaded(&config, app_handle.as_ref())?;
 
+        let debug_session = DebugSession::try_open(source, &config).map(Arc::new);
+
         let models_guard = self.models.lock().unwrap();
         let models = models_guard.as_ref().unwrap();
         let model_name = models.model_name.clone();
@@ -118,6 +126,7 @@ impl TranscriptionService {
                     transcript.clone(),
                     app_handle.clone(),
                     false,
+                    debug_session.clone(),
                 )?;
                 let system = spawn_stream_worker(
                     AudioSource::SystemAudio,
@@ -128,6 +137,7 @@ impl TranscriptionService {
                     transcript,
                     app_handle.clone(),
                     false,
+                    debug_session.clone(),
                 )?;
                 (Some(mic), Some(system))
             }
@@ -141,6 +151,7 @@ impl TranscriptionService {
                     transcript,
                     app_handle.clone(),
                     disable_partials,
+                    debug_session.clone(),
                 )?;
                 (Some(pair), None)
             }
@@ -154,6 +165,7 @@ impl TranscriptionService {
                     transcript,
                     app_handle.clone(),
                     disable_partials,
+                    debug_session.clone(),
                 )?;
                 (None, Some(pair))
             }
@@ -164,6 +176,7 @@ impl TranscriptionService {
             source,
             mic,
             system,
+            debug: debug_session,
         });
 
         drop(models_guard);
@@ -242,9 +255,17 @@ impl TranscriptionService {
         // Drop captures first to close audio channels, then join workers.
         // Both captures must be closed before either join so workers can drain and exit.
         let pairs: Vec<StreamPair> = [state.mic, state.system].into_iter().flatten().collect();
+        let capture_info: Vec<(String, CaptureCounters)> = pairs
+            .iter()
+            .map(|pair| (pair.stream.clone(), pair.counters.clone()))
+            .collect();
         let handles: Vec<JoinHandle<()>> = pairs
             .into_iter()
-            .map(|StreamPair { worker_handle, _capture }| {
+            .map(|StreamPair {
+                worker_handle,
+                _capture,
+                ..
+            }| {
                 drop(_capture);
                 worker_handle
             })
@@ -254,6 +275,30 @@ impl TranscriptionService {
             if let Err(e) = handle.join() {
                 tracing::error!("Worker thread panicked: {e:?}");
             }
+        }
+
+        if let Some(session) = state.debug.as_ref() {
+            for (stream, counters) in capture_info {
+                let (captured_samples, dropped_samples, dropped_frames) = counters.stats();
+                session.record_capture_stats(
+                    &stream,
+                    StreamCaptureStats {
+                        captured_samples,
+                        dropped_samples,
+                        dropped_frames,
+                    },
+                );
+            }
+        }
+
+        let wav_paths = state
+            .debug
+            .as_ref()
+            .map(|session| session.finalize())
+            .unwrap_or_default();
+
+        if !wav_paths.is_empty() {
+            convert_wav_to_flac_background(wav_paths);
         }
 
         let export = self.build_export(state.source, self.transcript.text());
@@ -326,11 +371,21 @@ fn spawn_stream_worker(
     transcript: TranscriptStore,
     app_handle: Option<AppHandle>,
     disable_partials: bool,
+    debug_session: Option<Arc<DebugSession>>,
 ) -> Result<StreamPair, AppError> {
     super::cpal_capture::reset_capture_stats();
     let (audio_tx, audio_rx) = mpsc::sync_channel::<Vec<f32>>(AUDIO_CHANNEL_BOUND);
     let opened = capture::open_capture(source, audio_tx)
         .map_err(|e| AppError::Capture(format!("{e:#}")))?;
+    let stream_name = source.as_str().to_string();
+    let counters = opened.counters.clone();
+    let observer = debug_session.as_ref().and_then(|session| {
+        session.open_stream_observer(
+            source.as_str(),
+            opened.device_name.clone(),
+            opened.sample_rate,
+        )
+    });
     let pipeline = models
         .create_pipeline(language, opened.sample_rate, source.as_str(), disable_partials)
         .map_err(|e| AppError::Asr(format!("{e:#}")))?;
@@ -347,13 +402,23 @@ fn spawn_stream_worker(
                     emit_to_app(app, event);
                 }
             };
-            worker::run_worker(audio_rx, pipeline, labels, emit, stop_flag, segment_counter);
+            worker::run_worker(
+                audio_rx,
+                pipeline,
+                labels,
+                emit,
+                stop_flag,
+                segment_counter,
+                observer,
+            );
         })
         .map_err(|e| AppError::Capture(format!("Failed to spawn worker: {e}")))?;
 
     Ok(StreamPair {
         worker_handle,
         _capture: opened,
+        stream: stream_name,
+        counters,
     })
 }
 
