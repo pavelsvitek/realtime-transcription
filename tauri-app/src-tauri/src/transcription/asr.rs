@@ -41,6 +41,7 @@ impl LoadedEngine {
         language: &str,
         input_sample_rate: u32,
         stream: &str,
+        disable_partials: bool,
     ) -> anyhow::Result<StreamingPipeline> {
         let pipeline = WhisperkitPipeline::start(
             &self.helper_path,
@@ -48,6 +49,7 @@ impl LoadedEngine {
             language,
             input_sample_rate,
             stream,
+            disable_partials,
         )?;
 
         tracing::info!(

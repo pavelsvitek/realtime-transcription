@@ -49,6 +49,8 @@ struct InitRequest<'a> {
     #[serde(rename = "sampleRate")]
     sample_rate: u32,
     stream: &'a str,
+    #[serde(rename = "disablePartials")]
+    disable_partials: bool,
 }
 
 #[derive(Serialize)]
@@ -118,6 +120,7 @@ impl WhisperkitPipeline {
         language: &str,
         input_sample_rate: u32,
         stream: &str,
+        disable_partials: bool,
     ) -> anyhow::Result<Self> {
         let mut child = Command::new(helper_path)
             .stdin(Stdio::piped())
@@ -161,6 +164,7 @@ impl WhisperkitPipeline {
             cache_dir: cache_dir.to_string_lossy().as_ref(),
             sample_rate: input_sample_rate,
             stream,
+            disable_partials,
         })?;
 
         Self::wait_for_ready(&pipeline.responses)?;

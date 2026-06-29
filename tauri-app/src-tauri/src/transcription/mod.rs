@@ -13,5 +13,6 @@ pub mod whisperkit;
 pub mod worker;
 
 pub use audio_source::AudioSource;
+pub use cpal_capture::{capture_stats, reset_capture_stats};
 pub use pipeline::{AsrOutput, AsrWord, StreamingPipeline};
 pub use service::TranscriptionService;

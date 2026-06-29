@@ -3,7 +3,16 @@ import WhisperKit
 
 private let modelName = "large-v3-v20240930_626MB"
 private let metadataFilename = "model-info.json"
-private let minimumRealtimeSamples = WhisperKit.sampleRate * 10
+/// How much new audio (at 16 kHz) before we run a streaming decode cycle.
+private let streamingTriggerSamples = WhisperKit.sampleRate * 10
+/// Max audio decoded for a live partial hypothesis (tail window).
+private let partialWindowSamples = WhisperKit.sampleRate * 30
+/// Min uncommitted audio before we emit an incremental commit.
+private let commitTriggerSamples = WhisperKit.sampleRate * 15
+/// Max audio per commit chunk (Whisper-style ~30 s windows).
+private let commitChunkSamples = WhisperKit.sampleRate * 30
+/// Context retained after trimming committed prefix from the ring buffer.
+private let contextOverlapSamples = WhisperKit.sampleRate * 2
 private let requiredModelComponents = [
     "MelSpectrogram.mlmodelc",
     "AudioEncoder.mlmodelc",
@@ -17,6 +26,7 @@ private struct InitMessage: Decodable {
     let cacheDir: String
     let sampleRate: Int
     let stream: String
+    let disablePartials: Bool?
 }
 
 private struct AudioMessage: Decodable {
@@ -140,7 +150,8 @@ struct WhisperkitBridgeApp {
             inputSampleRate: initMessage.sampleRate,
             stream: initMessage.stream,
             cacheDir: cacheDir,
-            modelPath: metadata.modelPath
+            modelPath: metadata.modelPath,
+            disablePartials: initMessage.disablePartials ?? false
         )
 
         emit(ReadyMessage(model: modelName))
@@ -387,20 +398,29 @@ private actor StreamSession {
     private let whisperKit: WhisperKit
     private let language: String
     private let inputSampleRate: Int
+    private let disablePartials: Bool
 
+    /// Mono PCM resampled to WhisperKit.sampleRate (16 kHz).
     private var accumulatedSamples: [Float] = []
-    private var lastTranscribedSampleCount = 0
+    /// Sample index in `accumulatedSamples` through which text has been committed.
+    private var committedSampleIndex = 0
+    /// `accumulatedSamples.count` at the last streaming trigger.
+    private var lastStreamingTriggerCount = 0
     private var lastTentativeFingerprint: String?
+    private var streamingTask: Task<Void, Never>?
+    private var pendingStreamingWork = false
 
     init(
         language: String,
         inputSampleRate: Int,
         stream: String,
         cacheDir: URL,
-        modelPath: String
+        modelPath: String,
+        disablePartials: Bool
     ) async throws {
         self.language = language
         self.inputSampleRate = max(1, inputSampleRate)
+        self.disablePartials = disablePartials
         let _ = stream
 
         self.whisperKit = try await loadWhisperKitOffline(
@@ -413,47 +433,157 @@ private actor StreamSession {
         let samples = try decodePCM16(base64PCM16, sampleRate: inputSampleRate)
         accumulatedSamples.append(contentsOf: samples)
 
-        guard accumulatedSamples.count - lastTranscribedSampleCount >= minimumRealtimeSamples else {
+        guard !disablePartials else { return }
+
+        guard accumulatedSamples.count - lastStreamingTriggerCount >= streamingTriggerSamples else {
             return
         }
 
-        lastTranscribedSampleCount = accumulatedSamples.count
-        try await emitRealtimePartial()
+        lastStreamingTriggerCount = accumulatedSamples.count
+        scheduleStreamingWork()
     }
 
     func finish() async throws {
         guard !accumulatedSamples.isEmpty else { return }
-        let text = try await transcribeText(for: accumulatedSamples)
-        let normalized = collapseRepeatedBigrams(in: text)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !normalized.isEmpty else { return }
-        emit(CommitMessage(
-            text: normalized,
-            startMs: 0,
-            endMs: Int((Double(accumulatedSamples.count) / Double(WhisperKit.sampleRate) * 1000.0).rounded())
-        ))
+
+        if disablePartials {
+            try await emitFullBufferCommit()
+            return
+        }
+
+        if let task = streamingTask {
+            await task.value
+        }
+
+        try await commitTailIfNeeded()
         lastTentativeFingerprint = nil
     }
 
-    private func emitRealtimePartial() async throws {
-        let text = try await transcribeText(for: accumulatedSamples)
-        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    // MARK: - Streaming (non-blocking from pushAudio)
 
+    private func scheduleStreamingWork() {
+        if streamingTask != nil {
+            pendingStreamingWork = true
+            return
+        }
+
+        streamingTask = Task { [weak self] in
+            guard let self else { return }
+            await self.runStreamingCycle()
+            await self.streamingTaskFinished()
+        }
+    }
+
+    private func streamingTaskFinished() {
+        streamingTask = nil
+        if pendingStreamingWork {
+            pendingStreamingWork = false
+            scheduleStreamingWork()
+        }
+    }
+
+    private func runStreamingCycle() async {
+        do {
+            while accumulatedSamples.count - committedSampleIndex >= commitTriggerSamples {
+                try await commitNextChunk()
+            }
+            try await emitWindowedPartial()
+        } catch {
+            emit(ErrorMessage(message: "Streaming decode failed: \(error.localizedDescription)"))
+        }
+    }
+
+    /// Commits up to `commitChunkSamples` of uncommitted audio (independent chunk, no full-buffer scan).
+    private func commitNextChunk() async throws {
+        let total = accumulatedSamples.count
+        guard total > committedSampleIndex else { return }
+
+        let chunkEnd = min(total, committedSampleIndex + commitChunkSamples)
+        let window = Array(accumulatedSamples[committedSampleIndex..<chunkEnd])
+        guard !window.isEmpty else { return }
+
+        let text = collapseRepeatedBigrams(in: try await transcribeText(for: window))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if !text.isEmpty {
+            emit(CommitMessage(
+                text: text,
+                startMs: sampleIndexToMs(committedSampleIndex),
+                endMs: sampleIndexToMs(chunkEnd)
+            ))
+        }
+
+        committedSampleIndex = chunkEnd
+        trimBufferIfNeeded()
+    }
+
+    /// Live UI hypothesis: decode only the tail window, never the full session buffer.
+    private func emitWindowedPartial() async throws {
+        let total = accumulatedSamples.count
+        guard total > committedSampleIndex else {
+            lastTentativeFingerprint = nil
+            return
+        }
+
+        let windowStart = max(committedSampleIndex, total - partialWindowSamples)
+        let window = Array(accumulatedSamples[windowStart..<total])
+        guard !window.isEmpty else { return }
+
+        let text = try await transcribeText(for: window)
+        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalized.isEmpty else {
             lastTentativeFingerprint = nil
             return
         }
 
-        let durationMs = Int((Double(accumulatedSamples.count) / Double(WhisperKit.sampleRate) * 1000.0).rounded())
-        let fingerprint = "\(durationMs):\(normalized)"
+        let startMs = sampleIndexToMs(windowStart)
+        let endMs = sampleIndexToMs(total)
+        let fingerprint = "\(startMs):\(endMs):\(normalized)"
         guard fingerprint != lastTentativeFingerprint else { return }
 
         lastTentativeFingerprint = fingerprint
-        emit(PartialMessage(
-            text: normalized,
-            startMs: 0,
-            endMs: durationMs
+        emit(PartialMessage(text: normalized, startMs: startMs, endMs: endMs))
+    }
+
+    private func commitTailIfNeeded() async throws {
+        let total = accumulatedSamples.count
+        guard total > committedSampleIndex else { return }
+
+        let window = Array(accumulatedSamples[committedSampleIndex..<total])
+        let text = collapseRepeatedBigrams(in: try await transcribeText(for: window))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+
+        emit(CommitMessage(
+            text: text,
+            startMs: sampleIndexToMs(committedSampleIndex),
+            endMs: sampleIndexToMs(total)
         ))
+        committedSampleIndex = total
+    }
+
+    private func emitFullBufferCommit() async throws {
+        let text = collapseRepeatedBigrams(in: try await transcribeText(for: accumulatedSamples))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        emit(CommitMessage(
+            text: text,
+            startMs: 0,
+            endMs: sampleIndexToMs(accumulatedSamples.count)
+        ))
+    }
+
+    private func sampleIndexToMs(_ index: Int) -> Int {
+        Int((Double(index) / Double(WhisperKit.sampleRate) * 1000.0).rounded())
+    }
+
+    private func trimBufferIfNeeded() {
+        let keepFrom = max(0, committedSampleIndex - contextOverlapSamples)
+        guard keepFrom > 0 else { return }
+
+        accumulatedSamples.removeFirst(keepFrom)
+        committedSampleIndex -= keepFrom
+        lastStreamingTriggerCount = max(0, lastStreamingTriggerCount - keepFrom)
     }
 
     private func transcribeText(for samples: [Float]) async throws -> String {

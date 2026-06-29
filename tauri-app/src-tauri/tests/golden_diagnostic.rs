@@ -76,7 +76,7 @@ fn transcribe_from_pcm(
     chunk_samples: usize,
 ) -> PipelineTranscripts {
     let mut pipeline = models
-        .create_pipeline(language, sample_rate, "system")
+        .create_pipeline(language, sample_rate, "system", false)
         .expect("create pipeline");
 
     let mut committed_only = String::new();

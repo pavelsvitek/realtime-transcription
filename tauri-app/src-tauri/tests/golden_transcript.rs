@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use tauri_app_lib::evaluate_wer;
 use tauri_app_lib::config::AppConfig;
-use tauri_app_lib::transcription::{AudioSource, TranscriptionService};
+use tauri_app_lib::transcription::{capture_stats, AudioSource, TranscriptionService};
 
 fn app_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent().unwrap().to_path_buf()
@@ -98,6 +98,10 @@ fn golden_system_audio_e2e() {
     fs::write(&out_path, &export.text).expect("write e2e transcript");
 
     let report = evaluate_wer(&reference_text(), &export.text);
+    let (captured_samples, dropped_samples, dropped_frames) = capture_stats();
+    let video_duration_s = 77.8_f64; // matches golden_diagnostic ffmpeg decode
+    let expected_samples = (video_duration_s * 48_000.0) as u64;
+
     println!(
         "E2E WER: {:.1}% (S={} I={} D={} dup_bi={})",
         report.wer * 100.0,
@@ -105,6 +109,15 @@ fn golden_system_audio_e2e() {
         report.insertions,
         report.deletions,
         report.duplicate_bigram_count
+    );
+    println!(
+        "E2E capture: captured={} dropped={} frames_dropped={} expected≈{} ({:.1}s@48kHz) disable_partials={}",
+        captured_samples,
+        dropped_samples,
+        dropped_frames,
+        expected_samples,
+        captured_samples as f64 / 48_000.0,
+        std::env::var("WHISPERKIT_DISABLE_PARTIALS").unwrap_or_default()
     );
 
     assert_eq!(report.duplicate_bigram_count, 0, "duplicate bigrams detected");

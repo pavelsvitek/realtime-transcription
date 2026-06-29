@@ -1,6 +1,27 @@
 use cpal::traits::{DeviceTrait, StreamTrait};
 use cpal::{FromSample, Sample, SampleFormat, SizedSample, StreamConfig};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc;
+
+static DROPPED_SAMPLES: AtomicU64 = AtomicU64::new(0);
+static CAPTURED_SAMPLES: AtomicU64 = AtomicU64::new(0);
+static DROPPED_FRAMES: AtomicU64 = AtomicU64::new(0);
+
+/// Reset capture counters (call before each golden E2E run).
+pub fn reset_capture_stats() {
+    DROPPED_SAMPLES.store(0, Ordering::Relaxed);
+    CAPTURED_SAMPLES.store(0, Ordering::Relaxed);
+    DROPPED_FRAMES.store(0, Ordering::Relaxed);
+}
+
+/// `(captured_samples, dropped_samples, dropped_frames)`
+pub fn capture_stats() -> (u64, u64, u64) {
+    (
+        CAPTURED_SAMPLES.load(Ordering::Relaxed),
+        DROPPED_SAMPLES.load(Ordering::Relaxed),
+        DROPPED_FRAMES.load(Ordering::Relaxed),
+    )
+}
 
 pub struct OpenedCpalStream {
     pub stream: cpal::Stream,
@@ -90,8 +111,16 @@ where
         config,
         move |data: &[T], _: &cpal::InputCallbackInfo| {
             let mono = downmix_interleaved(data, channels);
+            let sample_count = mono.len() as u64;
             if sender.try_send(mono).is_err() {
-                tracing::warn!("Audio channel full, dropping frame");
+                DROPPED_FRAMES.fetch_add(1, Ordering::Relaxed);
+                DROPPED_SAMPLES.fetch_add(sample_count, Ordering::Relaxed);
+                tracing::warn!(
+                    samples = sample_count,
+                    "Audio channel full, dropping frame"
+                );
+            } else {
+                CAPTURED_SAMPLES.fetch_add(sample_count, Ordering::Relaxed);
             }
         },
         |err| {

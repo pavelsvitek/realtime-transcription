@@ -60,18 +60,19 @@ impl TranscriptionService {
     }
 
     pub fn start(&self, app_handle: AppHandle, source: AudioSource) -> Result<(), AppError> {
-        self.start_internal(Some(app_handle), source)
+        self.start_internal(Some(app_handle), source, false)
     }
 
     /// Start without a Tauri app handle (golden tests / headless runs).
     pub fn start_headless(&self, source: AudioSource) -> Result<(), AppError> {
-        self.start_internal(None, source)
+        self.start_internal(None, source, headless_disable_partials())
     }
 
     fn start_internal(
         &self,
         app_handle: Option<AppHandle>,
         source: AudioSource,
+        disable_partials: bool,
     ) -> Result<(), AppError> {
         let mut running = self.running.lock().unwrap();
         if running.is_some() {
@@ -116,6 +117,7 @@ impl TranscriptionService {
                     counter.clone(),
                     transcript.clone(),
                     app_handle.clone(),
+                    false,
                 )?;
                 let system = spawn_stream_worker(
                     AudioSource::SystemAudio,
@@ -125,6 +127,7 @@ impl TranscriptionService {
                     counter,
                     transcript,
                     app_handle.clone(),
+                    false,
                 )?;
                 (Some(mic), Some(system))
             }
@@ -137,6 +140,7 @@ impl TranscriptionService {
                     counter,
                     transcript,
                     app_handle.clone(),
+                    disable_partials,
                 )?;
                 (Some(pair), None)
             }
@@ -149,6 +153,7 @@ impl TranscriptionService {
                     counter,
                     transcript,
                     app_handle.clone(),
+                    disable_partials,
                 )?;
                 (None, Some(pair))
             }
@@ -320,12 +325,14 @@ fn spawn_stream_worker(
     segment_counter: Arc<AtomicU64>,
     transcript: TranscriptStore,
     app_handle: Option<AppHandle>,
+    disable_partials: bool,
 ) -> Result<StreamPair, AppError> {
+    super::cpal_capture::reset_capture_stats();
     let (audio_tx, audio_rx) = mpsc::sync_channel::<Vec<f32>>(AUDIO_CHANNEL_BOUND);
     let opened = capture::open_capture(source, audio_tx)
         .map_err(|e| AppError::Capture(format!("{e:#}")))?;
     let pipeline = models
-        .create_pipeline(language, opened.sample_rate, source.as_str())
+        .create_pipeline(language, opened.sample_rate, source.as_str(), disable_partials)
         .map_err(|e| AppError::Asr(format!("{e:#}")))?;
     let labels = source.labels();
 
@@ -361,4 +368,10 @@ fn emit_to_app(app_handle: &AppHandle, event: TranscriptEvent) {
     if let Err(e) = result {
         tracing::warn!(error = %e, "Failed to emit event");
     }
+}
+
+fn headless_disable_partials() -> bool {
+    std::env::var("WHISPERKIT_DISABLE_PARTIALS")
+        .ok()
+        .is_some_and(|v| v == "1" || v.eq_ignore_ascii_case("true"))
 }
