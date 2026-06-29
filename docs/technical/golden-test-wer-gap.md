@@ -68,7 +68,7 @@ The helper does **not** incrementally commit during streaming. Partials are emit
 5. Worker forwards chunks to WhisperKit helper via bounded `sync_channel`
 6. **Sleep 8 s** after playback ends (VAD / flush margin)
 7. `stop()` → worker `finish()` → export `TranscriptStore` text
-8. WER vs `test-youtube-video.txt`; default gate `GOLDEN_E2E_MAX_WER=0.08`
+8. WER vs `test-youtube-video.txt`; default gate `GOLDEN_E2E_MAX_WER=0.05` (5%)
 
 **Key property:** audio is captured **live** under backpressure. Frames can be **dropped** when the pipeline cannot keep up.
 

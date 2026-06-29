@@ -10,6 +10,9 @@ use tauri_app_lib::evaluate_wer;
 use tauri_app_lib::config::AppConfig;
 use tauri_app_lib::transcription::{capture_stats, AudioSource, TranscriptionService};
 
+/// Default WER gate for headless E2E golden test (fraction, not percent).
+const DEFAULT_GOLDEN_E2E_MAX_WER: f64 = 0.05;
+
 fn app_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent().unwrap().to_path_buf()
 }
@@ -125,7 +128,7 @@ fn golden_system_audio_e2e() {
     let max = std::env::var("GOLDEN_E2E_MAX_WER")
         .ok()
         .map(|raw| raw.parse().expect("GOLDEN_E2E_MAX_WER must be a float"))
-        .unwrap_or(0.08);
+        .unwrap_or(DEFAULT_GOLDEN_E2E_MAX_WER);
     assert!(
         report.wer < max,
         "WER {:.1}% exceeds GOLDEN_E2E_MAX_WER={}",

@@ -72,7 +72,9 @@ if [[ "$RUN_E2E" -eq 1 ]]; then
 
   ensure_whisperkit_cache
 
-  echo "Running headless golden E2E (cargo test)..." >&2
+  export GOLDEN_E2E_MAX_WER="${GOLDEN_E2E_MAX_WER:-0.05}"
+
+  echo "Running headless golden E2E (cargo test, GOLDEN_E2E_MAX_WER=$GOLDEN_E2E_MAX_WER)..." >&2
   (cd "$ROOT/src-tauri" && cargo test golden_system_audio_e2e -- --ignored --nocapture)
 
   if [[ -f "$ROOT/test-output/e2e-transcript.txt" ]]; then

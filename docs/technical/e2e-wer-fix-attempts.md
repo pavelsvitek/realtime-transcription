@@ -30,7 +30,8 @@ cd tauri-app/src-tauri && WHISPERKIT_DISABLE_PARTIALS=1 cargo test golden_system
 | 2 | F2.a | Disable partials in headless | 2.8% | 3.2% (rerun) | 0 | done |
 | 2b | F2.a | Same, first run (flaky) | — | 99.3% | 0 | flaky |
 | 3 | F2.b+c | Windowed partials + incremental commits + async decode | 2.8% | **3.5%** ×2 | 0 | **done** |
-| 4 | — | (optional) F3 capture-ready gate | — | — | — | pending |
+| 4 | gate | `GOLDEN_E2E_MAX_WER` default 5% | — | 3.5% passes | 0 | done |
+| 5 | — | (optional) F3 capture-ready gate | — | — | — | pending |
 
 **Key revision to root-cause model:** Full-buffer partial transcription every 10 s degraded quality (~14% WER). **Fix:** windowed tail partials (≤30 s), incremental commits every 15 s (≤30 s chunks), async decode so `pushAudio` never blocks stdin. E2E now **3.5%** with real-time streaming enabled — suitable for live meetings.
 
