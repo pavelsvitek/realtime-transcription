@@ -4,7 +4,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use tauri_app_lib::evaluate_wer;
 use tauri_app_lib::config::AppConfig;
@@ -101,14 +101,18 @@ fn golden_system_audio_e2e() {
         );
     });
 
+    let t0 = Instant::now();
     let service = TranscriptionService::new();
     service
         .start_headless(AudioSource::SystemAudio)
         .expect("start transcription");
+    let model_and_capture_start_s = t0.elapsed().as_secs_f64();
 
     // Model load + loopback setup
     thread::sleep(Duration::from_secs(4));
+    let pre_roll_s = 4.0_f64;
 
+    let t_ffplay = Instant::now();
     let mut child = Command::new("ffplay")
         .args([
             "-autoexit",
@@ -122,11 +126,15 @@ fn golden_system_audio_e2e() {
 
     let status = child.wait().expect("wait for ffplay");
     assert!(status.success(), "ffplay failed: {status}");
+    let ffplay_s = t_ffplay.elapsed().as_secs_f64();
 
     // Allow VAD flush
     thread::sleep(Duration::from_secs(8));
+    let post_roll_s = 8.0_f64;
 
+    let t_stop = Instant::now();
     let export = service.stop(None).expect("stop transcription");
+    let stop_join_s = t_stop.elapsed().as_secs_f64();
     assert!(!export.text.is_empty(), "empty transcript");
 
     let out_path = root.join("test-output/e2e-transcript.txt");
@@ -139,8 +147,18 @@ fn golden_system_audio_e2e() {
     let (captured_samples, dropped_samples, dropped_frames) = capture_stats();
     let video_duration_s = video_duration_secs(&video);
     let expected_samples = (video_duration_s * 48_000.0) as u64;
+    let captured_s = captured_samples as f64 / 48_000.0;
+    let design_window_s = pre_roll_s + video_duration_s + post_roll_s;
+    let overrun_vs_video_s = captured_s - video_duration_s;
+    let overrun_vs_design_s = captured_s - design_window_s;
 
     println!("E2E clip: {clip}");
+    println!(
+        "E2E timing: model+capture_start={model_and_capture_start_s:.1}s pre_roll={pre_roll_s:.1}s ffplay={ffplay_s:.1}s post_roll={post_roll_s:.1}s stop_join={stop_join_s:.1}s"
+    );
+    println!(
+        "E2E capture window: captured={captured_s:.1}s video={video_duration_s:.1}s design={design_window_s:.1}s overrun_vs_video={overrun_vs_video_s:+.1}s overrun_vs_design={overrun_vs_design_s:+.1}s"
+    );
 
     println!(
         "E2E WER: {:.1}% (S={} I={} D={} dup_bi={})",
