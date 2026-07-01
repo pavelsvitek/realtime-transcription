@@ -13,6 +13,10 @@ private let commitTriggerSamples = WhisperKit.sampleRate * 15
 private let commitChunkSamples = WhisperKit.sampleRate * 30
 /// Context retained after trimming committed prefix from the ring buffer.
 private let contextOverlapSamples = WhisperKit.sampleRate * 2
+/// Skip Whisper inference when window RMS is below this (matches Rust `SYSTEM_SILENCE_RMS_THRESHOLD`).
+private let preDecodeRmsThreshold: Float = 0.001
+/// Discard segments whose `noSpeechProb` exceeds this (WhisperKit / OpenAI default: 0.6).
+private let noSpeechThreshold: Float = 0.6
 private let requiredModelComponents = [
     "MelSpectrogram.mlmodelc",
     "AudioEncoder.mlmodelc",
@@ -587,6 +591,10 @@ private actor StreamSession {
     }
 
     private func transcribeText(for samples: [Float]) async throws -> String {
+        if computeRms(samples) < preDecodeRmsThreshold {
+            return ""
+        }
+
         let options = DecodingOptions(
             verbose: false,
             task: .transcribe,
@@ -594,15 +602,38 @@ private actor StreamSession {
             temperature: 0.0,
             usePrefillPrompt: true,
             detectLanguage: false,
+            skipSpecialTokens: true,
             withoutTimestamps: false,
             wordTimestamps: false,
+            noSpeechThreshold: noSpeechThreshold,
             chunkingStrategy: .vad
         )
         let results = try await whisperKit.transcribe(audioArray: samples, decodeOptions: options)
-        return results
-            .map(\.text)
-            .joined(separator: " ")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return speechText(from: results)
+    }
+
+    /// Return clean transcript text, skipping results classified as non-speech.
+    ///
+    /// Uses top-level `result.text` (word tokens only) rather than `segment.text`, which
+    /// can include decoded special/timestamp tokens when `skipSpecialTokens` is off.
+    private func speechText(from results: [TranscriptionResult]) -> String {
+        results.compactMap { result -> String? in
+            let hasSpeech = result.segments.isEmpty
+                || result.segments.contains { $0.noSpeechProb <= noSpeechThreshold }
+            guard hasSpeech else { return nil }
+
+            let text = result.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            return text.isEmpty ? nil : text
+        }
+        .joined(separator: " ")
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// RMS of mono f32 samples in [0.0, 1.0] (same formula as Rust `mic_input::compute_rms`).
+    private func computeRms(_ samples: [Float]) -> Float {
+        guard !samples.isEmpty else { return 0 }
+        let sumSq = samples.reduce(0) { $0 + $1 * $1 }
+        return (sumSq / Float(samples.count)).squareRoot()
     }
 
     private func collapseRepeatedBigrams(in text: String) -> String {
