@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import { ThemeToggle } from "./ThemeToggle";
+import { useColorScheme } from "../hooks/useColorScheme";
 import {
   HomeIcon,
   MeetingsIcon,
@@ -21,6 +23,8 @@ interface SidebarProps {
 }
 
 export function Sidebar({ currentPage, onNavigate }: SidebarProps) {
+  const { scheme, toggleScheme } = useColorScheme();
+
   return (
     <nav className="sidebar" aria-label="Main navigation">
       <div className="sidebar-chrome" data-tauri-drag-region aria-hidden="true" />
@@ -40,6 +44,9 @@ export function Sidebar({ currentPage, onNavigate }: SidebarProps) {
           </li>
         ))}
       </ul>
+      <div className="sidebar-footer">
+        <ThemeToggle scheme={scheme} onToggle={toggleScheme} />
+      </div>
     </nav>
   );
 }

@@ -61,3 +61,30 @@ export function SettingsIcon() {
     </SidebarIcon>
   );
 }
+
+export function SystemThemeIcon() {
+  return (
+    <SidebarIcon>
+      <rect x="2" y="3" width="20" height="14" rx="2" />
+      <line x1="8" x2="16" y1="21" y2="21" />
+      <line x1="12" x2="12" y1="17" y2="21" />
+    </SidebarIcon>
+  );
+}
+
+export function SunThemeIcon() {
+  return (
+    <SidebarIcon>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+    </SidebarIcon>
+  );
+}
+
+export function MoonThemeIcon() {
+  return (
+    <SidebarIcon>
+      <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+    </SidebarIcon>
+  );
+}
