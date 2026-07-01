@@ -37,7 +37,7 @@ pub fn run_worker<E>(
     let mut system_samples_seen: usize = 0;
     let mut system_peak_rms: f32 = 0.0;
     let mut system_silence_warned = false;
-    const SYSTEM_SILENCE_RMS_THRESHOLD: f32 = 0.001;
+    const SYSTEM_SILENCE_RMS_THRESHOLD: f32 = 0.01;
     const SYSTEM_SILENCE_CHECK_SAMPLES: usize = 48_000 * 30;
 
     while !stop.load(Ordering::Relaxed) {

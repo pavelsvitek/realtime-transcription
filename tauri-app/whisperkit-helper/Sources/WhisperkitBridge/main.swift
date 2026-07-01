@@ -14,7 +14,8 @@ private let commitChunkSamples = WhisperKit.sampleRate * 30
 /// Context retained after trimming committed prefix from the ring buffer.
 private let contextOverlapSamples = WhisperKit.sampleRate * 2
 /// Skip Whisper inference when window RMS is below this (matches Rust `SYSTEM_SILENCE_RMS_THRESHOLD`).
-private let preDecodeRmsThreshold: Float = 0.001
+/// Calibrated above mic room tone (~0.003–0.01) but well below quiet speech.
+private let preDecodeRmsThreshold: Float = 0.01
 /// Discard segments whose `noSpeechProb` exceeds this (WhisperKit / OpenAI default: 0.6).
 private let noSpeechThreshold: Float = 0.6
 private let requiredModelComponents = [
@@ -591,7 +592,8 @@ private actor StreamSession {
     }
 
     private func transcribeText(for samples: [Float]) async throws -> String {
-        if computeRms(samples) < preDecodeRmsThreshold {
+        let trimmed = trimEdgeSilence(samples)
+        guard !trimmed.isEmpty, computeRms(trimmed) >= preDecodeRmsThreshold else {
             return ""
         }
 
@@ -608,8 +610,8 @@ private actor StreamSession {
             noSpeechThreshold: noSpeechThreshold,
             chunkingStrategy: .vad
         )
-        let results = try await whisperKit.transcribe(audioArray: samples, decodeOptions: options)
-        return speechText(from: results)
+        let results = try await whisperKit.transcribe(audioArray: trimmed, decodeOptions: options)
+        return stripTrailingPhantomThankYou(from: speechText(from: results))
     }
 
     /// Return clean transcript text, skipping results classified as non-speech.
@@ -634,6 +636,45 @@ private actor StreamSession {
         guard !samples.isEmpty else { return 0 }
         let sumSq = samples.reduce(0) { $0 + $1 * $1 }
         return (sumSq / Float(samples.count)).squareRoot()
+    }
+
+    /// Drop leading/trailing low-energy frames so decode windows don't end on silence.
+    private func trimEdgeSilence(
+        _ samples: [Float],
+        threshold: Float = preDecodeRmsThreshold,
+        frameSamples: Int = WhisperKit.sampleRate / 10
+    ) -> [Float] {
+        guard !samples.isEmpty, frameSamples > 0 else { return [] }
+
+        func frameIsSilent(at start: Int) -> Bool {
+            let end = min(start + frameSamples, samples.count)
+            return computeRms(Array(samples[start..<end])) < threshold
+        }
+
+        var start = 0
+        while start < samples.count {
+            if !frameIsSilent(at: start) { break }
+            start += frameSamples
+        }
+
+        var end = samples.count
+        while end > start {
+            let frameStart = max(start, end - frameSamples)
+            if !frameIsSilent(at: frameStart) { break }
+            end = frameStart
+        }
+
+        guard end > start else { return [] }
+        return Array(samples[start..<end])
+    }
+
+    /// Remove a hallucinated "Thank you." appended when a decode window ends on silence.
+    private func stripTrailingPhantomThankYou(from text: String) -> String {
+        let pattern = #"\.\s+Thank you\.?\s*$"#
+        guard let range = text.range(of: pattern, options: .regularExpression) else {
+            return text
+        }
+        return String(text[..<range.lowerBound]) + "."
     }
 
     private func collapseRepeatedBigrams(in text: String) -> String {

@@ -138,6 +138,7 @@ impl WhisperkitPipeline {
             let reader = BufReader::new(stdout);
             for line in reader.lines() {
                 let result = match line {
+                    Ok(raw) if raw.trim().is_empty() => continue,
                     Ok(raw) => serde_json::from_str::<HelperResponse>(&raw)
                         .map_err(|e| anyhow::anyhow!("Invalid helper JSON: {e}; line={raw}")),
                     Err(e) => Err(anyhow::anyhow!("Failed to read helper stdout: {e}")),
