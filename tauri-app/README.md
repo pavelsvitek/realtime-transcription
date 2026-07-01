@@ -63,6 +63,35 @@ If `tccutil reset AudioCapture com.pavel.tauri-app` fails, the app has not regis
 RUST_LOG=tauri_app_lib=debug pnpm tauri dev
 ```
 
+### WhisperKit helper changes
+
+The Rust backend spawns the **release** helper binary, not debug:
+
+```text
+whisperkit-helper/.build/release/whisperkit-bridge
+```
+
+(`AppConfig::default_helper_path()` in `src-tauri/src/config.rs`.)
+
+After editing `whisperkit-helper/Sources/WhisperkitBridge/main.swift` (or any helper code), rebuild release and restart the app — otherwise you are still running the old binary:
+
+```bash
+cd whisperkit-helper
+swift build -c release --product whisperkit-bridge
+```
+
+Or re-run the one-time setup script (also downloads/warms the model if needed):
+
+```bash
+./scripts/setup-whisperkit.sh
+```
+
+`swift build` without `-c release` only updates `.build/debug/whisperkit-bridge`, which the app does **not** use unless you override the path:
+
+```bash
+export WHISPERKIT_BRIDGE_PATH="$PWD/whisperkit-helper/.build/debug/whisperkit-bridge"
+```
+
 ### Running tests
 
 ```bash
