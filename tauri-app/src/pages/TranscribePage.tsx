@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { MicIndicator } from "../components/MicIndicator";
+import { Spinner } from "../components/Spinner";
 import { TranscriptFeed } from "../components/TranscriptFeed";
 import { useMicLevel } from "../hooks/useMicLevel";
 import { useTranscription } from "../hooks/useTranscription";
@@ -11,13 +12,14 @@ export function TranscribePage() {
     segments,
     isActive,
     isLoading,
+    isStopping,
     error,
     model,
     start,
     stop,
     clear,
   } = useTranscription();
-  const micActive = useMicLevel(isActive);
+  const micActive = useMicLevel(isActive && !isStopping);
 
   return (
     <main className="page">
@@ -32,7 +34,7 @@ export function TranscribePage() {
             <select
               value={audioSource}
               onChange={(e) => setAudioSource(e.target.value as AudioSource)}
-              disabled={isActive || isLoading}
+              disabled={isActive || isLoading || isStopping}
             >
               <option value="system">Chrome / system audio</option>
               <option value="mic">Microphone</option>
@@ -40,7 +42,7 @@ export function TranscribePage() {
             </select>
           </label>
           <MicIndicator
-            isActive={isActive}
+            isActive={isActive && !isStopping}
             micActive={micActive}
             error={error}
           />
@@ -53,8 +55,14 @@ export function TranscribePage() {
               {isLoading ? "Loading model..." : "Start"}
             </button>
           ) : (
-            <button className="btn btn-stop" onClick={stop}>
-              Stop
+            <button
+              className="btn btn-stop"
+              onClick={stop}
+              disabled={isStopping}
+              aria-busy={isStopping}
+              aria-label={isStopping ? "Stopping transcription" : "Stop transcription"}
+            >
+              {isStopping ? <Spinner className="btn-spinner" /> : "Stop"}
             </button>
           )}
           {segments.length > 0 && !isActive && (
@@ -75,7 +83,9 @@ export function TranscribePage() {
 
       <footer className="page-footer">
         <span className="status-text">
-          {isActive
+          {isStopping
+            ? "Stopping..."
+            : isActive
             ? audioSource === "both"
               ? "Capturing mic + system audio..."
               : audioSource === "system"

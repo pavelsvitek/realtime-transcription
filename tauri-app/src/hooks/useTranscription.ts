@@ -18,6 +18,7 @@ export function useTranscription() {
   const [segments, setSegments] = useState<TranscriptSegment[]>([]);
   const [isActive, setIsActive] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isStopping, setIsStopping] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [model, setModel] = useState<string | null>(null);
   const unlistenRefs = useRef<UnlistenFn[]>([]);
@@ -61,6 +62,9 @@ export function useTranscription() {
           const payload = event.payload;
           setIsActive(payload.active);
           setIsLoading(payload.loading ?? false);
+          if (!payload.active) {
+            setIsStopping(false);
+          }
           setError(payload.error ?? null);
           if (payload.model) {
             setModel(payload.model);
@@ -99,9 +103,11 @@ export function useTranscription() {
   }, []);
 
   const stop = useCallback(async () => {
+    setIsStopping(true);
     try {
       await invoke("stop_transcription");
     } catch (e) {
+      setIsStopping(false);
       setError(String(e));
     }
   }, []);
@@ -114,6 +120,7 @@ export function useTranscription() {
     segments,
     isActive,
     isLoading,
+    isStopping,
     error,
     model,
     start,
