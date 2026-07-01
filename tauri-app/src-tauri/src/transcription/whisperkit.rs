@@ -274,13 +274,9 @@ impl WhisperkitPipeline {
                     start_ms,
                     end_ms,
                 })) => output.committed.push(asr_word(text, start_ms, end_ms)),
-                Ok(Ok(HelperResponse::Partial {
-                    text,
-                    start_ms,
-                    end_ms,
-                })) => {
-                    output.tentative.clear();
-                    output.tentative.push(asr_word(text, start_ms, end_ms));
+                Ok(Ok(HelperResponse::Partial { .. })) => {
+                    // Ignore live partials during finish — they are stale hypotheses
+                    // queued before the final commit and would leave gray text in the UI.
                 }
                 Ok(Ok(HelperResponse::Finished)) => break,
                 Ok(Ok(HelperResponse::Error { message })) => anyhow::bail!(message),

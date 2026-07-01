@@ -12,7 +12,7 @@ import {
   EVENT_TRANSCRIPT_PARTIAL,
   EVENT_TRANSCRIPTION_STATUS,
 } from "../lib/tauri-events";
-import { applyTranscriptEvent } from "../lib/transcript-timeline";
+import { applyTranscriptEvent, finalizePartials } from "../lib/transcript-timeline";
 
 export function useTranscription() {
   const [segments, setSegments] = useState<TranscriptSegment[]>([]);
@@ -64,6 +64,7 @@ export function useTranscription() {
           setIsLoading(payload.loading ?? false);
           if (!payload.active) {
             setIsStopping(false);
+            setSegments((prev) => finalizePartials(prev));
           }
           setError(payload.error ?? null);
           if (payload.model) {

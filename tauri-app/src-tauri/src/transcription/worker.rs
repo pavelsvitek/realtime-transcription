@@ -38,7 +38,7 @@ pub fn run_worker<E>(
     let mut system_peak_rms: f32 = 0.0;
     let mut system_silence_warned = false;
     const SYSTEM_SILENCE_RMS_THRESHOLD: f32 = 0.001;
-    const SYSTEM_SILENCE_CHECK_SAMPLES: usize = 48_000 * 3;
+    const SYSTEM_SILENCE_CHECK_SAMPLES: usize = 48_000 * 30;
 
     while !stop.load(Ordering::Relaxed) {
         let chunk = match audio_rx.recv_timeout(std::time::Duration::from_millis(100)) {
@@ -103,6 +103,7 @@ pub fn run_worker<E>(
                     labels,
                     &emit,
                     &segment_counter,
+                    false,
                 ) {
                     if let Some(obs) = observer.as_mut() {
                         obs.on_commit(&commit);
@@ -137,6 +138,7 @@ pub fn run_worker<E>(
                 labels,
                 &emit,
                 &segment_counter,
+                true,
             ) {
                 if let Some(obs) = observer.as_mut() {
                     obs.on_commit(&commit);
@@ -169,11 +171,12 @@ fn emit_process_output<E>(
     labels: StreamLabels,
     emit: &E,
     segment_counter: &Arc<AtomicU64>,
+    flush_final: bool,
 ) -> Option<TranscriptCommit>
 where
     E: Fn(TranscriptEvent),
 {
-    let emitted_commit = if !committed.is_empty() {
+    let mut emitted_commit = if !committed.is_empty() {
         let seg_id = segment_counter.fetch_add(1, Ordering::Relaxed);
         let (text, start_ms, end_ms) = join_words(committed);
         tracing::debug!(text = %text, words = committed.len(), "Committed");
@@ -192,16 +195,34 @@ where
     };
 
     if !tentative.is_empty() {
-        let (text, start_ms, end_ms) = join_words(tentative);
-        tracing::debug!(text = %text, "Tentative");
-        emit(TranscriptEvent::Partial(TranscriptPartial {
-            speaker: labels.speaker.into(),
-            stream: labels.stream.into(),
-            text,
-            start_ms,
-            end_ms,
-            segment_id: format!("tentative-{}", labels.stream),
-        }));
+        if flush_final {
+            if emitted_commit.is_none() {
+                let seg_id = segment_counter.fetch_add(1, Ordering::Relaxed);
+                let (text, start_ms, end_ms) = join_words(tentative);
+                tracing::debug!(text = %text, "Committed tentative tail on flush");
+                let commit = TranscriptCommit {
+                    speaker: labels.speaker.into(),
+                    stream: labels.stream.into(),
+                    text,
+                    start_ms,
+                    end_ms,
+                    segment_id: format!("seg-{seg_id}"),
+                };
+                emit(TranscriptEvent::Commit(commit.clone()));
+                emitted_commit = Some(commit);
+            }
+        } else {
+            let (text, start_ms, end_ms) = join_words(tentative);
+            tracing::debug!(text = %text, "Tentative");
+            emit(TranscriptEvent::Partial(TranscriptPartial {
+                speaker: labels.speaker.into(),
+                stream: labels.stream.into(),
+                text,
+                start_ms,
+                end_ms,
+                segment_id: format!("tentative-{}", labels.stream),
+            }));
+        }
     }
 
     emitted_commit
@@ -253,7 +274,7 @@ mod tests {
         };
 
         let committed = vec![word("hello", 0.1, 0.5), word("world", 0.5, 1.0)];
-        let commit = emit_process_output(&committed, &[], mic_labels(), &emit, &counter).unwrap();
+        let commit = emit_process_output(&committed, &[], mic_labels(), &emit, &counter, false).unwrap();
 
         assert_eq!(commit.speaker, "User");
         assert_eq!(commit.stream, "mic");
@@ -280,7 +301,7 @@ mod tests {
         };
 
         let tentative = vec![word("testing", 1.0, 1.5), word("now", 1.5, 2.0)];
-        assert!(emit_process_output(&[], &tentative, mic_labels(), &emit, &counter).is_none());
+        assert!(emit_process_output(&[], &tentative, mic_labels(), &emit, &counter, false).is_none());
 
         let events = events.lock().unwrap();
         assert_eq!(events.len(), 1);
@@ -311,7 +332,7 @@ mod tests {
             stream: labels::SYSTEM_STREAM,
         };
         let tentative = vec![word("remote", 0.0, 0.5)];
-        emit_process_output(&[], &tentative, sys_labels, &emit, &counter);
+        emit_process_output(&[], &tentative, sys_labels, &emit, &counter, false);
 
         let events = events.lock().unwrap();
         match &events[0] {
@@ -334,7 +355,7 @@ mod tests {
 
         let committed = vec![word("done", 0.0, 0.5)];
         let tentative = vec![word("maybe", 0.5, 1.0)];
-        let commit = emit_process_output(&committed, &tentative, mic_labels(), &emit, &counter).unwrap();
+        let commit = emit_process_output(&committed, &tentative, mic_labels(), &emit, &counter, false).unwrap();
         assert_eq!(commit.text, "done");
 
         let events = events.lock().unwrap();
@@ -346,6 +367,49 @@ mod tests {
         match &events[1] {
             TranscriptEvent::Partial(p) => assert_eq!(p.text, "maybe"),
             _ => panic!("Expected Partial"),
+        }
+    }
+
+    #[test]
+    fn emit_process_output_flush_commits_tentative_without_partial() {
+        let counter = Arc::new(std::sync::atomic::AtomicU64::new(0));
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let events_clone = events.clone();
+        let emit = move |event: TranscriptEvent| {
+            events_clone.lock().unwrap().push(event);
+        };
+
+        let tentative = vec![word("final", 1.0, 2.0)];
+        let commit =
+            emit_process_output(&[], &tentative, mic_labels(), &emit, &counter, true).unwrap();
+
+        assert_eq!(commit.text, "final");
+        let events = events.lock().unwrap();
+        assert_eq!(events.len(), 1);
+        match &events[0] {
+            TranscriptEvent::Commit(c) => assert_eq!(c.text, "final"),
+            _ => panic!("Expected Commit"),
+        }
+    }
+
+    #[test]
+    fn emit_process_output_flush_ignores_stale_tentative_when_committed_present() {
+        let counter = Arc::new(std::sync::atomic::AtomicU64::new(0));
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let events_clone = events.clone();
+        let emit = move |event: TranscriptEvent| {
+            events_clone.lock().unwrap().push(event);
+        };
+
+        let committed = vec![word("done", 0.0, 0.5)];
+        let tentative = vec![word("stale", 0.5, 1.0)];
+        emit_process_output(&committed, &tentative, mic_labels(), &emit, &counter, true).unwrap();
+
+        let events = events.lock().unwrap();
+        assert_eq!(events.len(), 1);
+        match &events[0] {
+            TranscriptEvent::Commit(c) => assert_eq!(c.text, "done"),
+            _ => panic!("Expected Commit only"),
         }
     }
 }

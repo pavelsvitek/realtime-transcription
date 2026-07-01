@@ -67,7 +67,7 @@ export function applyCommit(
 ): TranscriptSegment[] {
   const stream = parseStream(payload.stream);
   const withoutPartial = prev.filter(
-    (s) => !(s.isPartial && s.id === tentativeIdForStream(stream))
+    (s) => s.id !== tentativeIdForStream(stream)
   );
   const newSegment = payloadToSegment(payload, false);
   const sorted = sortSegments([...withoutPartial, newSegment]);
@@ -102,4 +102,16 @@ export function applyTranscriptEvent(
   return kind === "partial"
     ? applyPartial(prev, payload)
     : applyCommit(prev, payload);
+}
+
+/** Promote any in-flight partial lines to committed styling when capture ends. */
+export function finalizePartials(
+  segments: TranscriptSegment[]
+): TranscriptSegment[] {
+  const hasPartial = segments.some((segment) => segment.isPartial);
+  if (!hasPartial) return segments;
+
+  return segments.map((segment) =>
+    segment.isPartial ? { ...segment, isPartial: false } : segment
+  );
 }
