@@ -5,6 +5,7 @@ mod eval;
 mod ipc;
 mod state;
 pub mod transcription;
+pub mod audio_device;
 
 pub use eval::wer::{evaluate as evaluate_wer, WerReport};
 pub use config::AppConfig;
@@ -12,6 +13,9 @@ pub use transcription::{AudioSource, LoadedModels, TranscriptionService};
 
 use state::TranscriptionHandle;
 use tracing_subscriber::EnvFilter;
+
+#[cfg(target_os = "macos")]
+use crate::audio_device::spawn_device_monitor;
 
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -30,8 +34,16 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .manage(TranscriptionHandle::default())
+        .setup(|app| {
+            #[cfg(target_os = "macos")]
+            {
+                let _monitor = spawn_device_monitor(app.handle().clone());
+            }
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             greet,
+            commands::audio_device::get_default_input_device_command,
             commands::transcription::start_transcription,
             commands::transcription::stop_transcription,
             commands::transcription::export_transcript,

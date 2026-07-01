@@ -3,3 +3,4 @@ export const EVENT_TRANSCRIPT_PARTIAL = "transcript/partial";
 export const EVENT_TRANSCRIPT_COMMIT = "transcript/commit";
 export const EVENT_TRANSCRIPTION_STATUS = "transcription/status";
 export const EVENT_TRANSCRIPTION_MIC_LEVEL = "transcription/mic_level";
+export const EVENT_TRANSCRIPTION_DEVICE = "transcription/device";

@@ -39,6 +39,12 @@ pub struct MicLevel {
     pub rms: f32,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioDevicePayload {
+    pub device: crate::audio_device::AudioDeviceInfo,
+}
+
 /// Full session transcript returned on stop or export.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -56,6 +62,7 @@ pub enum TranscriptEvent {
     Commit(TranscriptCommit),
     Status(TranscriptionStatus),
     MicLevel(MicLevel),
+    Device(AudioDevicePayload),
 }
 
 pub mod event_names {
@@ -64,6 +71,7 @@ pub mod event_names {
     pub const COMMIT: &str = "transcript/commit";
     pub const STATUS: &str = "transcription/status";
     pub const MIC_LEVEL: &str = "transcription/mic_level";
+    pub const DEVICE: &str = "transcription/device";
 }
 
 #[cfg(test)]

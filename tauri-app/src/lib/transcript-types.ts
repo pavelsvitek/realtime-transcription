@@ -29,3 +29,22 @@ export type TranscriptionStatusPayload = {
 export type MicLevelPayload = {
   rms: number;
 };
+
+export type DeviceKind =
+  | "builtInMic"
+  | "wiredHeadset"
+  | "bluetoothEarbuds"
+  | "bluetoothHeadphones"
+  | "bluetoothGeneric"
+  | "usbHeadset"
+  | "unknown";
+
+export type AudioDeviceInfo = {
+  name: string;
+  kind: DeviceKind;
+  transport: string;
+};
+
+export type AudioDevicePayload = {
+  device: AudioDeviceInfo;
+};

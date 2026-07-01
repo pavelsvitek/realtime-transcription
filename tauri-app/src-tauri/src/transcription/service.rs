@@ -191,6 +191,7 @@ impl TranscriptionService {
                     error: None,
                 },
             );
+            crate::audio_device::emit_device_update(app);
         }
 
         tracing::info!("Transcription started");
@@ -428,6 +429,7 @@ fn emit_to_app(app_handle: &AppHandle, event: TranscriptEvent) {
         TranscriptEvent::Commit(payload) => app_handle.emit(event_names::COMMIT, payload),
         TranscriptEvent::Status(payload) => app_handle.emit(event_names::STATUS, payload),
         TranscriptEvent::MicLevel(payload) => app_handle.emit(event_names::MIC_LEVEL, payload),
+        TranscriptEvent::Device(payload) => app_handle.emit(event_names::DEVICE, payload),
     };
 
     if let Err(e) = result {

@@ -298,6 +298,12 @@ body,
   gap: 8px;
 }
 
+.mic-indicator {
+  display: flex;
+  align-items: center;
+  cursor: help;
+}
+
 .source-select {
   display: flex;
   align-items: center;

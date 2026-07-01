@@ -2,6 +2,7 @@ import { useState } from "react";
 import { MicIndicator } from "../components/MicIndicator";
 import { Spinner } from "../components/Spinner";
 import { TranscriptFeed } from "../components/TranscriptFeed";
+import { useAudioDevice } from "../hooks/useAudioDevice";
 import { useMicLevel } from "../hooks/useMicLevel";
 import { useTranscription } from "../hooks/useTranscription";
 import type { AudioSource } from "../lib/transcript-types";
@@ -19,6 +20,7 @@ export function TranscribePage() {
     stop,
     clear,
   } = useTranscription();
+  const { device, error: deviceError } = useAudioDevice();
   const micActive = useMicLevel(isActive && !isStopping);
 
   return (
@@ -45,6 +47,9 @@ export function TranscribePage() {
             isActive={isActive && !isStopping}
             micActive={micActive}
             error={error}
+            deviceName={device?.name ?? null}
+            deviceKind={device?.kind ?? null}
+            deviceError={deviceError}
           />
           {!isActive ? (
             <button
