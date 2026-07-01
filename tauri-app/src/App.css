@@ -131,6 +131,7 @@ body,
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  background-color: var(--surface-chrome);
 }
 
 /* macOS overlay title bar — native traffic lights float over sidebar + this strip */
