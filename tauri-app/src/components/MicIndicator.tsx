@@ -1,4 +1,5 @@
 import type { DeviceKind } from "../lib/transcript-types";
+import { getMicrophoneTooltipLabel } from "../lib/audio-device-label";
 import { Tooltip } from "./Tooltip";
 
 type MicIndicatorProps = {
@@ -20,19 +21,6 @@ function isBluetoothHeadset(kind: DeviceKind | null): boolean {
   return kind !== null && BLUETOOTH_HEADSET_KINDS.includes(kind);
 }
 
-const INTERNAL_MIC_LABEL = "Internal MacBook microphone";
-
-function tooltipText(
-  deviceName: string | null,
-  deviceKind: DeviceKind | null,
-  deviceError: string | null,
-): string {
-  if (deviceError) return deviceError;
-  if (deviceKind === "builtInMic") return INTERNAL_MIC_LABEL;
-  if (deviceName) return deviceName;
-  return INTERNAL_MIC_LABEL;
-}
-
 export function MicIndicator({
   isActive,
   micActive,
@@ -50,7 +38,7 @@ export function MicIndicator({
     color = "#9ca3af";
   }
 
-  const label = tooltipText(deviceName, deviceKind, deviceError);
+  const label = getMicrophoneTooltipLabel(deviceName, deviceKind, deviceError);
   const showHeadphones = isBluetoothHeadset(deviceKind);
 
   return (

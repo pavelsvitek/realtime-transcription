@@ -8,7 +8,7 @@ import { useTranscription } from "../hooks/useTranscription";
 import type { AudioSource } from "../lib/transcript-types";
 
 export function TranscribePage() {
-  const [audioSource, setAudioSource] = useState<AudioSource>("system");
+  const [audioSource, setAudioSource] = useState<AudioSource>("both");
   const {
     segments,
     isActive,
@@ -84,7 +84,12 @@ export function TranscribePage() {
         </div>
       )}
 
-      <TranscriptFeed segments={segments} />
+      <TranscriptFeed
+        segments={segments}
+        audioSource={audioSource}
+        deviceName={device?.name ?? null}
+        deviceKind={device?.kind ?? null}
+      />
 
       <footer className="page-footer">
         <span className="status-text">

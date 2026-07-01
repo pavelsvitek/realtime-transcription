@@ -1,9 +1,13 @@
 import { useEffect, useRef } from "react";
 import { formatTime } from "../lib/format";
-import type { TranscriptSegment } from "../lib/transcript-types";
+import { getMicrophoneRecordingName, usesMicrophoneInput } from "../lib/audio-device-label";
+import type { AudioSource, DeviceKind, TranscriptSegment } from "../lib/transcript-types";
 
 type TranscriptFeedProps = {
   segments: TranscriptSegment[];
+  audioSource: AudioSource;
+  deviceName: string | null;
+  deviceKind: DeviceKind | null;
 };
 
 function lineClassName(segment: TranscriptSegment): string {
@@ -14,8 +18,15 @@ function lineClassName(segment: TranscriptSegment): string {
   return `transcript-line ${streamClass}`;
 }
 
-export function TranscriptFeed({ segments }: TranscriptFeedProps) {
+export function TranscriptFeed({
+  segments,
+  audioSource,
+  deviceName,
+  deviceKind,
+}: TranscriptFeedProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const showMicHint = usesMicrophoneInput(audioSource);
+  const recordingDeviceName = getMicrophoneRecordingName(deviceName, deviceKind);
 
   useEffect(() => {
     const container = scrollRef.current;
@@ -26,9 +37,16 @@ export function TranscriptFeed({ segments }: TranscriptFeedProps) {
   return (
     <div ref={scrollRef} className="transcript-feed">
       {segments.length === 0 ? (
-        <p className="transcript-empty">
-          Press Start to begin transcribing...
-        </p>
+        <div className="transcript-empty">
+          <p className="transcript-empty-title">
+            Press Start to begin transcribing...
+          </p>
+          {showMicHint && (
+            <p className="transcript-empty-hint">
+              We will use {recordingDeviceName} microphone to record.
+            </p>
+          )}
+        </div>
       ) : (
         <ol className="transcript-list">
           {segments.map((segment) => (
