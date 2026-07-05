@@ -73,7 +73,7 @@ whisperkit-helper/.build/release/whisperkit-bridge
 
 (`AppConfig::default_helper_path()` in `src-tauri/src/config.rs`.)
 
-After editing `whisperkit-helper/Sources/WhisperkitBridge/main.swift` (or any helper code), rebuild release and restart the app — otherwise you are still running the old binary:
+After editing `whisperkit-helper/Sources/WhisperkitBridge/main.swift` (or any helper code), rebuild release and restart the app — otherwise you are still running the old binary. See [docs/instructions.md](../docs/instructions.md).
 
 ```bash
 cd whisperkit-helper

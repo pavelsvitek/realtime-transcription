@@ -97,7 +97,7 @@ pub fn run_worker<E>(
                         chunk.len(),
                     );
                 }
-                if let Some(commit) = emit_process_output(
+                for commit in emit_process_output(
                     &output.committed,
                     &output.tentative,
                     labels,
@@ -132,7 +132,7 @@ pub fn run_worker<E>(
     // Flush remaining audio
     match pipeline.finish() {
         Ok(output) if !output.is_empty() => {
-            if let Some(commit) = emit_process_output(
+            for commit in emit_process_output(
                 &output.committed,
                 &output.tentative,
                 labels,
@@ -172,31 +172,30 @@ fn emit_process_output<E>(
     emit: &E,
     segment_counter: &Arc<AtomicU64>,
     flush_final: bool,
-) -> Option<TranscriptCommit>
+) -> Vec<TranscriptCommit>
 where
     E: Fn(TranscriptEvent),
 {
-    let mut emitted_commit = if !committed.is_empty() {
+    let mut emitted_commits = Vec::new();
+
+    for word in committed {
         let seg_id = segment_counter.fetch_add(1, Ordering::Relaxed);
-        let (text, start_ms, end_ms) = join_words(committed);
-        tracing::debug!(text = %text, words = committed.len(), "Committed");
         let commit = TranscriptCommit {
             speaker: labels.speaker.into(),
             stream: labels.stream.into(),
-            text,
-            start_ms,
-            end_ms,
+            text: word.text.clone(),
+            start_ms: (word.start * 1000.0) as u64,
+            end_ms: (word.end * 1000.0) as u64,
             segment_id: format!("seg-{seg_id}"),
         };
+        tracing::debug!(text = %commit.text, "Committed");
         emit(TranscriptEvent::Commit(commit.clone()));
-        Some(commit)
-    } else {
-        None
-    };
+        emitted_commits.push(commit);
+    }
 
     if !tentative.is_empty() {
         if flush_final {
-            if emitted_commit.is_none() {
+            if emitted_commits.is_empty() {
                 let seg_id = segment_counter.fetch_add(1, Ordering::Relaxed);
                 let (text, start_ms, end_ms) = join_words(tentative);
                 tracing::debug!(text = %text, "Committed tentative tail on flush");
@@ -209,7 +208,7 @@ where
                     segment_id: format!("seg-{seg_id}"),
                 };
                 emit(TranscriptEvent::Commit(commit.clone()));
-                emitted_commit = Some(commit);
+                emitted_commits.push(commit);
             }
         } else {
             let (text, start_ms, end_ms) = join_words(tentative);
@@ -225,7 +224,7 @@ where
         }
     }
 
-    emitted_commit
+    emitted_commits
 }
 
 #[cfg(test)]
@@ -265,7 +264,7 @@ mod tests {
     }
 
     #[test]
-    fn emit_process_output_groups_committed_words() {
+    fn emit_process_output_emits_each_committed_segment() {
         let counter = Arc::new(std::sync::atomic::AtomicU64::new(0));
         let events = Arc::new(Mutex::new(Vec::new()));
         let events_clone = events.clone();
@@ -274,19 +273,25 @@ mod tests {
         };
 
         let committed = vec![word("hello", 0.1, 0.5), word("world", 0.5, 1.0)];
-        let commit = emit_process_output(&committed, &[], mic_labels(), &emit, &counter, false).unwrap();
+        let commits =
+            emit_process_output(&committed, &[], mic_labels(), &emit, &counter, false);
 
-        assert_eq!(commit.speaker, "User");
-        assert_eq!(commit.stream, "mic");
-        assert_eq!(commit.text, "hello world");
-        assert_eq!(commit.start_ms, 100);
-        assert_eq!(commit.end_ms, 1000);
-        assert_eq!(commit.segment_id, "seg-0");
+        assert_eq!(commits.len(), 2);
+        assert_eq!(commits[0].text, "hello");
+        assert_eq!(commits[0].start_ms, 100);
+        assert_eq!(commits[0].end_ms, 500);
+        assert_eq!(commits[1].text, "world");
+        assert_eq!(commits[1].start_ms, 500);
+        assert_eq!(commits[1].end_ms, 1000);
 
         let events = events.lock().unwrap();
-        assert_eq!(events.len(), 1);
+        assert_eq!(events.len(), 2);
         match &events[0] {
-            TranscriptEvent::Commit(c) => assert_eq!(c.text, "hello world"),
+            TranscriptEvent::Commit(c) => assert_eq!(c.text, "hello"),
+            _ => panic!("Expected Commit event"),
+        }
+        match &events[1] {
+            TranscriptEvent::Commit(c) => assert_eq!(c.text, "world"),
             _ => panic!("Expected Commit event"),
         }
     }
@@ -301,7 +306,7 @@ mod tests {
         };
 
         let tentative = vec![word("testing", 1.0, 1.5), word("now", 1.5, 2.0)];
-        assert!(emit_process_output(&[], &tentative, mic_labels(), &emit, &counter, false).is_none());
+        assert!(emit_process_output(&[], &tentative, mic_labels(), &emit, &counter, false).is_empty());
 
         let events = events.lock().unwrap();
         assert_eq!(events.len(), 1);
@@ -355,8 +360,10 @@ mod tests {
 
         let committed = vec![word("done", 0.0, 0.5)];
         let tentative = vec![word("maybe", 0.5, 1.0)];
-        let commit = emit_process_output(&committed, &tentative, mic_labels(), &emit, &counter, false).unwrap();
-        assert_eq!(commit.text, "done");
+        let commits =
+            emit_process_output(&committed, &tentative, mic_labels(), &emit, &counter, false);
+        assert_eq!(commits.len(), 1);
+        assert_eq!(commits[0].text, "done");
 
         let events = events.lock().unwrap();
         assert_eq!(events.len(), 2);
@@ -380,10 +387,11 @@ mod tests {
         };
 
         let tentative = vec![word("final", 1.0, 2.0)];
-        let commit =
-            emit_process_output(&[], &tentative, mic_labels(), &emit, &counter, true).unwrap();
+        let commits =
+            emit_process_output(&[], &tentative, mic_labels(), &emit, &counter, true);
 
-        assert_eq!(commit.text, "final");
+        assert_eq!(commits.len(), 1);
+        assert_eq!(commits[0].text, "final");
         let events = events.lock().unwrap();
         assert_eq!(events.len(), 1);
         match &events[0] {
@@ -403,7 +411,7 @@ mod tests {
 
         let committed = vec![word("done", 0.0, 0.5)];
         let tentative = vec![word("stale", 0.5, 1.0)];
-        emit_process_output(&committed, &tentative, mic_labels(), &emit, &counter, true).unwrap();
+        emit_process_output(&committed, &tentative, mic_labels(), &emit, &counter, true);
 
         let events = events.lock().unwrap();
         assert_eq!(events.len(), 1);

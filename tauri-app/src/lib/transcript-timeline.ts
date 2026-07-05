@@ -1,6 +1,8 @@
 import type { TranscriptPayload, TranscriptSegment } from "./transcript-types";
 
 const COALESCE_GAP_MS = 1500;
+/** Ignore micro-gaps from ASR chunk boundary rounding (e.g. 7 ms). */
+const COALESCE_MIN_GAP_MS = 100;
 
 export type TranscriptStream = TranscriptSegment["stream"];
 
@@ -78,9 +80,9 @@ export function applyCommit(
   const previous = findPreviousCommittedSameStream(sorted, idx, stream);
   if (previous) {
     const gapMs = newSegment.startMs - previous.endMs;
-    // Coalesce only on a small positive gap (streaming refinement). gap=0 are
-    // adjacent ASR chunks and stay separate lines; negative gap = bad timestamps.
-    if (gapMs > 0 && gapMs <= COALESCE_GAP_MS) {
+    // Coalesce only on a deliberate refinement window. Tiny positive gaps (≤100 ms)
+    // are adjacent ASR chunks; zero gap is back-to-back chunks; negative = overlap.
+    if (gapMs >= COALESCE_MIN_GAP_MS && gapMs <= COALESCE_GAP_MS) {
       const merged: TranscriptSegment = {
         ...previous,
         text: `${previous.text} ${newSegment.text}`,

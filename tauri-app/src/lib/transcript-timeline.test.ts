@@ -35,6 +35,19 @@ describe("applyCommit coalesce guard", () => {
     expect(segments[0]?.endMs).toBe(2000);
   });
 
+  it("does not merge adjacent chunks with micro-gap from timestamp rounding", () => {
+    let segments = applyCommit(
+      [],
+      commit("seg-0", "first chunk", 10_100, 20_000),
+    );
+    segments = applyCommit(
+      segments,
+      commit("seg-1", "second chunk", 20_007, 40_007),
+    );
+
+    expect(segments).toHaveLength(2);
+  });
+
   it("does not merge adjacent chunks with zero gap", () => {
     let segments = applyCommit(
       [],

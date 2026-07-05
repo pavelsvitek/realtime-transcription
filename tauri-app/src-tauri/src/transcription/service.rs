@@ -87,6 +87,7 @@ impl TranscriptionService {
 
         tracing::info!(?source, model = %whisperkit::MODEL_NAME, "Starting transcription");
         self.transcript.clear();
+        self.segment_counter.store(0, Ordering::Relaxed);
         *self.last_export.lock().unwrap() = None;
 
         let config = AppConfig::load();

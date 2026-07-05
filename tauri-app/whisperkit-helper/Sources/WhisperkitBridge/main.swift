@@ -9,11 +9,17 @@ private let streamingTriggerSamples = WhisperKit.sampleRate * 10
 /// Max audio decoded for a live partial hypothesis (tail window).
 private let partialWindowSamples = WhisperKit.sampleRate * 30
 /// Min uncommitted audio before we emit an incremental commit.
-private let commitTriggerSamples = WhisperKit.sampleRate * 15
-/// Max audio per commit chunk (Whisper-style ~30 s windows).
-private let commitChunkSamples = WhisperKit.sampleRate * 30
+private let commitTriggerSamples = WhisperKit.sampleRate * 14
+/// Max audio per forced (non-pause) commit chunk.
+private let commitChunkSamples = WhisperKit.sampleRate * 27
 /// Context retained after trimming committed prefix from the ring buffer.
 private let contextOverlapSamples = WhisperKit.sampleRate * 2
+/// Commit when trailing silence reaches this duration after speech.
+private let pauseCommitSilenceMs = 2500
+/// Minimum speech before a pause-triggered commit.
+private let pauseCommitMinSpeechMs = 800
+/// Minimum uncommitted audio before evaluating pause boundaries.
+private let pauseCommitMinWindowSamples = WhisperKit.sampleRate
 /// Skip Whisper inference when window RMS is below this (matches Rust `SYSTEM_SILENCE_RMS_THRESHOLD`).
 /// Calibrated above mic room tone (~0.003–0.01) but well below quiet speech.
 private let preDecodeRmsThreshold: Float = 0.01
@@ -413,6 +419,7 @@ private actor StreamSession {
     private var sessionClock = SessionSampleClock(sampleRate: WhisperKit.sampleRate)
     /// `accumulatedSamples.count` at the last streaming trigger.
     private var lastStreamingTriggerCount = 0
+    private var forcedCommitOrdinal = 0
     private var lastTentativeFingerprint: String?
     private var streamingTask: Task<Void, Never>?
     private var pendingStreamingWork = false
@@ -491,37 +498,56 @@ private actor StreamSession {
 
     private func runStreamingCycle() async {
         do {
-            while accumulatedSamples.count - committedSampleIndex >= commitTriggerSamples {
-                try await commitNextChunk()
-            }
+            while try await commitNextChunkIfReady() {}
             try await emitWindowedPartial()
         } catch {
             emit(ErrorMessage(message: "Streaming decode failed: \(error.localizedDescription)"))
         }
     }
 
-    /// Commits up to `commitChunkSamples` of uncommitted audio (independent chunk, no full-buffer scan).
-    private func commitNextChunk() async throws {
+    /// Commits speech up to a natural pause or the max chunk size.
+    @discardableResult
+    private func commitNextChunkIfReady() async throws -> Bool {
         let total = accumulatedSamples.count
-        guard total > committedSampleIndex else { return }
+        let available = total - committedSampleIndex
+        guard available >= pauseCommitMinWindowSamples else { return false }
 
-        let chunkEnd = min(total, committedSampleIndex + commitChunkSamples)
-        let window = Array(accumulatedSamples[committedSampleIndex..<chunkEnd])
-        guard !window.isEmpty else { return }
+        let maxChunkEnd = min(total, committedSampleIndex + commitChunkSamples)
+        let candidateWindow = Array(accumulatedSamples[committedSampleIndex..<maxChunkEnd])
 
-        let text = collapseRepeatedBigrams(in: try await transcribeText(for: window))
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-
-        if !text.isEmpty {
-            emit(CommitMessage(
-                text: text,
-                startMs: bufferIndexToSessionMs(committedSampleIndex),
-                endMs: bufferIndexToSessionMs(chunkEnd)
-            ))
+        let chunkEnd: Int
+        if let pauseEnd = SilenceSegmentation.findPauseEndSampleIndex(
+            samples: candidateWindow,
+            sampleRate: WhisperKit.sampleRate,
+            silenceGapMs: pauseCommitSilenceMs,
+            rmsThreshold: preDecodeRmsThreshold,
+            minSpeechMs: pauseCommitMinSpeechMs
+        ) {
+            chunkEnd = committedSampleIndex + pauseEnd
+        } else if available >= commitTriggerSamples {
+            let target = ForcedChunkSizing.targetSamples(
+                minSamples: commitTriggerSamples,
+                maxSamples: commitChunkSamples,
+                chunkOrdinal: forcedCommitOrdinal
+            )
+            forcedCommitOrdinal += 1
+            let chunkSize = min(available, target)
+            chunkEnd = committedSampleIndex + chunkSize
+        } else {
+            return false
         }
+
+        guard chunkEnd > committedSampleIndex else { return false }
+
+        let window = Array(accumulatedSamples[committedSampleIndex..<chunkEnd])
+        try emitMergedCommit(
+            clips: try await transcribeClips(for: window, bufferBaseIndex: committedSampleIndex),
+            bufferBaseIndex: committedSampleIndex
+        )
 
         committedSampleIndex = chunkEnd
         trimBufferIfNeeded()
+        return true
     }
 
     /// Live UI hypothesis: decode only the tail window, never the full session buffer.
@@ -536,15 +562,21 @@ private actor StreamSession {
         let window = Array(accumulatedSamples[windowStart..<total])
         guard !window.isEmpty else { return }
 
-        let text = try await transcribeText(for: window)
-        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let clips = try await transcribeClips(for: window, bufferBaseIndex: windowStart)
+        guard let merged = SpeechClipBuilder.mergeClips(clips) else {
+            lastTentativeFingerprint = nil
+            return
+        }
+
+        let normalized = merged.text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalized.isEmpty else {
             lastTentativeFingerprint = nil
             return
         }
 
-        let startMs = bufferIndexToSessionMs(windowStart)
-        let endMs = bufferIndexToSessionMs(total)
+        let bounds = merged.sessionBounds(bufferBaseIndex: windowStart, clock: sessionClock)
+        let startMs = bounds.startMs
+        let endMs = bounds.endMs
         let fingerprint = "\(startMs):\(endMs):\(normalized)"
         guard fingerprint != lastTentativeFingerprint else { return }
 
@@ -557,26 +589,48 @@ private actor StreamSession {
         guard total > committedSampleIndex else { return }
 
         let window = Array(accumulatedSamples[committedSampleIndex..<total])
-        let text = collapseRepeatedBigrams(in: try await transcribeText(for: window))
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return }
-
-        emit(CommitMessage(
-            text: text,
-            startMs: bufferIndexToSessionMs(committedSampleIndex),
-            endMs: bufferIndexToSessionMs(total)
-        ))
+        try emitMergedCommit(
+            clips: try await transcribeClips(for: window, bufferBaseIndex: committedSampleIndex),
+            bufferBaseIndex: committedSampleIndex,
+            stripPhantomThankYou: true
+        )
         committedSampleIndex = total
     }
 
     private func emitFullBufferCommit() async throws {
-        let text = collapseRepeatedBigrams(in: try await transcribeText(for: accumulatedSamples))
+        try emitMergedCommit(
+            clips: try await transcribeClips(
+                for: accumulatedSamples,
+                bufferBaseIndex: 0
+            ),
+            bufferBaseIndex: 0
+        )
+    }
+
+    private func emitMergedCommit(
+        clips: [SpeechClip],
+        bufferBaseIndex: Int,
+        stripPhantomThankYou: Bool = false
+    ) throws {
+        guard var merged = SpeechClipBuilder.mergeClips(clips) else { return }
+
+        var text = collapseRepeatedBigrams(in: merged.text)
             .trimmingCharacters(in: .whitespacesAndNewlines)
+        if stripPhantomThankYou {
+            text = stripTrailingPhantomThankYou(from: text)
+        }
         guard !text.isEmpty else { return }
+
+        merged = SpeechClip(
+            text: text,
+            startSample: merged.startSample,
+            endSample: merged.endSample
+        )
+        let bounds = merged.sessionBounds(bufferBaseIndex: bufferBaseIndex, clock: sessionClock)
         emit(CommitMessage(
             text: text,
-            startMs: bufferIndexToSessionMs(0),
-            endMs: bufferIndexToSessionMs(accumulatedSamples.count)
+            startMs: bounds.startMs,
+            endMs: bounds.endMs
         ))
     }
 
@@ -597,10 +651,15 @@ private actor StreamSession {
         lastStreamingTriggerCount = max(0, lastStreamingTriggerCount - keepFrom)
     }
 
-    private func transcribeText(for samples: [Float]) async throws -> String {
-        let trimmed = trimEdgeSilence(samples)
+    private func transcribeClips(for samples: [Float], bufferBaseIndex: Int) async throws -> [SpeechClip] {
+        let frameSamples = WhisperKit.sampleRate / 10
+        let (leadSamples, trimmed) = EdgeSilenceTrim.trimWithLeadOffset(
+            samples,
+            threshold: preDecodeRmsThreshold,
+            frameSamples: frameSamples
+        )
         guard !trimmed.isEmpty, computeRms(trimmed) >= preDecodeRmsThreshold else {
-            return ""
+            return []
         }
 
         let options = DecodingOptions(
@@ -617,7 +676,41 @@ private actor StreamSession {
             chunkingStrategy: .vad
         )
         let results = try await whisperKit.transcribe(audioArray: trimmed, decodeOptions: options)
-        return stripTrailingPhantomThankYou(from: speechText(from: results))
+
+        var clips: [SpeechClip] = []
+        for result in results {
+            let fallback = speechText(from: [result])
+            let segments = result.segments.map {
+                SpeechClipBuilder.WhisperSegmentTiming(
+                    text: $0.text.trimmingCharacters(in: .whitespacesAndNewlines),
+                    startSeconds: $0.start,
+                    endSeconds: $0.end,
+                    noSpeechProb: $0.noSpeechProb
+                )
+            }
+            let built = SpeechClipBuilder.clipsFromWhisperSegments(
+                segments: segments,
+                leadSamples: leadSamples,
+                windowSampleCount: samples.count,
+                sampleRate: WhisperKit.sampleRate,
+                noSpeechThreshold: noSpeechThreshold,
+                fallbackText: fallback.isEmpty ? nil : fallback
+            )
+            clips.append(contentsOf: built.map { clip in
+                SpeechClip(
+                    text: collapseRepeatedBigrams(in: clip.text),
+                    startSample: clip.startSample,
+                    endSample: clip.endSample
+                )
+            })
+        }
+
+        return clips.filter { !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    }
+
+    private func transcribeText(for samples: [Float]) async throws -> String {
+        let clips = try await transcribeClips(for: samples, bufferBaseIndex: 0)
+        return clips.map(\.text).joined(separator: " ")
     }
 
     /// Return clean transcript text, skipping results classified as non-speech.

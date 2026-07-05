@@ -7,6 +7,7 @@ This is not a passive transcript viewer or generic chat assistant. The product h
 ## Contents
 
 - [Product Overview](./product-overview.md) — purpose, user jobs, high-level flow, domain concepts, and product principles
+- [Developer Instructions](./instructions.md) — rebuild steps for Swift helper, tests, golden eval
 - [Feature Specs](./features/README.md) — detailed UX and behavior specs
   - [Live Suggestion Cards](./features/live-suggestion-cards.md) — card layout, item lifecycle, generation rules, and state preservation
 

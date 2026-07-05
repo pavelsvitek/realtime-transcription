@@ -93,6 +93,7 @@ export function useTranscription() {
   const start = useCallback(async (source: AudioSource) => {
     setError(null);
     setIsLoading(true);
+    setSegments([]);
     try {
       await invoke("start_transcription", {
         source,
