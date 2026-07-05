@@ -14,11 +14,17 @@ let package = Package(
         .package(url: "https://github.com/argmaxinc/argmax-oss-swift.git", branch: "main"),
     ],
     targets: [
+        .target(name: "WhisperkitCore"),
         .executableTarget(
             name: "WhisperkitBridge",
             dependencies: [
+                "WhisperkitCore",
                 .product(name: "WhisperKit", package: "argmax-oss-swift"),
             ]
+        ),
+        .testTarget(
+            name: "WhisperkitCoreTests",
+            dependencies: ["WhisperkitCore"]
         ),
     ]
 )

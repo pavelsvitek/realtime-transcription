@@ -76,19 +76,21 @@ export function applyCommit(
   if (idx <= 0) return sorted;
 
   const previous = findPreviousCommittedSameStream(sorted, idx, stream);
-  if (
-    previous &&
-    previous.endMs + COALESCE_GAP_MS >= newSegment.startMs
-  ) {
-    const merged: TranscriptSegment = {
-      ...previous,
-      text: `${previous.text} ${newSegment.text}`,
-      endMs: Math.max(previous.endMs, newSegment.endMs),
-    };
-    const withoutMerged = sorted.filter(
-      (s) => s.id !== previous.id && s.id !== newSegment.id
-    );
-    return sortSegments([...withoutMerged, merged]);
+  if (previous) {
+    const gapMs = newSegment.startMs - previous.endMs;
+    // Coalesce only on a small positive gap (streaming refinement). gap=0 are
+    // adjacent ASR chunks and stay separate lines; negative gap = bad timestamps.
+    if (gapMs > 0 && gapMs <= COALESCE_GAP_MS) {
+      const merged: TranscriptSegment = {
+        ...previous,
+        text: `${previous.text} ${newSegment.text}`,
+        endMs: Math.max(previous.endMs, newSegment.endMs),
+      };
+      const withoutMerged = sorted.filter(
+        (s) => s.id !== previous.id && s.id !== newSegment.id
+      );
+      return sortSegments([...withoutMerged, merged]);
+    }
   }
 
   return sorted;

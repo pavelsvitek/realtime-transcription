@@ -1,5 +1,6 @@
 import Foundation
 import WhisperKit
+import WhisperkitCore
 
 private let modelName = "large-v3-v20240930_626MB"
 private let metadataFilename = "model-info.json"
@@ -409,6 +410,7 @@ private actor StreamSession {
     private var accumulatedSamples: [Float] = []
     /// Sample index in `accumulatedSamples` through which text has been committed.
     private var committedSampleIndex = 0
+    private var sessionClock = SessionSampleClock(sampleRate: WhisperKit.sampleRate)
     /// `accumulatedSamples.count` at the last streaming trigger.
     private var lastStreamingTriggerCount = 0
     private var lastTentativeFingerprint: String?
@@ -513,8 +515,8 @@ private actor StreamSession {
         if !text.isEmpty {
             emit(CommitMessage(
                 text: text,
-                startMs: sampleIndexToMs(committedSampleIndex),
-                endMs: sampleIndexToMs(chunkEnd)
+                startMs: bufferIndexToSessionMs(committedSampleIndex),
+                endMs: bufferIndexToSessionMs(chunkEnd)
             ))
         }
 
@@ -541,8 +543,8 @@ private actor StreamSession {
             return
         }
 
-        let startMs = sampleIndexToMs(windowStart)
-        let endMs = sampleIndexToMs(total)
+        let startMs = bufferIndexToSessionMs(windowStart)
+        let endMs = bufferIndexToSessionMs(total)
         let fingerprint = "\(startMs):\(endMs):\(normalized)"
         guard fingerprint != lastTentativeFingerprint else { return }
 
@@ -561,8 +563,8 @@ private actor StreamSession {
 
         emit(CommitMessage(
             text: text,
-            startMs: sampleIndexToMs(committedSampleIndex),
-            endMs: sampleIndexToMs(total)
+            startMs: bufferIndexToSessionMs(committedSampleIndex),
+            endMs: bufferIndexToSessionMs(total)
         ))
         committedSampleIndex = total
     }
@@ -573,20 +575,24 @@ private actor StreamSession {
         guard !text.isEmpty else { return }
         emit(CommitMessage(
             text: text,
-            startMs: 0,
-            endMs: sampleIndexToMs(accumulatedSamples.count)
+            startMs: bufferIndexToSessionMs(0),
+            endMs: bufferIndexToSessionMs(accumulatedSamples.count)
         ))
     }
 
-    private func sampleIndexToMs(_ index: Int) -> Int {
-        Int((Double(index) / Double(WhisperKit.sampleRate) * 1000.0).rounded())
+    private func bufferIndexToSessionMs(_ bufferIndex: Int) -> Int {
+        sessionClock.sessionMs(bufferIndex: bufferIndex)
     }
 
     private func trimBufferIfNeeded() {
-        let keepFrom = max(0, committedSampleIndex - contextOverlapSamples)
+        let keepFrom = sessionClock.trimKeepFrom(
+            committedSampleIndex: committedSampleIndex,
+            contextOverlapSamples: contextOverlapSamples
+        )
         guard keepFrom > 0 else { return }
 
         accumulatedSamples.removeFirst(keepFrom)
+        sessionClock.advanceTrim(by: keepFrom)
         committedSampleIndex -= keepFrom
         lastStreamingTriggerCount = max(0, lastStreamingTriggerCount - keepFrom)
     }
