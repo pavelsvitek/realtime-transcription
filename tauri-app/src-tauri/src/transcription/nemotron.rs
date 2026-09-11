@@ -1,4 +1,3 @@
-use std::fs;
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStderr, ChildStdin, Command, Stdio};
@@ -13,44 +12,31 @@ use serde::{Deserialize, Serialize};
 
 use super::pipeline::{AsrOutput, AsrWord};
 
-pub const MODEL_NAME: &str = "large-v3-v20240930_626MB";
-pub const MODEL_DISPLAY_NAME: &str = "WhisperKit large-v3 (626MB)";
-pub const CACHE_SUBDIR: &str = "whisperkit";
-pub const METADATA_FILE: &str = "model-info.json";
+pub const MODEL_DISPLAY_NAME: &str = "Nemotron 3.5 ASR Streaming 0.6B CoreML INT8";
+pub const CACHE_SUBDIR: &str = "nemotron";
+pub const MODEL_REPOSITORY: &str = "aufklarer/Nemotron-3.5-ASR-Streaming-0.6B-CoreML-INT8";
+pub const MODEL_BUNDLE_SUBDIR: &str =
+    "qwen3-speech/models/aufklarer/Nemotron-3.5-ASR-Streaming-0.6B-CoreML-INT8";
 const REQUIRED_MODEL_COMPONENTS: &[&str] = &[
-    "MelSpectrogram.mlmodelc",
-    "AudioEncoder.mlmodelc",
-    "TextDecoder.mlmodelc",
+    "encoder.mlmodelc",
+    "decoder.mlmodelc",
+    "joint.mlmodelc",
+    "config.json",
+    "vocab.json",
+    "languages.json",
 ];
 const INIT_READY_TIMEOUT: Duration = Duration::from_secs(60);
 const INIT_OVERALL_TIMEOUT: Duration = Duration::from_secs(300);
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct ModelMetadata {
-    pub model: String,
-    #[serde(rename = "modelPath")]
-    pub model_path: String,
-    #[serde(rename = "cacheDir")]
-    pub cache_dir: String,
-    #[serde(rename = "downloadedAt")]
-    pub downloaded_at: String,
-    #[serde(rename = "tokenizerPath")]
-    pub tokenizer_path: Option<String>,
-}
 
 #[derive(Serialize)]
 struct InitRequest<'a> {
     #[serde(rename = "type")]
     kind: &'static str,
-    language: &'a str,
-    model: &'a str,
-    #[serde(rename = "cacheDir")]
-    cache_dir: &'a str,
+    #[serde(rename = "bundleDir")]
+    bundle_dir: &'a str,
     #[serde(rename = "sampleRate")]
     sample_rate: u32,
     stream: &'a str,
-    #[serde(rename = "disablePartials")]
-    disable_partials: bool,
 }
 
 #[derive(Serialize)]
@@ -100,27 +86,21 @@ enum HelperResponse {
         model: String,
         #[serde(rename = "modelPath")]
         model_path: String,
-        #[serde(rename = "cacheDir")]
-        cache_dir: String,
-        #[serde(rename = "tokenizerPath")]
-        tokenizer_path: Option<String>,
     },
 }
 
-pub struct WhisperkitPipeline {
+pub struct NemotronPipeline {
     child: Child,
     stdin: ChildStdin,
     responses: Receiver<anyhow::Result<HelperResponse>>,
 }
 
-impl WhisperkitPipeline {
+impl NemotronPipeline {
     pub fn start(
         helper_path: &Path,
-        cache_dir: &Path,
-        language: &str,
+        model_bundle_dir: &Path,
         input_sample_rate: u32,
         stream: &str,
-        disable_partials: bool,
     ) -> anyhow::Result<Self> {
         let mut child = Command::new(helper_path)
             .stdin(Stdio::piped())
@@ -132,24 +112,23 @@ impl WhisperkitPipeline {
         let stdin = child.stdin.take().context("helper stdin unavailable")?;
         let stdout = child.stdout.take().context("helper stdout unavailable")?;
         let stderr = child.stderr.take().context("helper stderr unavailable")?;
-
         let (tx, rx) = mpsc::channel();
+
         thread::spawn(move || {
             let reader = BufReader::new(stdout);
             for line in reader.lines() {
                 let result = match line {
                     Ok(raw) if raw.trim().is_empty() => continue,
-                    Ok(raw) => serde_json::from_str::<HelperResponse>(&raw)
-                        .map_err(|e| anyhow::anyhow!("Invalid helper JSON: {e}; line={raw}")),
-                    Err(e) => Err(anyhow::anyhow!("Failed to read helper stdout: {e}")),
+                    Ok(raw) => serde_json::from_str::<HelperResponse>(&raw).map_err(|error| {
+                        anyhow::anyhow!("Invalid helper JSON: {error}; line={raw}")
+                    }),
+                    Err(error) => Err(anyhow::anyhow!("Failed to read helper stdout: {error}")),
                 };
-
                 if tx.send(result).is_err() {
                     return;
                 }
             }
         });
-
         spawn_stderr_logger(stderr);
 
         let mut pipeline = Self {
@@ -157,29 +136,22 @@ impl WhisperkitPipeline {
             stdin,
             responses: rx,
         };
-
         pipeline.send(&InitRequest {
             kind: "init",
-            language,
-            model: MODEL_NAME,
-            cache_dir: cache_dir.to_string_lossy().as_ref(),
+            bundle_dir: model_bundle_dir.to_string_lossy().as_ref(),
             sample_rate: input_sample_rate,
             stream,
-            disable_partials,
         })?;
-
         Self::wait_for_ready(&pipeline.responses)?;
-
         Ok(pipeline)
     }
 
     fn wait_for_ready(responses: &Receiver<anyhow::Result<HelperResponse>>) -> anyhow::Result<()> {
         let started = std::time::Instant::now();
-
         loop {
             if started.elapsed() >= INIT_OVERALL_TIMEOUT {
                 anyhow::bail!(
-                    "Timed out waiting for WhisperKit helper to become ready after {}s",
+                    "Timed out waiting for Nemotron helper after {}s",
                     INIT_OVERALL_TIMEOUT.as_secs()
                 );
             }
@@ -187,24 +159,20 @@ impl WhisperkitPipeline {
             match responses.recv_timeout(INIT_READY_TIMEOUT) {
                 Ok(Ok(HelperResponse::Ready { model })) => {
                     anyhow::ensure!(
-                        model == MODEL_NAME,
+                        model == MODEL_DISPLAY_NAME,
                         "Helper started with unexpected model {model}"
                     );
                     return Ok(());
                 }
                 Ok(Ok(HelperResponse::Loading { stage })) => {
-                    tracing::info!(stage = %stage, "WhisperKit helper loading");
+                    tracing::info!(stage = %stage, "Nemotron helper loading");
                 }
                 Ok(Ok(HelperResponse::Error { message })) => {
-                    anyhow::bail!("WhisperKit helper failed during init: {message}");
+                    anyhow::bail!("Nemotron helper failed during init: {message}");
                 }
-                Ok(Ok(other)) => {
-                    anyhow::bail!("Unexpected helper response during init: {other:?}");
-                }
-                Ok(Err(err)) => return Err(err),
-                Err(_) => {
-                    tracing::debug!("Still waiting for WhisperKit helper ready...");
-                }
+                Ok(Ok(other)) => anyhow::bail!("Unexpected helper response during init: {other:?}"),
+                Ok(Err(error)) => return Err(error),
+                Err(_) => tracing::debug!("Still waiting for Nemotron helper..."),
             }
         }
     }
@@ -234,27 +202,29 @@ impl WhisperkitPipeline {
 
     fn collect_available_output(&mut self) -> anyhow::Result<Option<AsrOutput>> {
         let mut output = AsrOutput::default();
-
         while let Ok(message) = self.responses.try_recv() {
             match message? {
                 HelperResponse::Commit {
                     text,
                     start_ms,
                     end_ms,
-                } => output.committed.push(asr_word(text, start_ms, end_ms)),
+                } => {
+                    output.tentative.clear();
+                    output.committed.push(asr_segment(text, start_ms, end_ms));
+                }
                 HelperResponse::Partial {
                     text,
                     start_ms,
                     end_ms,
                 } => {
                     output.tentative.clear();
-                    output.tentative.push(asr_word(text, start_ms, end_ms));
+                    output.tentative.push(asr_segment(text, start_ms, end_ms));
                 }
                 HelperResponse::Error { message } => anyhow::bail!(message),
                 HelperResponse::Finished => break,
                 HelperResponse::Ready { .. }
-                | HelperResponse::Downloaded { .. }
-                | HelperResponse::Loading { .. } => {}
+                | HelperResponse::Loading { .. }
+                | HelperResponse::Downloaded { .. } => {}
             }
         }
 
@@ -267,35 +237,30 @@ impl WhisperkitPipeline {
 
     fn collect_until_finished(&mut self) -> anyhow::Result<AsrOutput> {
         let mut output = AsrOutput::default();
-
         loop {
             match self.responses.recv_timeout(Duration::from_secs(120)) {
                 Ok(Ok(HelperResponse::Commit {
                     text,
                     start_ms,
                     end_ms,
-                })) => output.committed.push(asr_word(text, start_ms, end_ms)),
-                Ok(Ok(HelperResponse::Partial { .. })) => {
-                    // Ignore live partials during finish — they are stale hypotheses
-                    // queued before the final commit and would leave gray text in the UI.
-                }
+                })) => output.committed.push(asr_segment(text, start_ms, end_ms)),
+                Ok(Ok(HelperResponse::Partial { .. })) => {}
                 Ok(Ok(HelperResponse::Finished)) => break,
                 Ok(Ok(HelperResponse::Error { message })) => anyhow::bail!(message),
                 Ok(Ok(
                     HelperResponse::Ready { .. }
-                    | HelperResponse::Downloaded { .. }
                     | HelperResponse::Loading { .. }
+                    | HelperResponse::Downloaded { .. },
                 )) => {}
-                Ok(Err(err)) => return Err(err),
-                Err(_) => anyhow::bail!("Timed out waiting for WhisperKit helper to finish"),
+                Ok(Err(error)) => return Err(error),
+                Err(_) => anyhow::bail!("Timed out waiting for Nemotron helper to finish"),
             }
         }
-
         Ok(output)
     }
 }
 
-impl Drop for WhisperkitPipeline {
+impl Drop for NemotronPipeline {
     fn drop(&mut self) {
         let _ = self.send(&BasicRequest { kind: "shutdown" });
         let _ = self.child.kill();
@@ -303,109 +268,35 @@ impl Drop for WhisperkitPipeline {
     }
 }
 
-pub fn validate_installation(helper_path: &Path, cache_dir: &Path) -> Result<ModelMetadata, String> {
+pub fn validate_installation(helper_path: &Path, model_bundle_dir: &Path) -> Result<(), String> {
     if !helper_path.exists() {
         return Err(format!(
-            "WhisperKit helper not found at {}. Run tauri-app/scripts/setup-whisperkit.sh.",
+            "Nemotron helper not found at {}. Run tauri-app/scripts/setup-nemotron.sh.",
             helper_path.display()
         ));
     }
-
-    fs::create_dir_all(cache_dir).map_err(|e| {
-        format!(
-            "Failed to create WhisperKit cache directory {}: {e}",
-            cache_dir.display()
-        )
-    })?;
-
-    let metadata_path = cache_dir.join(METADATA_FILE);
-    let raw = fs::read_to_string(&metadata_path).map_err(|_| {
-        format!(
-            "WhisperKit model metadata not found at {}. Run tauri-app/scripts/setup-whisperkit.sh.",
-            metadata_path.display()
-        )
-    })?;
-
-    let metadata: ModelMetadata = serde_json::from_str(&raw).map_err(|e| {
-        format!(
-            "WhisperKit model metadata at {} is invalid: {e}",
-            metadata_path.display()
-        )
-    })?;
-
-    if metadata.model != MODEL_NAME {
+    if !model_bundle_dir.is_dir() {
         return Err(format!(
-            "WhisperKit metadata references model {} but expected {}. Re-run tauri-app/scripts/setup-whisperkit.sh.",
-            metadata.model, MODEL_NAME
-        ));
-    }
-
-    let model_path = PathBuf::from(&metadata.model_path);
-    if !model_path.exists() {
-        return Err(format!(
-            "WhisperKit model path {} does not exist. Re-run tauri-app/scripts/setup-whisperkit.sh.",
-            model_path.display()
+            "Nemotron model bundle not found at {}. Run tauri-app/scripts/setup-nemotron.sh.",
+            model_bundle_dir.display()
         ));
     }
 
     for component in REQUIRED_MODEL_COMPONENTS {
-        let component_path = model_path.join(component);
-        if !component_path.exists() {
+        let path = model_bundle_dir.join(component);
+        if !path.exists() {
             return Err(format!(
-                "WhisperKit model component {} is missing at {}. Re-run tauri-app/scripts/setup-whisperkit.sh.",
+                "Nemotron model component {} is missing at {}. Run tauri-app/scripts/setup-nemotron.sh.",
                 component,
-                component_path.display()
+                path.display()
             ));
         }
     }
-
-    if let Some(tokenizer_path) = metadata.tokenizer_path.as_ref() {
-        if !PathBuf::from(tokenizer_path).exists() {
-            return Err(format!(
-                "WhisperKit tokenizer not found at {}. Re-run tauri-app/scripts/setup-whisperkit.sh.",
-                tokenizer_path
-            ));
-        }
-    } else if find_tokenizer_json(cache_dir).is_none() {
-        return Err(format!(
-            "WhisperKit tokenizer is not cached under {}. Re-run tauri-app/scripts/setup-whisperkit.sh.",
-            cache_dir.display()
-        ));
-    }
-
-    Ok(metadata)
+    Ok(())
 }
 
-fn find_tokenizer_json(cache_dir: &Path) -> Option<PathBuf> {
-    let mut matches = Vec::new();
-    collect_tokenizer_json(cache_dir, &mut matches);
-    if let Some(path) = matches
-        .iter()
-        .find(|path| path.to_string_lossy().contains("whisper-large-v3"))
-    {
-        return Some(path.clone());
-    }
-    matches.into_iter().next()
-}
-
-fn collect_tokenizer_json(dir: &Path, matches: &mut Vec<PathBuf>) {
-    let entries = match fs::read_dir(dir) {
-        Ok(entries) => entries,
-        Err(_) => return,
-    };
-
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.is_dir() {
-            collect_tokenizer_json(&path, matches);
-        } else if path.file_name().and_then(|name| name.to_str()) == Some("tokenizer.json") {
-            matches.push(path);
-        }
-    }
-}
-
-pub fn cache_is_complete(helper_path: &Path, cache_dir: &Path) -> Result<(), String> {
-    validate_installation(helper_path, cache_dir).map(|_| ())
+pub fn default_model_bundle_dir(cache_root: &Path) -> PathBuf {
+    cache_root.join(MODEL_BUNDLE_SUBDIR)
 }
 
 fn spawn_stderr_logger(stderr: ChildStderr) {
@@ -413,10 +304,12 @@ fn spawn_stderr_logger(stderr: ChildStderr) {
         let reader = BufReader::new(stderr);
         for line in reader.lines() {
             match line {
-                Ok(text) if !text.trim().is_empty() => tracing::info!(target: "whisperkit-helper", "{text}"),
+                Ok(text) if !text.trim().is_empty() => {
+                    tracing::info!(target: "nemotron-helper", "{text}")
+                }
                 Ok(_) => {}
-                Err(err) => {
-                    tracing::warn!(target: "whisperkit-helper", error = %err, "Failed to read helper stderr");
+                Err(error) => {
+                    tracing::warn!(target: "nemotron-helper", %error, "Failed to read helper stderr");
                     return;
                 }
             }
@@ -427,18 +320,17 @@ fn spawn_stderr_logger(stderr: ChildStderr) {
 fn floats_to_pcm16(samples: &[f32]) -> Vec<u8> {
     let mut bytes = Vec::with_capacity(samples.len() * 2);
     for &sample in samples {
-        let clamped = sample.clamp(-1.0, 1.0);
-        let int_sample = (clamped * i16::MAX as f32).round() as i16;
-        bytes.extend_from_slice(&int_sample.to_le_bytes());
+        let value = (sample.clamp(-1.0, 1.0) * i16::MAX as f32).round() as i16;
+        bytes.extend_from_slice(&value.to_le_bytes());
     }
     bytes
 }
 
-fn asr_word(text: String, start_ms: u64, end_ms: u64) -> AsrWord {
+fn asr_segment(text: String, start_ms: u64, end_ms: u64) -> AsrWord {
     AsrWord {
         text,
-        start: start_ms as f64 / 1000.0,
-        end: end_ms as f64 / 1000.0,
+        start: start_ms as f64 / 1_000.0,
+        end: end_ms as f64 / 1_000.0,
     }
 }
 
@@ -447,16 +339,33 @@ mod tests {
     use super::*;
 
     #[test]
-    fn floats_to_pcm16_clamps_and_scales() {
-        let bytes = floats_to_pcm16(&[-2.0, -1.0, 0.0, 1.0, 2.0]);
-        let samples: Vec<i16> = bytes
+    fn model_bundle_path_matches_speech_swift_cache_layout() {
+        let path = default_model_bundle_dir(Path::new("/cache"));
+        assert_eq!(
+            path,
+            Path::new(
+                "/cache/qwen3-speech/models/aufklarer/Nemotron-3.5-ASR-Streaming-0.6B-CoreML-INT8"
+            )
+        );
+    }
+
+    #[test]
+    fn floats_to_pcm16_clamps_values() {
+        let bytes = floats_to_pcm16(&[-2.0, 0.0, 2.0]);
+        let values: Vec<i16> = bytes
             .chunks_exact(2)
             .map(|chunk| i16::from_le_bytes([chunk[0], chunk[1]]))
             .collect();
-        assert_eq!(samples[0], i16::MIN + 1);
-        assert_eq!(samples[1], i16::MIN + 1);
-        assert_eq!(samples[2], 0);
-        assert_eq!(samples[3], i16::MAX);
-        assert_eq!(samples[4], i16::MAX);
+        assert_eq!(values, vec![i16::MIN + 1, 0, i16::MAX]);
+    }
+
+    #[test]
+    fn validation_reports_missing_helper() {
+        let error = validate_installation(
+            Path::new("/definitely/missing/helper"),
+            Path::new("/definitely/missing/model"),
+        )
+        .unwrap_err();
+        assert!(error.contains("setup-nemotron.sh"));
     }
 }

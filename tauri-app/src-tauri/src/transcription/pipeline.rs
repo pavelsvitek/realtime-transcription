@@ -1,4 +1,4 @@
-use super::whisperkit::WhisperkitPipeline;
+use super::nemotron::NemotronPipeline;
 
 #[derive(Debug, Clone)]
 pub struct AsrWord {
@@ -20,11 +20,11 @@ impl AsrOutput {
 }
 
 pub struct StreamingPipeline {
-    helper: WhisperkitPipeline,
+    helper: NemotronPipeline,
 }
 
 impl StreamingPipeline {
-    pub fn new(helper: WhisperkitPipeline) -> Self {
+    pub fn new(helper: NemotronPipeline) -> Self {
         Self { helper }
     }
 

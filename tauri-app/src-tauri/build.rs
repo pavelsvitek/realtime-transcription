@@ -1,4 +1,6 @@
 fn main() {
+    println!("cargo:rerun-if-changed=../nemotron-helper/Sources");
+    println!("cargo:rerun-if-changed=../nemotron-helper/Package.swift");
     tauri_build::build();
 
     #[cfg(target_os = "macos")]

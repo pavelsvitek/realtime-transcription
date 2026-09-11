@@ -136,7 +136,7 @@ The native binary embeds FluidAudio support for additional models that may be us
 | Parakeet TDT v2 | CoreML | English-only, higher recall |
 | Parakeet CTC 0.6B / 110M | CoreML | CTC decoding variants |
 | Qwen3-ASR 0.6B | f32 / int8 CoreML | Multilingual streaming (2-model pipeline) |
-| Nemotron Speech Streaming 0.6B | 80–1120ms chunks | NVIDIA streaming ASR |
+| Nemotron 3.5 ASR Streaming 0.6B | 320ms bundle | NVIDIA multilingual streaming ASR, app prompted to en-US |
 | Cohere Transcribe 03-2026 | q8 CoreML | Cohere ASR pipeline |
 | Silero VAD | CoreML (`silero-vad-coreml`) | Voice activity detection (ANE) |
 
@@ -309,7 +309,7 @@ Fonts: Inter, Playfair Display, Onest, Material Icons, Lucide.
 | --- | --- | --- |
 | Desktop shell | Flutter macOS | Tauri (in `tauri-app/`) |
 | UI | Dart / Flutter widgets | Web (React) in Tauri webview |
-| Transcription | Whisper.cpp (default) or Parakeet TDT v3 CoreML (optional); Cloud STT / Deepgram | TBD |
+| Transcription | Whisper.cpp (default) or Parakeet TDT v3 CoreML (optional); Cloud STT / Deepgram | Nemotron 3.5 ASR Streaming 0.6B CoreML INT8, one helper per stream |
 | Live LLM suggestions | Llama (on-device) + cloud | Cloud LLM API (`web/`) |
 | Shared mobile codebase | Yes (`bot.hedy.mobile`) | No |
 

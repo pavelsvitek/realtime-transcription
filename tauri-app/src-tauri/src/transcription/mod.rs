@@ -1,5 +1,5 @@
 pub mod asr;
-pub use asr::LoadedModels;
+pub use asr::LoadedEngine;
 pub mod audio_source;
 pub mod capture;
 pub mod cpal_capture;
@@ -7,11 +7,11 @@ pub mod debug_dump;
 pub mod flac_convert;
 pub mod labels;
 pub mod mic_input;
+pub mod nemotron;
 pub mod pipeline;
-pub mod system_audio;
 pub mod service;
+pub mod system_audio;
 pub mod transcript_store;
-pub mod whisperkit;
 pub mod worker;
 
 pub use audio_source::AudioSource;

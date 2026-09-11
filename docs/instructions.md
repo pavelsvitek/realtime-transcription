@@ -1,18 +1,18 @@
 # Developer instructions
 
-## WhisperKit bridge (Swift)
+## Nemotron bridge (Swift)
 
 The desktop app runs the **release** helper binary at:
 
 ```text
-tauri-app/whisperkit-helper/.build/release/whisperkit-bridge
+tauri-app/nemotron-helper/.build/release/nemotron-bridge
 ```
 
-After **any** change under `tauri-app/whisperkit-helper/` (including `Sources/WhisperkitCore/` and `Sources/WhisperkitBridge/`), rebuild release and restart the app:
+After any helper change, rebuild release and restart the app:
 
 ```bash
-cd tauri-app/whisperkit-helper
-swift build -c release --product whisperkit-bridge
+cd tauri-app/nemotron-helper
+swift build -c release --product nemotron-bridge
 swift test
 ```
 
@@ -23,7 +23,7 @@ Then restart `pnpm tauri dev` (or relaunch the packaged app).
 Optional debug override:
 
 ```bash
-export WHISPERKIT_BRIDGE_PATH="$PWD/tauri-app/whisperkit-helper/.build/debug/whisperkit-bridge"
+export NEMOTRON_BRIDGE_PATH="$PWD/tauri-app/nemotron-helper/.build/debug/nemotron-bridge"
 ```
 
 ## Frontend / Rust tests

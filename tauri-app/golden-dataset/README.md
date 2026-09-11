@@ -18,18 +18,18 @@ Each clip has a matching pair:
 
 Videos are **not** stored in git. Reference transcripts **are** committed.
 
-## How reference transcripts are produced
+## Reference transcript policy
 
-Reference transcripts come from the **file pipeline**: ffmpeg decodes the entire MP4, audio is fed through WhisperKit in one pass (`push_mono` + `finish()`), and the result is saved. This path has no loopback capture or frame drops, so it represents the best achievable transcription quality for the clip.
+Reference transcripts are fixed ground truth. Review and correct them manually against the source audio. Never generate a reference with the ASR model being evaluated; doing so lets the candidate grade itself.
 
-The E2E golden test (`pnpm test:golden:e2e`) plays the same clip through system-audio loopback and compares the chunked real-time output against this reference.
+The E2E golden test (`pnpm test:golden:e2e`) plays the clip through system-audio loopback and compares Nemotron output against this fixed reference.
 
 ## Prerequisites
 
-One-time WhisperKit setup:
+One-time Nemotron setup:
 
 ```bash
-./scripts/setup-whisperkit.sh
+./scripts/setup-nemotron.sh
 ```
 
 `ffmpeg` must be on your `PATH`.
@@ -42,31 +42,19 @@ One-time WhisperKit setup:
    cp /path/to/my-clip.mp4 golden-dataset/clips/my-clip.mp4
    ```
 
-2. Generate the reference transcript:
+2. Transcribe the clip manually, review every word against the audio, and write `golden-dataset/transcripts/my-clip.txt`.
 
-   ```bash
-   ./scripts/generate-golden-transcript.sh golden-dataset/clips/my-clip.mp4 my-clip
-   ```
-
-   This writes `golden-dataset/transcripts/my-clip.txt`.
-
-3. Review the output, then commit the transcript:
+3. Commit the reviewed transcript:
 
    ```bash
    git add golden-dataset/transcripts/my-clip.txt
    ```
 
-The clip name defaults to the MP4 filename without extension if omitted:
-
-```bash
-./scripts/generate-golden-transcript.sh golden-dataset/clips/my-clip.mp4
-```
-
 ## Run golden tests
 
 | Phase | What | Command |
 | --- | --- | --- |
-| File pipeline diagnostic | Model quality ceiling (no loopback) | `cd src-tauri && cargo test diagnose_model_vs_commit_strategy -- --ignored --nocapture` |
+| File pipeline diagnostic | Model quality without loopback loss | `cd src-tauri && cargo test diagnose_model_vs_commit_strategy -- --ignored --nocapture` |
 | E2E | Headless system-audio + `ffplay` (~2 min) | `pnpm test:golden:e2e` |
 | Phase 1 (manual) | Play video in Chrome, save transcript | (UI) → `pnpm test:golden` |
 
@@ -75,6 +63,8 @@ The primary clip is `test-youtube-video`. Place it at:
 ```
 golden-dataset/clips/test-youtube-video.mp4
 ```
+
+Source: [Chamath Rips Cloudflare CEO’s Layoff Memo](https://www.youtube.com/watch?v=ZJFevnwiCww).
 
 Reference transcript (already committed):
 
@@ -90,4 +80,4 @@ E2E WER gate: `GOLDEN_E2E_MAX_WER` defaults to `0.05` (5%).
 - `test-output/baseline/report.json` — regression baseline (committed)
 - `test-output/runs/<timestamp>/` — dated eval reports (gitignored)
 
-See also [../README.md](../README.md) for app setup and [../../docs/technical/golden-test-wer-gap.md](../../docs/technical/golden-test-wer-gap.md) for why file-pipeline and E2E WER can differ.
+See also [../README.md](../README.md) for setup and [../../docs/technical/realtime-transcription.md](../../docs/technical/realtime-transcription.md) for the streaming architecture.

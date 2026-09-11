@@ -1,30 +1,27 @@
 use std::time::Instant;
 
 use crate::config::AppConfig;
+use crate::transcription::nemotron::{self, NemotronPipeline};
 use crate::transcription::pipeline::StreamingPipeline;
-use crate::transcription::whisperkit::{self, WhisperkitPipeline};
 
 /// Loaded ASR engine for the process lifetime.
 pub struct LoadedEngine {
     pub model_name: String,
     helper_path: std::path::PathBuf,
-    cache_dir: std::path::PathBuf,
+    model_bundle_dir: std::path::PathBuf,
 }
-
-/// Backwards-compatible alias used by golden tests.
-pub type LoadedModels = LoadedEngine;
 
 impl LoadedEngine {
     pub fn load(config: &AppConfig) -> anyhow::Result<Self> {
         let start = Instant::now();
         config
             .validate()
-            .map_err(|e| anyhow::anyhow!("WhisperKit validation failed: {e}"))?;
+            .map_err(|e| anyhow::anyhow!("Nemotron validation failed: {e}"))?;
 
         let engine = Self {
-            model_name: whisperkit::MODEL_DISPLAY_NAME.to_string(),
+            model_name: nemotron::MODEL_DISPLAY_NAME.to_string(),
             helper_path: config.helper_path.clone(),
-            cache_dir: config.model_cache_dir.clone(),
+            model_bundle_dir: config.model_bundle_dir.clone(),
         };
 
         tracing::info!(
@@ -38,26 +35,21 @@ impl LoadedEngine {
 
     pub fn create_pipeline(
         &self,
-        language: &str,
         input_sample_rate: u32,
         stream: &str,
-        disable_partials: bool,
     ) -> anyhow::Result<StreamingPipeline> {
-        let pipeline = WhisperkitPipeline::start(
+        let pipeline = NemotronPipeline::start(
             &self.helper_path,
-            &self.cache_dir,
-            language,
+            &self.model_bundle_dir,
             input_sample_rate,
             stream,
-            disable_partials,
         )?;
 
         tracing::info!(
             input_sample_rate,
-            language = %language,
             model = %self.model_name,
             stream,
-            "WhisperKit pipeline created"
+            "Nemotron pipeline created"
         );
 
         Ok(StreamingPipeline::new(pipeline))

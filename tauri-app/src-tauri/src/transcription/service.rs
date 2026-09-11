@@ -9,18 +9,17 @@ use tauri::{AppHandle, Emitter};
 use crate::config::AppConfig;
 use crate::error::AppError;
 use crate::ipc::transcript::*;
-use crate::transcription::asr::LoadedModels;
+use crate::transcription::asr::LoadedEngine;
 use crate::transcription::audio_source::AudioSource;
 use crate::transcription::capture;
 use crate::transcription::cpal_capture::CaptureCounters;
 use crate::transcription::debug_dump::{DebugSession, StreamCaptureStats};
 use crate::transcription::flac_convert::convert_wav_to_flac_background;
+use crate::transcription::nemotron;
 use crate::transcription::transcript_store::TranscriptStore;
 use crate::transcription::worker;
-use crate::transcription::whisperkit;
 
-// WhisperKit decoding can take a few seconds on longer rolling buffers; keep enough
-// headroom that capture does not drop loopback frames while the worker catches up.
+// Keep capture callbacks independent from CoreML inference bursts.
 const AUDIO_CHANNEL_BOUND: usize = 8_192;
 
 /// One capture + worker pair for a single audio stream.
@@ -43,7 +42,7 @@ struct RunningState {
 
 pub struct TranscriptionService {
     running: Mutex<Option<RunningState>>,
-    models: Mutex<Option<LoadedModels>>,
+    models: Mutex<Option<LoadedEngine>>,
     segment_counter: Arc<AtomicU64>,
     transcript: TranscriptStore,
     last_export: Mutex<Option<TranscriptExport>>,
@@ -66,26 +65,25 @@ impl TranscriptionService {
     }
 
     pub fn start(&self, app_handle: AppHandle, source: AudioSource) -> Result<(), AppError> {
-        self.start_internal(Some(app_handle), source, false)
+        self.start_internal(Some(app_handle), source)
     }
 
     /// Start without a Tauri app handle (golden tests / headless runs).
     pub fn start_headless(&self, source: AudioSource) -> Result<(), AppError> {
-        self.start_internal(None, source, headless_disable_partials())
+        self.start_internal(None, source)
     }
 
     fn start_internal(
         &self,
         app_handle: Option<AppHandle>,
         source: AudioSource,
-        disable_partials: bool,
     ) -> Result<(), AppError> {
         let mut running = self.running.lock().unwrap();
         if running.is_some() {
             return Err(AppError::AlreadyRunning);
         }
 
-        tracing::info!(?source, model = %whisperkit::MODEL_NAME, "Starting transcription");
+        tracing::info!(?source, model = %nemotron::MODEL_REPOSITORY, "Starting transcription");
         self.transcript.clear();
         self.segment_counter.store(0, Ordering::Relaxed);
         *self.last_export.lock().unwrap() = None;
@@ -121,23 +119,19 @@ impl TranscriptionService {
                 let mic = spawn_stream_worker(
                     AudioSource::Mic,
                     models,
-                    &config.language,
                     stop_flag.clone(),
                     counter.clone(),
                     transcript.clone(),
                     app_handle.clone(),
-                    false,
                     debug_session.clone(),
                 )?;
                 let system = spawn_stream_worker(
                     AudioSource::SystemAudio,
                     models,
-                    &config.language,
                     stop_flag.clone(),
                     counter,
                     transcript,
                     app_handle.clone(),
-                    false,
                     debug_session.clone(),
                 )?;
                 (Some(mic), Some(system))
@@ -146,12 +140,10 @@ impl TranscriptionService {
                 let pair = spawn_stream_worker(
                     AudioSource::Mic,
                     models,
-                    &config.language,
                     stop_flag.clone(),
                     counter,
                     transcript,
                     app_handle.clone(),
-                    disable_partials,
                     debug_session.clone(),
                 )?;
                 (Some(pair), None)
@@ -160,12 +152,10 @@ impl TranscriptionService {
                 let pair = spawn_stream_worker(
                     AudioSource::SystemAudio,
                     models,
-                    &config.language,
                     stop_flag.clone(),
                     counter,
                     transcript,
                     app_handle.clone(),
-                    disable_partials,
                     debug_session.clone(),
                 )?;
                 (None, Some(pair))
@@ -211,7 +201,7 @@ impl TranscriptionService {
 
         config.validate().map_err(AppError::ModelLoad)?;
 
-        match LoadedModels::load(config) {
+        match LoadedEngine::load(config) {
             Ok(loaded) => {
                 *models_guard = Some(loaded);
             }
@@ -241,12 +231,9 @@ impl TranscriptionService {
         let state = match running.take() {
             Some(s) => s,
             None => {
-                return Ok(self
-                    .last_export
-                    .lock()
-                    .unwrap()
-                    .clone()
-                    .unwrap_or_else(|| self.build_export(AudioSource::Mic, self.transcript.text())));
+                return Ok(self.last_export.lock().unwrap().clone().unwrap_or_else(|| {
+                    self.build_export(AudioSource::Mic, self.transcript.text())
+                }));
             }
         };
 
@@ -263,14 +250,16 @@ impl TranscriptionService {
             .collect();
         let handles: Vec<JoinHandle<()>> = pairs
             .into_iter()
-            .map(|StreamPair {
-                worker_handle,
-                _capture,
-                ..
-            }| {
-                drop(_capture);
-                worker_handle
-            })
+            .map(
+                |StreamPair {
+                     worker_handle,
+                     _capture,
+                     ..
+                 }| {
+                    drop(_capture);
+                    worker_handle
+                },
+            )
             .collect();
 
         for handle in handles {
@@ -366,19 +355,17 @@ impl TranscriptionService {
 /// `source` must be `Mic` or `SystemAudio` — never `Both`.
 fn spawn_stream_worker(
     source: AudioSource,
-    models: &LoadedModels,
-    language: &str,
+    models: &LoadedEngine,
     stop_flag: Arc<AtomicBool>,
     segment_counter: Arc<AtomicU64>,
     transcript: TranscriptStore,
     app_handle: Option<AppHandle>,
-    disable_partials: bool,
     debug_session: Option<Arc<DebugSession>>,
 ) -> Result<StreamPair, AppError> {
     super::cpal_capture::reset_capture_stats();
     let (audio_tx, audio_rx) = mpsc::sync_channel::<Vec<f32>>(AUDIO_CHANNEL_BOUND);
-    let opened = capture::open_capture(source, audio_tx)
-        .map_err(|e| AppError::Capture(format!("{e:#}")))?;
+    let opened =
+        capture::open_capture(source, audio_tx).map_err(|e| AppError::Capture(format!("{e:#}")))?;
     let stream_name = source.as_str().to_string();
     let counters = opened.counters.clone();
     let observer = debug_session.as_ref().and_then(|session| {
@@ -389,7 +376,7 @@ fn spawn_stream_worker(
         )
     });
     let pipeline = models
-        .create_pipeline(language, opened.sample_rate, source.as_str(), disable_partials)
+        .create_pipeline(opened.sample_rate, source.as_str())
         .map_err(|e| AppError::Asr(format!("{e:#}")))?;
     let labels = source.labels();
 
@@ -436,10 +423,4 @@ fn emit_to_app(app_handle: &AppHandle, event: TranscriptEvent) {
     if let Err(e) = result {
         tracing::warn!(error = %e, "Failed to emit event");
     }
-}
-
-fn headless_disable_partials() -> bool {
-    std::env::var("WHISPERKIT_DISABLE_PARTIALS")
-        .ok()
-        .is_some_and(|v| v == "1" || v.eq_ignore_ascii_case("true"))
 }

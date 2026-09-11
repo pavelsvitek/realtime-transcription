@@ -1,6 +1,6 @@
 # Tauri Transcription App
 
-Real-time speech-to-text transcription using a bundled WhisperKit helper on macOS.
+Real-time English speech-to-text using NVIDIA Nemotron 3.5 ASR Streaming 0.6B on macOS.
 
 ## Prerequisites
 
@@ -9,27 +9,29 @@ Real-time speech-to-text transcription using a bundled WhisperKit helper on macO
 - full Xcode installation with command-line tools selected via `xcode-select`
 - macOS with Apple Silicon (M1+) recommended
 
-## WhisperKit Setup (one-time)
+## Nemotron setup (one-time)
 
-Build the Swift helper and download the WhisperKit model:
+Build the Swift helper and download the CoreML INT8 model:
 
 ```bash
-./scripts/setup-whisperkit.sh
+./scripts/setup-nemotron.sh
 ```
 
 This builds:
 
-- helper binary: `whisperkit-helper/.build/release/whisperkit-bridge`
-- model cache root: `~/Library/Application Support/com.pavel.tauri-app/models/whisperkit`
+- helper binary: `nemotron-helper/.build/release/nemotron-bridge`
+- model cache root: `~/Library/Application Support/com.pavel.tauri-app/models/nemotron`
 
-The fixed model for this repo is:
+The integration explicitly pins:
 
-- `large-v3-v20240930_626MB`
+- runtime: `speech-swift` 0.0.22
+- model: `aufklarer/Nemotron-3.5-ASR-Streaming-0.6B-CoreML-INT8`
+- audio: English (`en-US` prompt), 16 kHz mono, 320 ms model chunks
 
 Optional override for the helper binary:
 
 ```bash
-export WHISPERKIT_BRIDGE_PATH=/absolute/path/to/whisperkit-bridge
+export NEMOTRON_BRIDGE_PATH=/absolute/path/to/nemotron-bridge
 ```
 
 ## Development
@@ -63,33 +65,43 @@ If `tccutil reset AudioCapture com.pavel.tauri-app` fails, the app has not regis
 RUST_LOG=tauri_app_lib=debug pnpm tauri dev
 ```
 
-### WhisperKit helper changes
+### Nemotron helper changes
 
 The Rust backend spawns the **release** helper binary, not debug:
 
 ```text
-whisperkit-helper/.build/release/whisperkit-bridge
+nemotron-helper/.build/release/nemotron-bridge
 ```
 
 (`AppConfig::default_helper_path()` in `src-tauri/src/config.rs`.)
 
-After editing `whisperkit-helper/Sources/WhisperkitBridge/main.swift` (or any helper code), rebuild release and restart the app — otherwise you are still running the old binary. See [docs/instructions.md](../docs/instructions.md).
+`pnpm tauri dev` and `pnpm tauri build` copy that binary into Tauri's target-specific sidecar location before launching or bundling.
+
+After editing `nemotron-helper`, rebuild release and restart the app. See [docs/instructions.md](../docs/instructions.md).
 
 ```bash
-cd whisperkit-helper
-swift build -c release --product whisperkit-bridge
+cd nemotron-helper
+swift build -c release --product nemotron-bridge
 ```
 
-Or re-run the one-time setup script (also downloads/warms the model if needed):
+Or re-run setup:
 
 ```bash
-./scripts/setup-whisperkit.sh
+./scripts/setup-nemotron.sh
 ```
 
-`swift build` without `-c release` only updates `.build/debug/whisperkit-bridge`, which the app does **not** use unless you override the path:
+`swift build` without `-c release` only updates `.build/debug/nemotron-bridge`:
 
 ```bash
-export WHISPERKIT_BRIDGE_PATH="$PWD/whisperkit-helper/.build/debug/whisperkit-bridge"
+export NEMOTRON_BRIDGE_PATH="$PWD/nemotron-helper/.build/debug/nemotron-bridge"
+```
+
+Streaming utterance boundaries are configurable for evaluation:
+
+```bash
+export NEMOTRON_SPEECH_RMS_THRESHOLD=0.01
+export NEMOTRON_EOU_SILENCE_MS=800
+export NEMOTRON_MIN_SPEECH_MS=300
 ```
 
 ### Running tests
@@ -109,13 +121,7 @@ Repeatable WER check against the [golden dataset](golden-dataset/README.md). Ref
 | 2–4 | Score hypothesis vs reference, regression vs baseline | `pnpm test:golden` |
 | E2E | Headless system-audio + `ffplay` (~2 min, gated) | `pnpm test:golden:e2e` |
 
-**Generate a reference transcript** from an MP4 (file pipeline, whole-file transcription):
-
-```bash
-./scripts/generate-golden-transcript.sh golden-dataset/clips/<clip>.mp4
-```
-
-See [golden-dataset/README.md](golden-dataset/README.md) for adding new clips and the full workflow.
+Reference transcripts are fixed ground truth and must be audited manually against source audio. Never regenerate a reference from the model under test. See [golden-dataset/README.md](golden-dataset/README.md).
 
 Establish or refresh the baseline after a good Phase 1 run:
 
@@ -129,12 +135,9 @@ Artifacts:
 - `test-output/runs/<timestamp>/` — dated eval reports (gitignored)
 - `test-output/e2e-transcript.txt` — output of the E2E test (gitignored)
 
-Current verification snapshot on June 17, 2026:
-
-- file-pipeline diagnostic WER: `2.8%`
-- headless system-audio E2E WER: `2.8%` via `pnpm test:golden:e2e`
-
 The Rust E2E test enforces `GOLDEN_E2E_MAX_WER` default `0.05` (5%).
+
+Nemotron 3.5 validation measured 4.59% file-pipeline WER and 4.95% clean system-audio E2E WER with the repository scorer, passing the 5% product gate. See [MODEL_INVESTIGATION.md](../MODEL_INVESTIGATION.md).
 
 `stop_transcription` returns a `TranscriptExport` for programmatic export; use `export_transcript` to write a file without stopping.
 
@@ -161,20 +164,13 @@ export TRANSCRIPTION_AUDIO_SOURCE=mic   # or system
 4. Transcript lines appear under **Remote** as the video plays.
 5. Click **Stop** when done.
 
-## Realtime Chunking Notes
+## Real-time behavior
 
-WhisperKit's public docs and repo confirm realtime microphone streaming and streaming output, but the sources reviewed for this repo do **not** publish one canonical fixed chunk duration for realtime decoding.
-
-Relevant public context:
-
-- Whisper-style long-form processing still uses a roughly `30s` receptive-window model internally.
-- NVIDIA's public Canary demo uses `40s` offline-style chunks.
-
-This repo's integration behavior is therefore defined operationally:
-
-- audio capture callbacks are forwarded continuously from Rust to the WhisperKit helper
-- the helper refreshes the live partial transcript after `10s` of new audio to avoid loopback frame drops during expensive re-decodes
-- the final high-accuracy committed transcript is generated on `Stop`
+- Each active source owns an isolated helper process and model instance because `speech-swift` documents the model as non-thread-safe.
+- The helper resamples capture audio to 16 kHz and feeds arbitrary packets into the model’s fixed 320 ms streaming buffer.
+- Model outputs are cumulative hypotheses. The UI replaces the stream-scoped partial rather than appending each update.
+- Rolling energy detection finalizes an utterance after trailing silence, emits a commit, and starts a fresh model session.
+- The SDK exposes no timestamps. Segment bounds come from the helper’s monotonic audio sample clock.
 
 ## Manual Test Plan
 

@@ -53,9 +53,9 @@ This is not a passive transcript viewer or generic chat assistant. The product h
 
 | Documented | Not yet specified |
 | --- | --- |
-| Product vision and domain model | Application implementation |
-| Live suggestion cards UX and behavior | Audio capture and transcription pipeline |
-| Item lifecycle, dedupe, and state preservation | LLM integration details |
-| | Post-call breakdown experience |
+| Product vision and domain model | Remaining application implementation |
+| Live suggestion cards UX and behavior | LLM integration details |
+| Nemotron audio capture and transcription pipeline | Post-call breakdown experience |
+| Item lifecycle, dedupe, and state preservation | |
 
 When building from these specs, prefer designs that make the live conversation easier rather than more feature-rich. See [Product Overview](./product-overview.md) for full guidance.
