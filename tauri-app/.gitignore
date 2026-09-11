@@ -38,4 +38,5 @@ test-output/diagnostic/
 # Debug session dumps (DEBUG_SAVE=1)
 debug/
 
-whisperkit-helper/.build/
+**/.build/
+**/binaries/
