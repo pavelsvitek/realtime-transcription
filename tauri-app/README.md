@@ -137,6 +137,16 @@ Artifacts:
 
 The Rust E2E test enforces `GOLDEN_E2E_MAX_WER` default `0.05` (5%).
 
+### NOTSOFAR eval-small (local vs xAI)
+
+Speaker-agnostic WER on far-field single-channel meetings. Default **10 meetings**. Results: [docs/eval/dataset-notsofar.md](../docs/eval/dataset-notsofar.md).
+
+```bash
+python3 scripts/eval_notsofar.py --n-meetings 10 --backends local
+```
+
+Requires the Nemotron helper/model (`./scripts/setup-nemotron.sh`) and `ffmpeg`. Downloads go to `eval-data/notsofar/` (gitignored).
+
 Nemotron 3.5 validation measured 4.59% file-pipeline WER and 4.95% clean system-audio E2E WER with the repository scorer, passing the 5% product gate. See [MODEL_INVESTIGATION.md](../MODEL_INVESTIGATION.md).
 
 `stop_transcription` returns a `TranscriptExport` for programmatic export; use `export_transcript` to write a file without stopping.
