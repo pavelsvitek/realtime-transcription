@@ -136,6 +136,12 @@ export function MeetingsPage() {
     }
   }, []);
 
+  const goBackToList = useCallback(() => {
+    setTab("summary");
+    setRecord(null);
+    setView({ kind: "list" });
+  }, []);
+
   useEffect(() => {
     if (view.kind === "list") {
       void loadList();
@@ -143,6 +149,33 @@ export function MeetingsPage() {
     }
     void loadDetail(view.id);
   }, [view, loadList, loadDetail]);
+
+  useEffect(() => {
+    if (view.kind !== "detail") return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented || event.isComposing) {
+        return;
+      }
+      const target = event.target;
+      if (target instanceof HTMLElement) {
+        const tag = target.tagName;
+        if (
+          tag === "INPUT" ||
+          tag === "TEXTAREA" ||
+          tag === "SELECT" ||
+          target.isContentEditable
+        ) {
+          return;
+        }
+      }
+      event.preventDefault();
+      goBackToList();
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [view.kind, goBackToList]);
 
   useEffect(() => {
     let cancelled = false;
@@ -272,11 +305,7 @@ export function MeetingsPage() {
           <button
             type="button"
             className="meetings-back"
-            onClick={() => {
-              setTab("summary");
-              setRecord(null);
-              setView({ kind: "list" });
-            }}
+            onClick={goBackToList}
           >
             Meetings
           </button>

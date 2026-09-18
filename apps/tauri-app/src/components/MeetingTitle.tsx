@@ -110,6 +110,7 @@ export function MeetingTitle({
             void commit();
           } else if (event.key === "Escape") {
             event.preventDefault();
+            event.stopPropagation();
             cancel();
           }
         }}
