@@ -33,6 +33,13 @@ export type MeetingDayGroup = {
   meetings: MeetingListItem[];
 };
 
+export const DEFAULT_MEETING_TITLE = "Untitled meeting";
+
+export function commitMeetingTitle(draft: string): string {
+  const trimmed = draft.trim();
+  return trimmed.length === 0 ? DEFAULT_MEETING_TITLE : trimmed;
+}
+
 export function formatMeetingClock(startedAt: number): string {
   return new Date(startedAt).toLocaleTimeString("en-GB", {
     hour: "2-digit",

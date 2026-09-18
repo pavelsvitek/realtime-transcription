@@ -59,6 +59,7 @@ pub fn run() {
             commands::transcription::clear_xai_api_key,
             commands::meetings::list_meetings,
             commands::meetings::get_meeting,
+            commands::meetings::update_meeting_title,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

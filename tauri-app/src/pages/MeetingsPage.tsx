@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Spinner } from "../components/Spinner";
+import { MeetingTitle } from "../components/MeetingTitle";
 import { formatTime } from "../lib/format";
 import {
   formatMeetingClock,
@@ -122,7 +123,18 @@ export function MeetingsPage() {
         ) : meeting ? (
           <div className="meeting-detail">
             <p className="meeting-when">{formatMeetingDetailWhen(meeting.startedAt)}</p>
-            <h1 className="meeting-title">{meeting.title}</h1>
+            <MeetingTitle
+              meetingId={meeting.id}
+              title={meeting.title}
+              onTitleChange={(title) => {
+                setRecord((prev) =>
+                  prev
+                    ? { ...prev, meeting: { ...prev.meeting, title } }
+                    : prev
+                );
+              }}
+              onError={(message) => setError(message)}
+            />
 
             <div className="meeting-tabs" role="tablist">
               <button

@@ -210,6 +210,34 @@ impl MeetingStore {
         Ok(())
     }
 
+    pub fn update_title(&self, id: &str, title: &str) -> Result<String, AppError> {
+        let title = {
+            let trimmed = title.trim();
+            if trimmed.is_empty() {
+                "Untitled meeting".to_string()
+            } else {
+                trimmed.to_string()
+            }
+        };
+        let now = now_ms();
+        let conn = self.conn.lock().unwrap();
+        let changed = conn
+            .execute(
+                "UPDATE meetings
+                 SET title = ?1,
+                     updated_at = ?2,
+                     revision = revision + 1,
+                     last_writer_device_id = ?3
+                 WHERE id = ?4 AND deleted_at IS NULL",
+                params![title, now, self.device_id, id],
+            )
+            .map_err(store_err)?;
+        if changed == 0 {
+            return Err(AppError::Store("Meeting not found".into()));
+        }
+        Ok(title)
+    }
+
     pub fn list_finished(&self) -> Result<Vec<MeetingListItem>, AppError> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn
@@ -476,5 +504,23 @@ mod tests {
         let s = path.to_string_lossy();
         assert!(s.contains(APP_SUPPORT_DIR));
         assert!(s.ends_with(DB_FILE));
+    }
+
+    #[test]
+    fn update_title_renames_and_blank_becomes_untitled() {
+        let store = temp_db();
+        store
+            .insert_live_meeting("m1", 1_000, "Untitled meeting")
+            .unwrap();
+        store.finish_meeting("m1", 2_000).unwrap();
+
+        let saved = store.update_title("m1", "  Weekly sync  ").unwrap();
+        assert_eq!(saved, "Weekly sync");
+        assert_eq!(store.get_record("m1").unwrap().meeting.title, "Weekly sync");
+        assert_eq!(store.list_finished().unwrap()[0].title, "Weekly sync");
+
+        let blank = store.update_title("m1", "   ").unwrap();
+        assert_eq!(blank, "Untitled meeting");
+        assert!(store.update_title("missing", "Nope").is_err());
     }
 }

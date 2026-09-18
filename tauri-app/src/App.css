@@ -830,6 +830,38 @@ body,
   font-size: 28px;
   font-weight: 600;
   letter-spacing: -0.02em;
+  line-height: 1.25;
+  color: var(--text-primary);
+}
+
+.meeting-title-button,
+.meeting-title-input {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+  color: inherit;
+  text-align: left;
+  box-shadow: none;
+  border-radius: 0;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.meeting-title-button {
+  cursor: text;
+}
+
+.meeting-title-input {
+  caret-color: var(--text-primary);
 }
 
 .meeting-tabs {

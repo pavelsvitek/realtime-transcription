@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { formatMeetingDayLabel, groupMeetingsByDay } from "./meetings";
+import {
+  commitMeetingTitle,
+  formatMeetingDayLabel,
+  groupMeetingsByDay,
+} from "./meetings";
 import type { MeetingListItem } from "./meetings";
 
 function item(id: string, startedAt: number, title: string): MeetingListItem {
@@ -26,5 +30,15 @@ describe("groupMeetingsByDay", () => {
   it("formats list headers like the mock", () => {
     const local = new Date(2026, 8, 4, 15, 33);
     expect(formatMeetingDayLabel(local.getTime())).toBe("Sep 4 / Friday");
+  });
+});
+
+describe("commitMeetingTitle", () => {
+  it("trims and keeps typed text", () => {
+    expect(commitMeetingTitle("  Weekly sync  ")).toBe("Weekly sync");
+  });
+
+  it("replaces a blank draft with Untitled meeting", () => {
+    expect(commitMeetingTitle("   ")).toBe("Untitled meeting");
   });
 });
