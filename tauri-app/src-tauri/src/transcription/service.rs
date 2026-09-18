@@ -316,6 +316,35 @@ impl TranscriptionService {
         }
 
         if let (Some(store), Some(id)) = (&self.meetings, state.meeting_id.as_deref()) {
+            let committed = self.transcript.text();
+            match store.segment_count(id) {
+                Ok(0) if !committed.is_empty() => {
+                    tracing::warn!(
+                        meeting_id = id,
+                        chars = committed.len(),
+                        "No segments persisted during capture; saving in-memory transcript"
+                    );
+                    if let Err(e) = store.insert_segment(
+                        &format!("{id}:fallback"),
+                        id,
+                        0,
+                        0,
+                        &committed,
+                    ) {
+                        tracing::error!(
+                            error = %e,
+                            meeting_id = id,
+                            "Failed to persist fallback transcript segment"
+                        );
+                    }
+                }
+                Ok(_) => {}
+                Err(e) => tracing::error!(
+                    error = %e,
+                    meeting_id = id,
+                    "Failed to count transcript segments"
+                ),
+            }
             if let Err(e) = store.finish_meeting(id, now_ms()) {
                 tracing::error!(error = %e, meeting_id = id, "Failed to mark meeting finished");
             }

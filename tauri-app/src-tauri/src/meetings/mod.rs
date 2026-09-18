@@ -97,11 +97,17 @@ impl MeetingStore {
         migrate(&conn)?;
         let device_id = load_or_create_device_id(&conn)?;
 
-        Ok(Self {
+        let store = Self {
             conn: Arc::new(Mutex::new(conn)),
             device_id,
             path: path.to_path_buf(),
-        })
+        };
+        // A killed app leaves status=live rows. Close them so they show in Meetings
+        // and so recycled ASR ids from a later session cannot collide.
+        if let Err(e) = store.finish_open_meetings(now_ms()) {
+            tracing::warn!(error = %e, "Failed to close leftover live meetings on open");
+        }
+        Ok(store)
     }
 
     pub fn path(&self) -> &Path {
@@ -157,11 +163,31 @@ impl MeetingStore {
             "INSERT INTO transcript_segments (
                 id, meeting_id, start_ms, end_ms, text,
                 updated_at, deleted_at, revision, last_writer_device_id
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, NULL, 1, ?7)",
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, NULL, 1, ?7)
+             ON CONFLICT(id) DO UPDATE SET
+                meeting_id = excluded.meeting_id,
+                start_ms = excluded.start_ms,
+                end_ms = excluded.end_ms,
+                text = excluded.text,
+                updated_at = excluded.updated_at,
+                deleted_at = NULL,
+                revision = revision + 1,
+                last_writer_device_id = excluded.last_writer_device_id",
             params![id, meeting_id, start_ms, end_ms, text, now, self.device_id],
         )
         .map_err(store_err)?;
         Ok(())
+    }
+
+    pub fn segment_count(&self, meeting_id: &str) -> Result<i64, AppError> {
+        let conn = self.conn.lock().unwrap();
+        conn.query_row(
+            "SELECT COUNT(*) FROM transcript_segments
+             WHERE meeting_id = ?1 AND deleted_at IS NULL",
+            params![meeting_id],
+            |row| row.get(0),
+        )
+        .map_err(store_err)
     }
 
     pub fn finish_meeting(&self, id: &str, finished_at: i64) -> Result<(), AppError> {
@@ -403,6 +429,45 @@ mod tests {
         let row = store.get_record("m1").unwrap();
         assert_eq!(row.meeting.status, "finished");
         assert_eq!(row.meeting.finished_at, Some(2_000));
+    }
+
+    #[test]
+    fn opening_store_finishes_leftover_live_meetings() {
+        let dir = std::env::temp_dir().join(format!("meetings-reopen-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("meetings.db");
+        {
+            let store = MeetingStore::open(&path).unwrap();
+            store
+                .insert_live_meeting("m1", 1_000, "Stuck")
+                .unwrap();
+            store
+                .insert_segment("m1:seg-0", "m1", 0, 100, "hello")
+                .unwrap();
+        }
+        let store = MeetingStore::open(&path).unwrap();
+        let row = store.get_record("m1").unwrap();
+        assert_eq!(row.meeting.status, "finished");
+        assert!(row.meeting.finished_at.is_some());
+        assert_eq!(row.segments.len(), 1);
+        assert_eq!(row.segments[0].text, "hello");
+        assert_eq!(store.list_finished().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn insert_segment_upserts_on_id_conflict() {
+        let store = temp_db();
+        store.insert_live_meeting("m1", 1_000, "Call").unwrap();
+        store
+            .insert_segment("m1:seg-0", "m1", 0, 100, "hello")
+            .unwrap();
+        store
+            .insert_segment("m1:seg-0", "m1", 0, 150, "hello world")
+            .unwrap();
+        let row = store.get_record("m1").unwrap();
+        assert_eq!(row.segments.len(), 1);
+        assert_eq!(row.segments[0].text, "hello world");
+        assert_eq!(store.segment_count("m1").unwrap(), 1);
     }
 
     #[test]

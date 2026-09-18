@@ -257,7 +257,9 @@ impl StreamingAsr for XaiWsPipeline {
             match self.evt_rx.recv_timeout(Duration::from_millis(200)) {
                 Ok(Evt::Output(chunk)) => {
                     output.committed.extend(chunk.committed);
-                    // Ignore tentative during finish flush.
+                    if !chunk.tentative.is_empty() {
+                        output.tentative = chunk.tentative;
+                    }
                 }
                 Ok(Evt::Done) => {
                     self.finished = true;
@@ -272,6 +274,15 @@ impl StreamingAsr for XaiWsPipeline {
                 }
             }
         }
+
+        // Stop often arrives before speech_final. Promote the last in-flight
+        // utterance so a short session still yields transcript.commit rows.
+        if let Some(last) = output.tentative.pop() {
+            if !output.committed.iter().any(|c| c.text == last.text) {
+                output.committed.push(last);
+            }
+        }
+        output.tentative.clear();
 
         if let Some(handle) = self.worker.take() {
             let _ = handle.join();
@@ -350,7 +361,11 @@ async fn run_session_inner(
                                     text_len = event.text.as_ref().map(|t| t.len()).unwrap_or(0),
                                     "xAI transcript.done"
                                 );
-                                // Full-session text — already covered by speech_final commits.
+                                if let Some(output) =
+                                    flush_in_flight(&mut map_state, event.text.as_deref())
+                                {
+                                    let _ = evt_tx.send(Evt::Output(output));
+                                }
                                 return Ok(());
                             }
                             "error" => {
@@ -367,6 +382,9 @@ async fn run_session_inner(
                     }
                     Some(Ok(Message::Close(_))) | None => {
                         if finish_sent {
+                            if let Some(output) = flush_in_flight(&mut map_state, None) {
+                                let _ = evt_tx.send(Evt::Output(output));
+                            }
                             return Ok(());
                         }
                         return Err(anyhow!("xAI WebSocket closed unexpectedly"));
@@ -443,6 +461,40 @@ fn resolve_utterance_start(state: &MapState, event_start: f64) -> f64 {
     } else {
         state.last_committed_end
     }
+}
+
+/// Commit leftover in-flight text when the session ends without `speech_final`.
+fn flush_in_flight(state: &mut MapState, done_text: Option<&str>) -> Option<AsrOutput> {
+    let text = if !state.locked.trim().is_empty() {
+        state.locked.trim().to_string()
+    } else if state.last_committed.is_empty() {
+        done_text
+            .map(str::trim)
+            .filter(|s| !s.is_empty())?
+            .to_string()
+    } else {
+        return None;
+    };
+    if text == state.last_committed {
+        return None;
+    }
+    let start = if state.utterance_start > 0.0 {
+        state.utterance_start
+    } else {
+        state.last_committed_end
+    };
+    state.last_committed = text.clone();
+    state.last_committed_end = start;
+    state.locked.clear();
+    state.utterance_start = 0.0;
+    Some(AsrOutput {
+        committed: vec![AsrWord {
+            text,
+            start,
+            end: start,
+        }],
+        tentative: Vec::new(),
+    })
 }
 
 fn map_partial(event: &ServerEvent, state: &mut MapState) -> Option<AsrOutput> {
@@ -658,5 +710,39 @@ mod tests {
             "It seems that some of the sentences"
         );
         assert!(next.tentative[0].start >= 1.52);
+    }
+
+    #[test]
+    fn flush_in_flight_commits_locked_text_without_speech_final() {
+        let mut state = MapState::default();
+        map_partial(
+            &ev(
+                r#"{"type":"transcript.partial","text":"Two or three sentences here","is_final":true,"speech_final":false,"start":0.4,"duration":2.5}"#,
+            ),
+            &mut state,
+        );
+        let flushed = flush_in_flight(&mut state, None).unwrap();
+        assert_eq!(flushed.committed[0].text, "Two or three sentences here");
+        assert!(state.locked.is_empty());
+        assert!(flush_in_flight(&mut state, Some("Two or three sentences here")).is_none());
+    }
+
+    #[test]
+    fn flush_in_flight_uses_done_text_when_nothing_was_committed() {
+        let mut state = MapState::default();
+        let flushed = flush_in_flight(&mut state, Some("  Hello from a short stop  ")).unwrap();
+        assert_eq!(flushed.committed[0].text, "Hello from a short stop");
+    }
+
+    #[test]
+    fn flush_in_flight_skips_full_session_text_after_speech_final() {
+        let mut state = MapState::default();
+        map_partial(
+            &ev(
+                r#"{"type":"transcript.partial","text":"Already saved","is_final":true,"speech_final":true,"start":0.0,"duration":1.0}"#,
+            ),
+            &mut state,
+        );
+        assert!(flush_in_flight(&mut state, Some("Already saved plus more")).is_none());
     }
 }

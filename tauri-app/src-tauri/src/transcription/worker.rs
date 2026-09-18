@@ -40,13 +40,21 @@ pub fn run_worker<E>(
     const SYSTEM_SILENCE_RMS_THRESHOLD: f32 = 0.01;
     const SYSTEM_SILENCE_CHECK_SAMPLES: usize = 48_000 * 30;
 
-    while !stop.load(Ordering::Relaxed) {
-        let chunk = match audio_rx.recv_timeout(std::time::Duration::from_millis(100)) {
-            Ok(chunk) => chunk,
-            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => continue,
-            Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
-                tracing::debug!("Audio channel closed, draining remaining");
-                break;
+    loop {
+        let stopping = stop.load(Ordering::Relaxed);
+        let chunk = if stopping {
+            match audio_rx.try_recv() {
+                Ok(chunk) => chunk,
+                Err(_) => break,
+            }
+        } else {
+            match audio_rx.recv_timeout(std::time::Duration::from_millis(100)) {
+                Ok(chunk) => chunk,
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => continue,
+                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
+                    tracing::debug!("Audio channel closed, draining remaining");
+                    break;
+                }
             }
         };
 
