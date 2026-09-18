@@ -1,0 +1,6 @@
+Nemotron Speech Streaming 0.6B
+
+Licensed by NVIDIA Corporation under the NVIDIA Open Model License
+
+The inference runtime uses speech-swift, licensed under Apache License 2.0:
+https://github.com/soniqo/speech-swift/blob/v0.0.22/LICENSE

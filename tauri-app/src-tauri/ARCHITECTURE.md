@@ -25,7 +25,8 @@ src/
 │   ├── service.rs          # start/stop lifecycle, worker spawn/join
 │   ├── worker.rs           # loop: read audio → pipeline → emit events
 │   ├── mic_input.rs        # cpal mic stream setup
-│   ├── asr.rs              # yamabiko-whisper pipeline wrapper
+│   ├── asr.rs              # Nemotron engine wrapper
+│   ├── nemotron.rs         # Swift helper protocol and process adapter
 │   └── labels.rs           # speaker constants (USER, MIC_STREAM)
 ```
 
@@ -41,7 +42,7 @@ src/
 
 | Layer | May import | Must not import |
 | --- | --- | --- |
-| `commands/` | `state`, `ipc`, `transcription` | `cpal`, `yamabiko_whisper` directly |
+| `commands/` | `state`, `ipc`, `transcription` | `cpal`, helper-process internals directly |
 | `transcription/` | `ipc`, `config`, `error` | `tauri::AppHandle` in deep internals |
 | `ipc/` | `serde` only | any domain or OS crates |
 | `lib.rs` | everything | (keep it short — wiring only) |
@@ -53,7 +54,7 @@ The `transcription/` modules receive an emitter callback (`Fn(TranscriptEvent)`)
 Two crates, two roles:
 
 - **`thiserror`** — defines `AppError` in `error.rs` with typed variants (`Capture`, `Asr`, `AlreadyRunning`, `Io`). Used at the command boundary so callers can match on specific failures.
-- **`anyhow`** — used inside worker loops and model loading for ergonomic `.context("loading whisper model")` chains. Converted to `AppError` or `String` before crossing the IPC edge.
+- **`anyhow`** — used inside worker loops and model loading for ergonomic context chains. Converted to `AppError` or `String` before crossing the IPC edge.
 
 Rule: `#[tauri::command]` handlers return `Result<T, String>`. The conversion from `AppError` to `String` happens only in `commands/`.
 
@@ -99,7 +100,7 @@ Three execution contexts:
 
 - **Main thread** runs Tauri commands and event emission. Must never block on inference.
 - **cpal callback** fires on the OS audio thread. Writes `f32` samples into a bounded `mpsc` channel. Must be non-blocking — if the channel is full, log a warning and drop the frame.
-- **Worker thread** owns the ASR pipeline. Reads from the channel, feeds chunks to `yamabiko-whisper`, and calls the emitter callback with partial/commit events.
+- **Worker thread** owns a Nemotron helper process. It reads from the channel, forwards chunks, and calls the emitter callback with partial/commit events.
 
 Cooperative stop: `Arc<AtomicBool>` shared between the service and worker. The worker checks it on each loop iteration.
 
@@ -186,7 +187,7 @@ In production, `emit` calls `app_handle.emit(...)`. In tests, it pushes into a `
 
 ### What not to test
 
-- `yamabiko-whisper` accuracy (upstream)
+- CoreML model accuracy in unit tests (covered by golden evaluation)
 - `cpal` device enumeration (OS-level, manual)
 - Serde derive correctness (trust the macro)
 - Tauri command routing (trust `generate_handler!`)

@@ -137,14 +137,14 @@ mod tests {
         let status = TranscriptionStatus {
             active: false,
             loading: Some(true),
-            model: Some("ggml-small.en".into()),
+            model: Some("Nemotron 3.5 ASR Streaming 0.6B CoreML INT8".into()),
             error: None,
         };
 
         let json = serde_json::to_value(&status).unwrap();
         assert_eq!(json["active"], false);
         assert_eq!(json["loading"], true);
-        assert_eq!(json["model"], "ggml-small.en");
+        assert_eq!(json["model"], "Nemotron 3.5 ASR Streaming 0.6B CoreML INT8");
         assert!(json.get("error").is_none());
     }
 }

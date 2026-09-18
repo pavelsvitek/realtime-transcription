@@ -34,6 +34,10 @@ test-youtube-video-2.mp4
 test-output/runs/
 test-output/e2e-transcript.txt
 test-output/diagnostic/
+test-output/notsofar/
+
+# NOTSOFAR eval cache (audio + gold transcripts)
+eval-data/
 
 # Debug session dumps (DEBUG_SAVE=1)
 debug/

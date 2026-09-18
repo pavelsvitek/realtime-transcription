@@ -1,165 +1,79 @@
 # Model Investigation
 
-The repo originally investigated Canary as a possible Apple-local ASR path. It now uses WhisperKit instead.
+## Current model
 
-## Current Implementation
+The app uses
+[`nvidia/nemotron-3.5-asr-streaming-0.6b`](https://huggingface.co/nvidia/nemotron-3.5-asr-streaming-0.6b)
+through a community CoreML INT8 conversion:
 
-- Runtime: WhisperKit via a bundled Swift helper process
-- Fixed model: `large-v3-v20240930_626MB`
-- Helper cache root: `~/Library/Application Support/com.pavel.tauri-app/models/whisperkit`
-- Verification snapshot from June 17, 2026:
-  - file-pipeline diagnostic WER: `2.8%`
-  - headless system-audio E2E WER: `2.8%` via `pnpm test:golden:e2e`
+- artifact: `aufklarer/Nemotron-3.5-ASR-Streaming-0.6B-CoreML-INT8`
+- runtime: `speech-swift` 0.0.22, `NemotronStreamingASR`
+- architecture: prompt-conditioned cache-aware FastConformer encoder with an RNN-T decoder
+- parameters: approximately 600 million
+- input: 16 kHz mono Float32 with the app explicitly selecting `en-US`
+- compiled streaming geometry: 320 ms with 240 ms lookahead
+- artifact size: approximately 612 MB
 
-### Realtime Chunking Notes
+The integration pins the artifact and loads it from the app-controlled cache rather than relying on the runtime’s changing default model.
 
-From the public sources reviewed for this repo:
+## Why it fits this app
 
-- WhisperKit documents realtime microphone streaming and streaming output, but does not publish one canonical fixed realtime chunk length in the repo/docs reviewed.
-- OpenAI Whisper-style long-form decoding still revolves around roughly `30s` windows.
-- NVIDIA's public Canary demo uses `40s` offline-style chunks.
+Nemotron is trained for stateful streaming. Each incoming audio frame is processed once and encoder/RNN-T state is carried forward, instead of repeatedly decoding an overlapping long window. This gives the UI sub-second cumulative hypotheses and keeps compute bounded during long calls.
 
-This repo's actual integration therefore defines its own operational policy:
+The app captures mic and system audio independently. Each stream runs an isolated helper process and model instance because `speech-swift` documents the model class as non-thread-safe. Static stream labels continue to provide `User` versus `Remote` attribution; Nemotron does not provide speaker diarization.
 
-- audio is forwarded continuously from Rust capture callbacks to the WhisperKit helper
-- the helper refreshes the live partial transcript after `10s` of new audio
-- the final committed transcript is generated on `finish`
+## Model-selection accuracy
 
-## Historical Canary Research
+The previous English-only 160 ms artifact failed this repository’s fixed-reference quality gate. A controlled comparison changed only the loaded bundle while keeping the helper, audio, IPC, and scorer fixed:
 
-These notes are preserved because they motivated the switch away from Canary for this repo.
+- English 160 ms: 19.79% repository WER / 17.39% NVIDIA-normalized WER
+- Nemotron 3.5 320 ms: 3.89% repository WER / 3.01% NVIDIA-normalized WER
 
-## Historical Model Investigated
+The comparison changes both checkpoint generation and compiled chunk geometry, so it does not isolate how much improvement comes from each. It does establish that the capture protocol, CoreML runtime, and reference transcript are capable of passing the 5% gate with Nemotron 3.5.
 
-- Community CoreML conversion: [`phequals/canary-qwen-2.5b-coreml-int8`](https://huggingface.co/phequals/canary-qwen-2.5b-coreml-int8)
-- Base model: [`nvidia/canary-qwen-2.5b`](https://huggingface.co/nvidia/canary-qwen-2.5b)
+Published benchmark results are not directly comparable to this repository’s golden dataset. The app keeps a fixed, manually reviewed reference and retains its 5% E2E WER gate.
 
-## What Public Usage Evidence Exists
+## Runtime limitations
 
-I do **not** see strong public evidence that people are using the exact community CoreML conversion for true low-latency live transcription on Apple devices.
+- Model outputs are cumulative hypotheses, not text deltas.
+- There is no end-of-utterance token. The helper uses rolling energy detection, calls `finalize()` at a speech boundary, emits a commit, and creates a fresh model session.
+- The runtime exposes no token or word timestamps. Segment times are derived from the audio sample clock.
+- `confidence` is based on mean token log probability and is not calibrated.
+- `segmentIndex` is not useful in the current runtime.
+- Long-running CoreML workloads may exhaust IOSurface resources. Inference runs inside autorelease pools and the app recreates helper processes between transcription sessions.
 
-What does exist publicly is a smaller set of signals around the base NVIDIA model:
+## Licensing
 
-- On July 23, 2025, a user asked NVIDIA whether `canary-qwen-2.5b` supports chunked inference. On July 25, 2025, an NVIDIA maintainer replied yes and pointed to their Hugging Face Space demo code: [discussion #6](https://huggingface.co/nvidia/canary-qwen-2.5b/discussions/6).
-- NVIDIA's Hugging Face Space accepts microphone input, but its implementation is still chunked offline-style transcription rather than rolling live ASR. The app resamples to 16 kHz, splits audio into 40-second windows, batches them, and runs `model.generate(...)`: [space app code](https://huggingface.co/spaces/nvidia/canary-qwen-2.5b/blob/main/app.py).
-- On September 11, 2025, a user asked about running the model locally for YouTube video transcription on consumer hardware. NVIDIA replied on September 18, 2025 with a working NeMo recipe and said the model should run there. Another user later said they were running it on a GTX 3090: [discussion #11](https://huggingface.co/nvidia/canary-qwen-2.5b/discussions/11).
-- On November 1, 2025, another user said they had it running on Jetson AGX Orin GPU and shared a basic setup/code snippet: [discussion #15](https://huggingface.co/nvidia/canary-qwen-2.5b/discussions/15).
-- On July 23, 2025, a user asked for word timestamps and NVIDIA answered "No" on July 25, 2025: [discussion #4](https://huggingface.co/nvidia/canary-qwen-2.5b/discussions/4).
-- On November 17, 2025, someone explicitly asked whether streaming ASR is possible. In the retrieved public page snapshot, there was no visible answer yet: [discussion #16](https://huggingface.co/nvidia/canary-qwen-2.5b/discussions/16).
+The model is governed by the NVIDIA Open Model License. Redistribution includes:
 
-## Why This Matters
+- `tauri-app/licenses/NVIDIA-OPEN-MODEL-LICENSE.txt`
+- `tauri-app/licenses/NOTICE`
 
-Two things make the lack of public real-time examples unsurprising:
+The runtime code is Apache-2.0.
 
-- The community CoreML conversion presents itself as model artifacts, not a full runtime. Long-audio chunking, prompt formatting, and transcript stitching are left to downstream implementations: [CoreML model card](https://huggingface.co/phequals/canary-qwen-2.5b-coreml-int8).
-- NVIDIA's base model documentation describes evaluation with non-overlapping 40-second chunks and positions the model around NVIDIA GPU-accelerated systems, not Apple/CoreML-first deployment: [base model card](https://huggingface.co/nvidia/canary-qwen-2.5b).
+## Evaluation requirements
 
-## Current Take
+Before treating the model as production-ready, measure:
 
-Public evidence supports:
+1. File and loopback E2E WER against fixed ground truth.
+2. First-partial p50 and p95 latency.
+3. Finalization delay after speech.
+4. One-stream and two-stream resident memory.
+5. Dropped or backlogged capture audio.
+6. Timestamp drift.
+7. Repeated start/stop behavior.
+8. A 30-minute dual-stream soak with CoreML stability monitoring.
 
-- local transcription with the base model
-- chunked inference
-- GPU-backed use on desktop and Jetson hardware
+## Local validation snapshot
 
-Public evidence does **not** yet strongly support:
+Nemotron 3.5 switch validation on July 17, 2026:
 
-- true streaming ASR
-- polished low-latency realtime use
-- widespread Apple/CoreML deployment of the community INT8 conversion
+- Fixed-reference file pipeline: **4.59% repository WER** (7 substitutions, 3 insertions, 3 deletions over 283 words), passing the 5% gate.
+- Clean system-audio loopback E2E: **4.95% repository WER** and **4.35% Python-evaluator WER**, both passing their 5% gates.
+- File versus loopback delta: approximately **+0.35 percentage points** under the repository scorer.
+- The previous English 160 ms file result was **18.0%**, so the production-path file WER improved by **13.4 points** (approximately 74% relative).
+- The first E2E attempt was excluded because unrelated system audio was playing at startup; its transcript visibly contained an unrelated prefix. The uncontaminated rerun is the reported result.
+- The prior CoreAudio construction hang did not recur; the full loopback suite completed in approximately 100 seconds.
+- Swift helper tests, all 41 Rust unit tests, and all 8 frontend tests passed.
 
-That likely makes this repo one of the more concrete public attempts to turn the CoreML conversion into an actual real-time transcription pipeline.
-
-## Alternative Models For Mac Real-Time Streaming
-
-I also did a separate search for other English ASR models that might fit this project's needs better than Canary.
-
-### Acceptance Criteria
-
-For a model to qualify, it should satisfy all of the following:
-
-1. Run on MacBook hardware with public macOS or Apple Silicon support.
-2. Support real-time streaming with public examples of microphone streaming or partial-result streaming.
-3. Stay under 2 GB in RAM at runtime, or have a strong published proxy such as a clearly sub-2 GB model artifact or parameter count.
-4. Deliver English WER around 5%, interpreted roughly as the 4% to 7% band unless otherwise noted.
-
-If "around 5%" is interpreted strictly as 5% or lower, the candidate pool gets much smaller.
-
-### Best Fits
-
-#### WhisperKit
-
-WhisperKit is the strongest public fit I found.
-
-- The project is explicitly Apple-Silicon-focused and supports macOS and iOS through a Swift SDK and CLI: [repo](https://github.com/argmaxinc/argmax-oss-swift).
-- The repo includes a microphone streaming CLI example:
-  - `swift run argmax-cli transcribe --model-path ... --stream`
-- The local server supports streaming transcription output as results are generated: [repo server docs](https://github.com/argmaxinc/argmax-oss-swift).
-- The repo recommends a compressed `large-v3` model artifact of about `626MB` for maximum accuracy on Apple platforms: [model selection section](https://github.com/argmaxinc/argmax-oss-swift).
-- The WhisperKit paper reports `0.46s` latency and `2.2% WER` for its on-device real-time ASR system: [paper](https://arxiv.org/abs/2507.10860).
-
-Verdict: **passes all criteria cleanly**.
-
-#### Moonshine Medium Streaming
-
-Moonshine is the strongest non-Whisper candidate I found.
-
-- The project is designed around live voice interfaces and explicitly supports macOS, including a Mac microphone transcription example app: [repo](https://github.com/moonshine-ai/moonshine).
-- The Python quickstart includes a microphone transcriber that prints transcript updates live:
-  - `python -m moonshine_voice.mic_transcriber --language en`
-- The project describes itself as optimized for live streaming and low-latency responses while the user is still talking: [repo](https://github.com/moonshine-ai/moonshine).
-- Their published comparison table reports:
-  - `Moonshine Medium Streaming`: `6.65% WER`
-  - `245 million` parameters
-  - `107ms` on MacBook Pro
-- Source: [Moonshine README comparison table](https://github.com/moonshine-ai/moonshine).
-
-The repo does not publish a direct resident RAM number for the medium model, but `245M` parameters strongly suggests it should fit comfortably under the 2 GB cap. That is an inference from parameter count, not a directly published runtime memory measurement.
-
-Verdict: **passes if 6-7% counts as "around 5%"**.
-
-### Near Misses
-
-#### Vosk
-
-Vosk has strong streaming support and a macOS-friendly toolkit story, but it does not cleanly pass the size requirement for its most accurate English model.
-
-- Vosk provides a streaming API and offline recognition toolkit: [overview](https://alphacephei.com/vosk/), [repo](https://github.com/alphacep/vosk-api).
-- The English `vosk-model-en-us-0.22` reports `5.69` WER on LibriSpeech test-clean: [model list](https://alphacephei.com/vosk/models).
-- However, Vosk's model page says big models can require up to `16GB` of memory at runtime, which fails the memory bar even though the model file itself is `1.8G`: [model list](https://alphacephei.com/vosk/models).
-
-Verdict: **fails the runtime memory criterion**.
-
-#### whisper.cpp With Standard Whisper Models
-
-`whisper.cpp` is an excellent runtime, but the standard published Whisper size/accuracy tradeoffs do not cleanly satisfy all of the criteria at once.
-
-- `whisper.cpp` has first-class Apple Silicon support, Metal acceleration, and a real-time microphone example called `whisper-stream`: [repo](https://github.com/ggml-org/whisper.cpp).
-- It publishes memory estimates for several model sizes:
-  - `small`: about `852 MB`
-  - `medium`: about `2.1 GB`
-  - `large`: about `3.9 GB`
-- Source: [memory usage table](https://github.com/ggml-org/whisper.cpp).
-- This means `small` fits the memory cap but typically does not reach the target WER band, while the more accurate larger models exceed the published memory limit unless a separate compressed runtime such as WhisperKit is used.
-
-Verdict: **runtime passes, but standard model tradeoffs do not cleanly pass the full filter**.
-
-#### NVIDIA Nemotron Speech Streaming
-
-This is a promising recent result, but it misses the accuracy target.
-
-- An April 16, 2026 paper identifies NVIDIA Nemotron Speech Streaming as a strong on-device streaming candidate and reports quantization from `2.47 GB` down to `0.67 GB`: [paper](https://arxiv.org/abs/2604.14493).
-- The same paper reports `8.20%` average streaming WER across eight benchmarks with `0.56s` algorithmic latency.
-
-Verdict: **passes size and streaming, misses the WER target**.
-
-### Shortlist Summary
-
-If "around 5%" means `<= 5%`, the strongest public fit I found is:
-
-- WhisperKit
-
-If "around 5%" means roughly `5% to 7%`, the shortlist becomes:
-
-- WhisperKit
-- Moonshine Medium Streaming
+Latency, memory, repeated-lifecycle, and long-soak figures previously collected for the English 160 ms artifact must be remeasured before being attributed to Nemotron 3.5.

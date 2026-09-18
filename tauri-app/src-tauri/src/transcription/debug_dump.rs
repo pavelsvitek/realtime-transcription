@@ -13,6 +13,11 @@ use crate::transcription::audio_source::AudioSource;
 
 const DEBUG_SAVE_ENV: &str = "DEBUG_SAVE";
 
+/// TEMPORARY: after each DEBUG_SAVE session, run merge-session-transcript.py
+/// into ~/Downloads. Remove once proper export UX lands.
+#[cfg(not(test))]
+const TEMP_AUTO_EXPORT_MERGED_TO_DOWNLOADS: bool = true;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct SegmentRecord {
@@ -162,9 +167,7 @@ fn session_timestamp() -> String {
     }
     let day = days_left as u32 + 1;
 
-    format!(
-        "{year:04}-{month:02}-{day:02}T{hour:02}-{minute:02}-{second:02}"
-    )
+    format!("{year:04}-{month:02}-{day:02}T{hour:02}-{minute:02}-{second:02}")
 }
 
 fn iso_timestamp() -> String {
@@ -217,9 +220,7 @@ fn iso_timestamp() -> String {
     }
     let day = days_left as u32 + 1;
 
-    format!(
-        "{year:04}-{month:02}-{day:02}T{hour:02}:{minute:02}:{second:02}.{nanos:09}Z"
-    )
+    format!("{year:04}-{month:02}-{day:02}T{hour:02}:{minute:02}:{second:02}.{nanos:09}Z")
 }
 
 pub struct DebugSession {
@@ -233,7 +234,7 @@ pub struct DebugSession {
 }
 
 impl DebugSession {
-    pub fn try_open(source: AudioSource, config: &AppConfig) -> Option<Self> {
+    pub fn try_open(source: AudioSource, _config: &AppConfig) -> Option<Self> {
         if !debug_save_enabled() {
             return None;
         }
@@ -259,7 +260,7 @@ impl DebugSession {
             session_id,
             started_at: iso_timestamp(),
             source,
-            model: config.model_metadata.model.clone(),
+            model: crate::transcription::nemotron::MODEL_DISPLAY_NAME.to_string(),
             dir,
             summaries: Arc::new(Mutex::new(Vec::new())),
             stream_stats: Arc::new(Mutex::new(Vec::new())),
@@ -390,7 +391,72 @@ impl DebugSession {
             "Debug session finalized"
         );
 
+        // Skip in unit tests to avoid writing into ~/Downloads.
+        #[cfg(not(test))]
+        if TEMP_AUTO_EXPORT_MERGED_TO_DOWNLOADS {
+            export_merged_transcript_to_downloads(&self.dir);
+        }
+
         wav_paths
+    }
+}
+
+#[cfg(not(test))]
+fn merge_script_path() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("src-tauri has parent")
+        .join("scripts/merge-session-transcript.py")
+}
+
+#[cfg(not(test))]
+fn export_merged_transcript_to_downloads(session_dir: &Path) {
+    use std::process::Command;
+
+    let script = merge_script_path();
+    if !script.exists() {
+        tracing::warn!(
+            script = %script.display(),
+            "Temporary merge export skipped; script not found"
+        );
+        return;
+    }
+
+    let python = ["/usr/bin/python3", "python3"]
+        .into_iter()
+        .find(|bin| Command::new(bin).arg("--version").output().is_ok())
+        .unwrap_or("python3");
+
+    match Command::new(python)
+        .arg(&script)
+        .arg(session_dir)
+        .arg("--to-downloads")
+        .output()
+    {
+        Ok(output) if output.status.success() => {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            tracing::info!(
+                session_dir = %session_dir.display(),
+                detail = %stderr.trim(),
+                "Temporary merge export wrote transcript to ~/Downloads"
+            );
+        }
+        Ok(output) => {
+            tracing::warn!(
+                status = %output.status,
+                stderr = %String::from_utf8_lossy(&output.stderr).trim(),
+                stdout = %String::from_utf8_lossy(&output.stdout).trim(),
+                session_dir = %session_dir.display(),
+                "Temporary merge export failed"
+            );
+        }
+        Err(err) => {
+            tracing::warn!(
+                error = %err,
+                session_dir = %session_dir.display(),
+                "Temporary merge export could not start python"
+            );
+        }
     }
 }
 
@@ -634,12 +700,11 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("debug-session-test-{}", uuid::Uuid::new_v4()));
         fs::create_dir_all(&dir).unwrap();
 
-        let config = AppConfig::load();
         let session = DebugSession {
             session_id: "2026-06-29T19-47-30".into(),
             started_at: "2026-06-29T19:47:30.000000000Z".into(),
             source: AudioSource::Mic,
-            model: config.model_metadata.model,
+            model: crate::transcription::nemotron::MODEL_DISPLAY_NAME.to_string(),
             dir: dir.clone(),
             summaries: Arc::new(Mutex::new(vec![StreamSummary {
                 stream: "mic".into(),

@@ -116,6 +116,11 @@ def main() -> int:
         action="store_true",
         help="Skip regression check against baseline",
     )
+    parser.add_argument(
+        "--max-wer",
+        type=float,
+        help="Fail if absolute WER is greater than or equal to this fraction",
+    )
     args = parser.parse_args()
 
     reference = args.reference.read_text(encoding="utf-8")
@@ -155,6 +160,14 @@ def main() -> int:
                 file=sys.stderr,
             )
             return 1
+
+    if args.max_wer is not None and report["wer"] >= args.max_wer:
+        print(
+            f"QUALITY GATE: WER {report['werPercent']:.2f}% "
+            f"exceeds {args.max_wer * 100:.2f}%",
+            file=sys.stderr,
+        )
+        return 1
 
     return 0
 

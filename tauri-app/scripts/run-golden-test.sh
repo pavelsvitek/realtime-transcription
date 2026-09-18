@@ -16,11 +16,13 @@ REF="$ROOT/golden-dataset/transcripts/${GOLDEN_CLIP}.txt"
 VIDEO="$ROOT/golden-dataset/clips/${GOLDEN_CLIP}.mp4"
 HYP="${HYPOTHESIS:-$ROOT/test-output/transcript.txt}"
 BASELINE="$ROOT/test-output/baseline/report.json"
-CACHE_DIR="$HOME/Library/Application Support/com.pavel.tauri-app/models/whisperkit"
-HELPER_BIN="$ROOT/whisperkit-helper/.build/release/whisperkit-bridge"
+CACHE_ROOT="$HOME/Library/Application Support/com.pavel.tauri-app/models/nemotron"
+MODEL_DIR="$CACHE_ROOT/qwen3-speech/models/aufklarer/Nemotron-3.5-ASR-Streaming-0.6B-CoreML-INT8"
+HELPER_BIN="$ROOT/nemotron-helper/.build/release/nemotron-bridge"
 RUN_E2E=0
 UPDATE_BASELINE=0
 SAVE_RUN=1
+MAX_WER=""
 
 for arg in "$@"; do
   case "$arg" in
@@ -42,16 +44,21 @@ run_eval() {
   if [[ "${SKIP_BASELINE:-0}" -eq 1 ]]; then
     extra+=(--skip-baseline)
   fi
+  if [[ -n "$MAX_WER" ]]; then
+    extra+=(--max-wer "$MAX_WER")
+  fi
   python3 "$ROOT/scripts/eval_wer.py" "$REF" "$hyp" --baseline "$BASELINE" "${extra[@]}"
 }
 
-ensure_whisperkit_cache() {
+ensure_nemotron_cache() {
   if [[ ! -x "$HELPER_BIN" ]]; then
-    echo "WhisperKit helper not built. Run tauri-app/scripts/setup-whisperkit.sh first." >&2
+    echo "Nemotron helper not built. Run tauri-app/scripts/setup-nemotron.sh first." >&2
     exit 1
   fi
-  echo "Ensuring WhisperKit cache is complete (models + tokenizer)..." >&2
-  "$HELPER_BIN" --download-only --cache-dir "$CACHE_DIR"
+  if [[ ! -d "$MODEL_DIR/encoder.mlmodelc" ]]; then
+    echo "Nemotron model is missing. Run tauri-app/scripts/setup-nemotron.sh first." >&2
+    exit 1
+  fi
 }
 
 if [[ "$RUN_E2E" -eq 1 ]]; then
@@ -71,18 +78,31 @@ if [[ "$RUN_E2E" -eq 1 ]]; then
   E2E_OUT="$ROOT/test-output/e2e-transcript.txt"
   mkdir -p "$ROOT/test-output"
 
-  ensure_whisperkit_cache
+  ensure_nemotron_cache
 
   export GOLDEN_E2E_MAX_WER="${GOLDEN_E2E_MAX_WER:-0.05}"
   export GOLDEN_CLIP
+  MAX_WER="$GOLDEN_E2E_MAX_WER"
+
+  case "$(uname -m)" in
+    arm64)
+      export CARGO_TARGET_AARCH64_APPLE_DARWIN_RUNNER="$ROOT/scripts/macos-exec-runner.sh"
+      ;;
+    x86_64)
+      export CARGO_TARGET_X86_64_APPLE_DARWIN_RUNNER="$ROOT/scripts/macos-exec-runner.sh"
+      ;;
+  esac
 
   echo "Running headless golden E2E (cargo test, clip=$GOLDEN_CLIP, GOLDEN_E2E_MAX_WER=$GOLDEN_E2E_MAX_WER)..." >&2
+  rm -f "$E2E_OUT"
   (cd "$ROOT/src-tauri" && cargo test golden_system_audio_e2e -- --ignored --nocapture)
 
-  if [[ -f "$ROOT/test-output/e2e-transcript.txt" ]]; then
-    HYP="$ROOT/test-output/e2e-transcript.txt"
-    SKIP_BASELINE=1
+  if [[ ! -s "$E2E_OUT" ]]; then
+    echo "E2E test did not produce a transcript: $E2E_OUT" >&2
+    exit 1
   fi
+  HYP="$E2E_OUT"
+  SKIP_BASELINE=1
 fi
 
 SKIP_BASELINE="${SKIP_BASELINE:-0}"

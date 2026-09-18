@@ -8,6 +8,7 @@ This is not a passive transcript viewer or generic chat assistant. The product h
 
 - [Product Overview](./product-overview.md) — purpose, user jobs, high-level flow, domain concepts, and product principles
 - [Developer Instructions](./instructions.md) — rebuild steps for Swift helper, tests, golden eval
+- [NOTSOFAR eval-small](./eval/dataset-notsofar.md) — local ASR WER on 10 far-field meetings
 - [Feature Specs](./features/README.md) — detailed UX and behavior specs
   - [Live Suggestion Cards](./features/live-suggestion-cards.md) — card layout, item lifecycle, generation rules, and state preservation
 
@@ -53,9 +54,9 @@ This is not a passive transcript viewer or generic chat assistant. The product h
 
 | Documented | Not yet specified |
 | --- | --- |
-| Product vision and domain model | Application implementation |
-| Live suggestion cards UX and behavior | Audio capture and transcription pipeline |
-| Item lifecycle, dedupe, and state preservation | LLM integration details |
-| | Post-call breakdown experience |
+| Product vision and domain model | Remaining application implementation |
+| Live suggestion cards UX and behavior | LLM integration details |
+| Nemotron audio capture and transcription pipeline | Post-call breakdown experience |
+| Item lifecycle, dedupe, and state preservation | |
 
 When building from these specs, prefer designs that make the live conversation easier rather than more feature-rich. See [Product Overview](./product-overview.md) for full guidance.

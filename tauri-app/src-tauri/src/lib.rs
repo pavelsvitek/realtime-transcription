@@ -1,3 +1,4 @@
+pub mod audio_device;
 mod commands;
 pub mod config;
 mod error;
@@ -5,11 +6,10 @@ mod eval;
 mod ipc;
 mod state;
 pub mod transcription;
-pub mod audio_device;
 
-pub use eval::wer::{evaluate as evaluate_wer, WerReport};
 pub use config::AppConfig;
-pub use transcription::{AudioSource, LoadedModels, TranscriptionService};
+pub use eval::wer::{evaluate as evaluate_wer, WerReport};
+pub use transcription::{AudioSource, LoadedEngine, TranscriptionService};
 
 use state::TranscriptionHandle;
 use tracing_subscriber::EnvFilter;
