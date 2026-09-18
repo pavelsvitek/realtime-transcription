@@ -51,7 +51,7 @@ export function TranscribePage() {
               disabled={isActive || isLoading || isStopping}
             >
               <option value="local">Local (Nemotron)</option>
-              <option value="xai">xAI Speech-to-Text</option>
+              <option value="xai">xAI Transcribe 2.0</option>
             </select>
           </label>
           <label className="source-select">

@@ -104,6 +104,7 @@ impl LoadedEngine {
                     input_sample_rate,
                     language = "en",
                     model = %self.model_name,
+                    model_id = xai::MODEL_ID,
                     stream,
                     "xAI WebSocket pipeline created"
                 );

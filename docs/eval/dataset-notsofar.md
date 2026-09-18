@@ -142,7 +142,7 @@ All 10 meetings succeeded on the first pass.
 | --- | --- |
 | Date | 2026-09-11 |
 | Branch | `experiement/nvidia-parakeet-model` (eval harness) |
-| Path | HTTP batch, `language=en`, `format=true`, full WAV upload |
+| Path | HTTP batch, `language=en`, `format=true`, `model=grok-voice-transcribe-2.0`, full WAV upload |
 | Wall time | **82 s** API time (~0.02× realtime) |
 
 Not the production WebSocket path. This is the xAI quality ceiling on the same files.
