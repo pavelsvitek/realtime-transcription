@@ -918,6 +918,21 @@ body,
   color: var(--text-muted);
 }
 
+.meeting-summary-error {
+  margin: 0 0 14px;
+  max-width: 420px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  text-align: left;
+}
+
+.meeting-summary-generating {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
 .meeting-summary-heading {
   margin: 0 0 12px;
   font-size: 16px;

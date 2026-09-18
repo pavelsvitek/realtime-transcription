@@ -238,6 +238,28 @@ impl MeetingStore {
         Ok(title)
     }
 
+    pub fn update_summary(&self, id: &str, summary: &str) -> Result<(), AppError> {
+        let teaser = teaser_from_summary(summary);
+        let now = now_ms();
+        let conn = self.conn.lock().unwrap();
+        let changed = conn
+            .execute(
+                "UPDATE meetings
+                 SET summary = ?1,
+                     teaser = ?2,
+                     updated_at = ?3,
+                     revision = revision + 1,
+                     last_writer_device_id = ?4
+                 WHERE id = ?5 AND deleted_at IS NULL",
+                params![summary, teaser, now, self.device_id, id],
+            )
+            .map_err(store_err)?;
+        if changed == 0 {
+            return Err(AppError::Store("Meeting not found".into()));
+        }
+        Ok(())
+    }
+
     pub fn list_finished(&self) -> Result<Vec<MeetingListItem>, AppError> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn
@@ -382,6 +404,38 @@ fn store_err(err: rusqlite::Error) -> AppError {
     AppError::Store(err.to_string())
 }
 
+fn teaser_from_summary(summary: &str) -> Option<String> {
+    let line = summary.lines().map(str::trim).find(|l| !l.is_empty())?;
+    let stripped = strip_summary_markdown(line);
+    if stripped.is_empty() {
+        return None;
+    }
+    Some(truncate_chars(&stripped, 80))
+}
+
+fn strip_summary_markdown(line: &str) -> String {
+    let mut s = line.trim();
+    while let Some(rest) = s.strip_prefix('#') {
+        s = rest.trim_start();
+    }
+    if let Some(rest) = s.strip_prefix("- ") {
+        s = rest;
+    } else if let Some(rest) = s.strip_prefix("* ") {
+        s = rest;
+    } else if let Some(rest) = s.strip_prefix("• ") {
+        s = rest;
+    }
+    s.replace("**", "")
+        .replace("__", "")
+        .replace('`', "")
+        .trim()
+        .to_string()
+}
+
+fn truncate_chars(s: &str, max_chars: usize) -> String {
+    s.chars().take(max_chars).collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -522,5 +576,35 @@ mod tests {
         let blank = store.update_title("m1", "   ").unwrap();
         assert_eq!(blank, "Untitled meeting");
         assert!(store.update_title("missing", "Nope").is_err());
+    }
+
+    #[test]
+    fn update_summary_writes_summary_and_teaser() {
+        let store = temp_db();
+        store
+            .insert_live_meeting("m1", 1_000, "Untitled meeting")
+            .unwrap();
+        store.finish_meeting("m1", 2_000).unwrap();
+
+        store
+            .update_summary("m1", "- **Ship** the API by Friday\n- Next steps for billing")
+            .unwrap();
+        let row = store.get_record("m1").unwrap();
+        assert_eq!(
+            row.meeting.summary.as_deref(),
+            Some("- **Ship** the API by Friday\n- Next steps for billing")
+        );
+        assert_eq!(row.meeting.teaser.as_deref(), Some("Ship the API by Friday"));
+        assert_eq!(
+            store.list_finished().unwrap()[0].teaser.as_deref(),
+            Some("Ship the API by Friday")
+        );
+
+        let long_line = format!("- {}", "a".repeat(120));
+        store.update_summary("m1", &long_line).unwrap();
+        let teaser = store.get_record("m1").unwrap().meeting.teaser.unwrap();
+        assert_eq!(teaser.chars().count(), 80);
+
+        assert!(store.update_summary("missing", "Nope").is_err());
     }
 }

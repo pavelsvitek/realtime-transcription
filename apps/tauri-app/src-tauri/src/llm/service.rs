@@ -1,0 +1,352 @@
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+
+use tauri::async_runtime::JoinHandle;
+
+use super::provider::{create_client, LlmClient, LlmError, LlmProviderId};
+use crate::ipc::summary::{
+    SummaryDelta, SummaryJobSnapshot, SummaryJobState, SummaryStatus,
+};
+use crate::meetings::MeetingStore;
+
+const MEETING_SUMMARY_PROMPT: &str = include_str!("../../prompts/meeting-summary.txt");
+
+pub const MISSING_KEY_MESSAGE: &str = "xAI API key is not set. Add one in Settings.";
+
+pub type SummaryEmitter = Arc<dyn Fn(SummaryEvent) + Send + Sync>;
+
+#[derive(Debug, Clone)]
+pub enum SummaryEvent {
+    Delta(SummaryDelta),
+    Status(SummaryStatus),
+}
+
+type ClientFactory =
+    Arc<dyn Fn() -> Result<Arc<dyn LlmClient>, LlmError> + Send + Sync>;
+
+struct JobSlot {
+    generation: u64,
+    handle: Option<JoinHandle<()>>,
+    snapshot: SummaryJobSnapshot,
+}
+
+impl JobSlot {
+    fn new() -> Self {
+        Self {
+            generation: 0,
+            handle: None,
+            snapshot: SummaryJobSnapshot::idle(),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct SummaryService {
+    store: MeetingStore,
+    jobs: Arc<Mutex<HashMap<String, JobSlot>>>,
+    factory: ClientFactory,
+}
+
+impl SummaryService {
+    pub fn new(store: MeetingStore) -> Self {
+        Self {
+            store,
+            jobs: Arc::new(Mutex::new(HashMap::new())),
+            factory: Arc::new(|| create_client(LlmProviderId::Xai)),
+        }
+    }
+
+    #[cfg(test)]
+    fn with_factory(store: MeetingStore, factory: ClientFactory) -> Self {
+        Self {
+            store,
+            jobs: Arc::new(Mutex::new(HashMap::new())),
+            factory,
+        }
+    }
+
+    pub fn snapshot(&self, meeting_id: &str) -> SummaryJobSnapshot {
+        self.jobs
+            .lock()
+            .unwrap()
+            .get(meeting_id)
+            .map(|slot| slot.snapshot.clone())
+            .unwrap_or_else(SummaryJobSnapshot::idle)
+    }
+
+    /// Kick off a summary job. Returns immediately; the HTTP stream lives on
+    /// `tauri::async_runtime::spawn`. Regenerating aborts the previous request.
+    pub fn start(&self, meeting_id: String, emit: SummaryEmitter) {
+        let generation = {
+            let mut jobs = self.jobs.lock().unwrap();
+            let slot = jobs.entry(meeting_id.clone()).or_insert_with(JobSlot::new);
+            if let Some(handle) = slot.handle.take() {
+                handle.abort();
+            }
+            slot.generation = slot.generation.wrapping_add(1);
+            slot.snapshot = SummaryJobSnapshot::idle();
+            slot.generation
+        };
+
+        let this = self.clone();
+        let id_for_task = meeting_id.clone();
+        let handle = tauri::async_runtime::spawn(async move {
+            this.run_job(id_for_task, generation, emit).await;
+        });
+
+        let mut jobs = self.jobs.lock().unwrap();
+        if let Some(slot) = jobs.get_mut(&meeting_id) {
+            if slot.generation == generation {
+                slot.handle = Some(handle);
+            } else {
+                handle.abort();
+            }
+        } else {
+            handle.abort();
+        }
+    }
+
+    async fn run_job(&self, meeting_id: String, generation: u64, emit: SummaryEmitter) {
+        let record = match self.store.get_record(&meeting_id) {
+            Ok(record) => record,
+            Err(e) => {
+                self.fail(&meeting_id, generation, &emit, e.to_user_message());
+                return;
+            }
+        };
+
+        let transcript = format_transcript(&record.segments);
+        if transcript.trim().is_empty() {
+            tracing::info!(meeting_id = %meeting_id, "Skipping summary: empty transcript");
+            return;
+        }
+
+        if crate::transcription::xai::resolve_api_key().is_none() {
+            self.fail(&meeting_id, generation, &emit, MISSING_KEY_MESSAGE.to_string());
+            return;
+        }
+
+        let client = match (self.factory)() {
+            Ok(client) => client,
+            Err(e) => {
+                self.fail(&meeting_id, generation, &emit, e.to_string());
+                return;
+            }
+        };
+
+        self.set_running(&meeting_id, generation);
+        emit(SummaryEvent::Status(SummaryStatus {
+            meeting_id: meeting_id.clone(),
+            state: SummaryJobState::Running,
+            error: None,
+        }));
+
+        let jobs = self.jobs.clone();
+        let emit_delta = emit.clone();
+        let id_for_delta = meeting_id.clone();
+        let on_delta = move |delta: &str| {
+            let accumulated = {
+                let mut jobs = jobs.lock().unwrap();
+                let Some(slot) = jobs.get_mut(&id_for_delta) else {
+                    return;
+                };
+                if slot.generation != generation {
+                    return;
+                }
+                slot.snapshot.draft.push_str(delta);
+                slot.snapshot.draft.clone()
+            };
+            emit_delta(SummaryEvent::Delta(SummaryDelta {
+                meeting_id: id_for_delta.clone(),
+                text: accumulated,
+            }));
+        };
+
+        let result = client
+            .stream_text(MEETING_SUMMARY_PROMPT, &transcript, &on_delta)
+            .await;
+
+        if !self.is_current(&meeting_id, generation) {
+            return;
+        }
+
+        match result {
+            Ok(text) if text.trim().is_empty() => {
+                self.fail(
+                    &meeting_id,
+                    generation,
+                    &emit,
+                    "The model returned an empty summary.".into(),
+                );
+            }
+            Ok(text) => {
+                if let Err(e) = self.store.update_summary(&meeting_id, &text) {
+                    self.fail(&meeting_id, generation, &emit, e.to_user_message());
+                    return;
+                }
+                self.set_done(&meeting_id, generation, text);
+                emit(SummaryEvent::Status(SummaryStatus {
+                    meeting_id: meeting_id.clone(),
+                    state: SummaryJobState::Done,
+                    error: None,
+                }));
+            }
+            Err(LlmError::MissingApiKey) => {
+                self.fail(&meeting_id, generation, &emit, MISSING_KEY_MESSAGE.to_string());
+            }
+            Err(e) => {
+                self.fail(&meeting_id, generation, &emit, e.to_string());
+            }
+        }
+    }
+
+    fn is_current(&self, meeting_id: &str, generation: u64) -> bool {
+        self.jobs
+            .lock()
+            .unwrap()
+            .get(meeting_id)
+            .is_some_and(|slot| slot.generation == generation)
+    }
+
+    fn set_running(&self, meeting_id: &str, generation: u64) {
+        let mut jobs = self.jobs.lock().unwrap();
+        if let Some(slot) = jobs.get_mut(meeting_id) {
+            if slot.generation == generation {
+                slot.snapshot.state = SummaryJobState::Running;
+                slot.snapshot.error = None;
+                slot.snapshot.draft.clear();
+            }
+        }
+    }
+
+    fn set_done(&self, meeting_id: &str, generation: u64, text: String) {
+        let mut jobs = self.jobs.lock().unwrap();
+        if let Some(slot) = jobs.get_mut(meeting_id) {
+            if slot.generation == generation {
+                slot.snapshot.state = SummaryJobState::Done;
+                slot.snapshot.draft = text;
+                slot.snapshot.error = None;
+            }
+        }
+    }
+
+    fn fail(&self, meeting_id: &str, generation: u64, emit: &SummaryEmitter, error: String) {
+        {
+            let mut jobs = self.jobs.lock().unwrap();
+            if let Some(slot) = jobs.get_mut(meeting_id) {
+                if slot.generation != generation {
+                    return;
+                }
+                slot.snapshot.state = SummaryJobState::Error;
+                slot.snapshot.error = Some(error.clone());
+            }
+        }
+        emit(SummaryEvent::Status(SummaryStatus {
+            meeting_id: meeting_id.to_string(),
+            state: SummaryJobState::Error,
+            error: Some(error),
+        }));
+    }
+}
+
+fn format_transcript(segments: &[crate::ipc::meetings::MeetingSegment]) -> String {
+    segments
+        .iter()
+        .map(|s| s.text.trim())
+        .filter(|text| !text.is_empty())
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ipc::meetings::MeetingSegment;
+    use std::future::Future;
+    use std::pin::Pin;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use uuid::Uuid;
+
+    fn temp_store() -> MeetingStore {
+        let dir = std::env::temp_dir().join(format!("summary-svc-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        MeetingStore::open(&dir.join("meetings.db")).unwrap()
+    }
+
+    struct MockClient {
+        called: Arc<AtomicBool>,
+    }
+
+    impl LlmClient for MockClient {
+        fn stream_text<'a>(
+            &'a self,
+            _system: &'a str,
+            _user: &'a str,
+            _on_delta: &'a (dyn Fn(&str) + Send + Sync),
+        ) -> Pin<Box<dyn Future<Output = Result<String, LlmError>> + Send + 'a>> {
+            self.called.store(true, Ordering::SeqCst);
+            Box::pin(async { Ok("should not be called".into()) })
+        }
+    }
+
+    #[tokio::test]
+    async fn empty_transcript_does_not_call_http() {
+        let store = temp_store();
+        store
+            .insert_live_meeting("m1", 1_000, "Empty")
+            .unwrap();
+        store.finish_meeting("m1", 2_000).unwrap();
+
+        let called = Arc::new(AtomicBool::new(false));
+        let factory_called = Arc::new(AtomicBool::new(false));
+        let factory: ClientFactory = {
+            let called = called.clone();
+            let factory_called = factory_called.clone();
+            Arc::new(move || {
+                factory_called.store(true, Ordering::SeqCst);
+                Ok(Arc::new(MockClient {
+                    called: called.clone(),
+                }) as Arc<dyn LlmClient>)
+            })
+        };
+        let service = SummaryService::with_factory(store, factory);
+        let emit: SummaryEmitter = Arc::new(|_| {});
+        service.run_job("m1".into(), 1, emit).await;
+
+        assert!(
+            !factory_called.load(Ordering::SeqCst),
+            "factory should not run for an empty transcript"
+        );
+        assert!(
+            !called.load(Ordering::SeqCst),
+            "HTTP client should not be called for an empty transcript"
+        );
+        let record = service.store.get_record("m1").unwrap();
+        assert!(record.meeting.summary.is_none());
+    }
+
+    #[test]
+    fn format_transcript_joins_non_empty_segments() {
+        let segments = vec![
+            MeetingSegment {
+                id: "s1".into(),
+                start_ms: 0,
+                end_ms: 10,
+                text: " hello ".into(),
+            },
+            MeetingSegment {
+                id: "s2".into(),
+                start_ms: 10,
+                end_ms: 20,
+                text: String::new(),
+            },
+            MeetingSegment {
+                id: "s3".into(),
+                start_ms: 20,
+                end_ms: 30,
+                text: "world".into(),
+            },
+        ];
+        assert_eq!(format_transcript(&segments), "hello\nworld");
+    }
+}

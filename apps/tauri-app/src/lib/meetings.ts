@@ -27,6 +27,25 @@ export type MeetingRecord = {
   segments: MeetingSegment[];
 };
 
+export type SummaryJobState = "idle" | "running" | "done" | "error";
+
+export type SummaryJobSnapshot = {
+  state: SummaryJobState;
+  draft: string;
+  error?: string;
+};
+
+export type SummaryDeltaPayload = {
+  meetingId: string;
+  text: string;
+};
+
+export type SummaryStatusPayload = {
+  meetingId: string;
+  state: "running" | "done" | "error";
+  error?: string;
+};
+
 export type MeetingDayGroup = {
   key: string;
   label: string;

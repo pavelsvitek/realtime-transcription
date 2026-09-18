@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { Spinner } from "../components/Spinner";
 import { MeetingTitle } from "../components/MeetingTitle";
 import { formatTime } from "../lib/format";
@@ -9,7 +10,15 @@ import {
   groupMeetingsByDay,
   type MeetingListItem,
   type MeetingRecord,
+  type SummaryDeltaPayload,
+  type SummaryJobSnapshot,
+  type SummaryJobState,
+  type SummaryStatusPayload,
 } from "../lib/meetings";
+import {
+  EVENT_SUMMARY_DELTA,
+  EVENT_SUMMARY_STATUS,
+} from "../lib/tauri-events";
 
 type MeetingsView =
   | { kind: "list" }
@@ -45,6 +54,15 @@ export function MeetingsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
+  const [jobState, setJobState] = useState<SummaryJobState>("idle");
+  const [draft, setDraft] = useState("");
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [summarizingIds, setSummarizingIds] = useState<Set<string>>(
+    () => new Set()
+  );
+
+  const detailIdRef = useRef<string | null>(null);
+  detailIdRef.current = view.kind === "detail" ? view.id : null;
 
   const loadList = useCallback(async () => {
     setLoading(true);
@@ -63,9 +81,23 @@ export function MeetingsPage() {
     setLoading(true);
     setError(null);
     setRecord(null);
+    setJobState("idle");
+    setDraft("");
+    setSummaryError(null);
     try {
+      const job = await invoke<SummaryJobSnapshot>("get_summary_job", { id });
       const next = await invoke<MeetingRecord>("get_meeting", { id });
+      setJobState(job.state);
+      setDraft(job.draft);
+      setSummaryError(job.error ?? null);
       setRecord(next);
+      if (job.state === "running") {
+        setSummarizingIds((prev) => {
+          const nextIds = new Set(prev);
+          nextIds.add(id);
+          return nextIds;
+        });
+      }
     } catch (e) {
       setError(String(e));
     } finally {
@@ -81,6 +113,88 @@ export function MeetingsPage() {
     void loadDetail(view.id);
   }, [view, loadList, loadDetail]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const unlisteners: UnlistenFn[] = [];
+
+    const setup = async () => {
+      const unlistenDelta = await listen<SummaryDeltaPayload>(
+        EVENT_SUMMARY_DELTA,
+        (event) => {
+          const { meetingId, text } = event.payload;
+          setSummarizingIds((prev) => {
+            const nextIds = new Set(prev);
+            nextIds.add(meetingId);
+            return nextIds;
+          });
+          if (detailIdRef.current === meetingId) {
+            setDraft(text);
+            setJobState("running");
+            setSummaryError(null);
+          }
+        }
+      );
+      if (cancelled) {
+        unlistenDelta();
+        return;
+      }
+      unlisteners.push(unlistenDelta);
+
+      const unlistenStatus = await listen<SummaryStatusPayload>(
+        EVENT_SUMMARY_STATUS,
+        (event) => {
+          const { meetingId, state, error: jobError } = event.payload;
+          if (state === "running") {
+            setSummarizingIds((prev) => {
+              const nextIds = new Set(prev);
+              nextIds.add(meetingId);
+              return nextIds;
+            });
+          } else {
+            setSummarizingIds((prev) => {
+              const nextIds = new Set(prev);
+              nextIds.delete(meetingId);
+              return nextIds;
+            });
+          }
+
+          if (detailIdRef.current === meetingId) {
+            setJobState(state);
+            setSummaryError(jobError ?? null);
+            if (state === "done") {
+              void invoke<MeetingRecord>("get_meeting", { id: meetingId })
+                .then((next) => {
+                  if (detailIdRef.current === meetingId) {
+                    setRecord(next);
+                    setDraft(next.meeting.summary ?? "");
+                  }
+                })
+                .catch(() => {});
+            }
+          }
+
+          if (state === "done") {
+            void invoke<MeetingListItem[]>("list_meetings")
+              .then(setMeetings)
+              .catch(() => {});
+          }
+        }
+      );
+      if (cancelled) {
+        unlistenStatus();
+        return;
+      }
+      unlisteners.push(unlistenStatus);
+    };
+
+    void setup();
+
+    return () => {
+      cancelled = true;
+      unlisteners.forEach((fn) => fn());
+    };
+  }, []);
+
   const groups = groupMeetingsByDay(meetings);
 
   const copySummary = async () => {
@@ -95,8 +209,31 @@ export function MeetingsPage() {
     }
   };
 
+  const generateSummary = async () => {
+    if (!record) return;
+    setSummaryError(null);
+    try {
+      await invoke("generate_meeting_summary", { id: record.meeting.id });
+    } catch (e) {
+      setSummaryError(String(e));
+    }
+  };
+
   if (view.kind === "detail") {
     const meeting = record?.meeting;
+    const running = jobState === "running";
+    const hasTranscript = Boolean(
+      record?.segments.some((segment) => segment.text.trim().length > 0)
+    );
+    const summaryText = running
+      ? draft
+      : meeting?.summary ?? (jobState === "done" ? draft : null);
+    const generateLabel = running
+      ? "Generating…"
+      : meeting?.summary
+        ? "Regenerate"
+        : "Generate";
+
     return (
       <main className="page meetings-page">
         <header className="page-header meetings-detail-header">
@@ -163,6 +300,14 @@ export function MeetingsPage() {
                   <button
                     type="button"
                     className="meeting-copy"
+                    onClick={() => void generateSummary()}
+                    disabled={!hasTranscript}
+                  >
+                    {generateLabel}
+                  </button>
+                  <button
+                    type="button"
+                    className="meeting-copy"
                     onClick={() => void copySummary()}
                     disabled={!meeting.summary}
                   >
@@ -170,10 +315,25 @@ export function MeetingsPage() {
                   </button>
                   {copyStatus && <span className="meeting-copy-status">{copyStatus}</span>}
                 </div>
-                {meeting.summary ? (
+                {summaryError && (
+                  <p className="meeting-summary-error">{summaryError}</p>
+                )}
+                {running ? (
+                  summaryText ? (
+                    <>
+                      <p className="meeting-summary-generating">Generating summary…</p>
+                      <h2 className="meeting-summary-heading">Executive Summary</h2>
+                      <ul className="meeting-summary-list">
+                        {renderSummary(summaryText)}
+                      </ul>
+                    </>
+                  ) : (
+                    <p className="meeting-summary-generating">Generating summary…</p>
+                  )
+                ) : summaryText ? (
                   <>
                     <h2 className="meeting-summary-heading">Executive Summary</h2>
-                    <ul className="meeting-summary-list">{renderSummary(meeting.summary)}</ul>
+                    <ul className="meeting-summary-list">{renderSummary(summaryText)}</ul>
                   </>
                 ) : (
                   <p className="meetings-empty-copy">
@@ -250,8 +410,12 @@ export function MeetingsPage() {
                         <span className="meetings-row-time">
                           {formatMeetingClock(meeting.startedAt)}
                         </span>
-                        {meeting.teaser && (
-                          <span className="meetings-row-teaser">{meeting.teaser}</span>
+                        {summarizingIds.has(meeting.id) ? (
+                          <span className="meetings-row-teaser">Summarizing…</span>
+                        ) : (
+                          meeting.teaser && (
+                            <span className="meetings-row-teaser">{meeting.teaser}</span>
+                          )
                         )}
                       </span>
                     </button>
