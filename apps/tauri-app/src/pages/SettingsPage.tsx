@@ -77,11 +77,11 @@ export function SettingsPage() {
       </header>
 
       <section className="settings-section">
-        <h2 className="settings-heading">xAI Speech-to-Text</h2>
+        <h2 className="settings-heading">xAI Transcribe 2.0</h2>
         <p className="settings-copy">
-          Used when ASR is set to <strong>xAI Speech-to-Text</strong> on the New chat page.
-          The key is stored under Application Support (or taken from{" "}
-          <code>XAI_API_KEY</code>).
+          Used when ASR is set to <strong>xAI Transcribe 2.0</strong> on the New chat page.
+          Live sessions pin <code>grok-voice-transcribe-2.0</code>. The key is stored under
+          Application Support (or taken from <code>XAI_API_KEY</code>).
         </p>
 
         <div className="settings-row">

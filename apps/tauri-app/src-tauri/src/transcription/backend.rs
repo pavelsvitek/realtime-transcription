@@ -11,7 +11,9 @@ impl AsrBackend {
     pub fn parse(raw: &str) -> Option<Self> {
         match raw.trim().to_ascii_lowercase().as_str() {
             "local" | "whisperkit" | "whisper" | "nemotron" | "parakeet" => Some(Self::Local),
-            "xai" | "x-ai" | "grok" => Some(Self::Xai),
+            "xai" | "x-ai" | "grok" | "transcribe-2" | "grok-voice-transcribe-2.0" => {
+                Some(Self::Xai)
+            }
             _ => None,
         }
     }
@@ -43,6 +45,10 @@ mod tests {
         assert_eq!(AsrBackend::parse("parakeet"), Some(AsrBackend::Local));
         assert_eq!(AsrBackend::parse("WhisperKit"), Some(AsrBackend::Local));
         assert_eq!(AsrBackend::parse("xai"), Some(AsrBackend::Xai));
+        assert_eq!(
+            AsrBackend::parse("grok-voice-transcribe-2.0"),
+            Some(AsrBackend::Xai)
+        );
         assert_eq!(AsrBackend::parse("nope"), None);
     }
 }

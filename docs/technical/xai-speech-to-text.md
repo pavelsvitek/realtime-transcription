@@ -12,6 +12,7 @@ How the Tauri app adds **xAI real-time STT** alongside the local Nemotron path, 
 | Decision | Choice |
 | --- | --- |
 | Transport | **WebSocket streaming** (`wss://api.x.ai/v1/stt`), not batch `POST /v1/stt` |
+| Model | **`grok-voice-transcribe-2.0`** (explicit `model` query param; API default remains 1.0 if omitted) |
 | Dual-stream (`mic` + `system`) | **Two independent WebSocket sessions** (one per stream) — preserves User/Remote labels |
 | Selection | UI toggle on New chat + API key on Settings |
 | Local path | Unchanged Nemotron behavior; default `AsrBackend::Local` |
@@ -57,7 +58,7 @@ pub struct StreamingPipeline {
 [`LoadedEngine`](../../apps/tauri-app/src-tauri/src/transcription/asr.rs) loads by `AsrBackend`:
 
 - **Local** — validate Nemotron helper + CoreML bundle; `create_pipeline` → `NemotronPipeline`
-- **Xai** — resolve API key; skip Nemotron validate; `create_pipeline` → `XaiWsPipeline` (`language=en`, `disable_partials=false`)
+- **Xai** — resolve API key; skip Nemotron validate; `create_pipeline` → `XaiWsPipeline` (`language=en`, `disable_partials=false`, `model=grok-voice-transcribe-2.0`)
 
 Switching backends mid-process drops the cached engine and reloads.
 
@@ -109,7 +110,7 @@ Switching backends mid-process drops the cached engine and reloads.
 ### Connect
 
 ```
-wss://api.x.ai/v1/stt?sample_rate=16000&encoding=pcm&interim_results={bool}&language={lang}&endpointing=800&filler_words=false
+wss://api.x.ai/v1/stt?sample_rate=16000&encoding=pcm&interim_results={bool}&language={lang}&endpointing=800&filler_words=false&model=grok-voice-transcribe-2.0
 Authorization: Bearer <api_key>
 ```
 
@@ -174,7 +175,7 @@ Settings UI never returns the raw key to the frontend — only booleans (`xaiApi
 
 ### Status badge
 
-`transcription.status.model` is `"xAI Speech-to-Text"` or the Nemotron display name — UI already shows opaque model string.
+`transcription.status.model` is `"xAI Transcribe 2.0"` or the Nemotron display name — UI already shows opaque model string.
 
 ---
 
@@ -215,7 +216,7 @@ Artifacts: `test-output/diagnostic/file-*-xai.txt`
 ### Manual UI
 
 1. Settings → save xAI API key (or export `XAI_API_KEY`)
-2. New chat → ASR: **xAI Speech-to-Text** → Start
+2. New chat → ASR: **xAI Transcribe 2.0** → Start
 3. Prefer mic-only first, then **Mic + system** (two sockets)
 
 ---

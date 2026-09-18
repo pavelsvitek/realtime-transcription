@@ -1,4 +1,6 @@
 //! xAI real-time speech-to-text via WebSocket (`wss://api.x.ai/v1/stt`).
+//!
+//! Pins Grok Voice Transcribe 2.0. Omitting `model` would keep the API default of 1.0.
 
 use std::fs;
 use std::path::PathBuf;
@@ -16,7 +18,8 @@ use tokio_tungstenite::{
 
 use super::pipeline::{AsrOutput, AsrWord, StreamingAsr};
 
-pub const MODEL_DISPLAY_NAME: &str = "xAI Speech-to-Text";
+pub const MODEL_ID: &str = "grok-voice-transcribe-2.0";
+pub const MODEL_DISPLAY_NAME: &str = "xAI Transcribe 2.0";
 const TARGET_SAMPLE_RATE: u32 = 16_000;
 const FRAME_MS: u32 = 100;
 const FRAME_BYTES: usize = (TARGET_SAMPLE_RATE as usize * 2 * FRAME_MS as usize) / 1000;
@@ -79,10 +82,7 @@ impl XaiWsPipeline {
         stream: &str,
         disable_partials: bool,
     ) -> Result<Self> {
-        let interim = !disable_partials;
-        let url = format!(
-            "wss://api.x.ai/v1/stt?sample_rate={TARGET_SAMPLE_RATE}&encoding=pcm&interim_results={interim}&language={language}&endpointing=800&filler_words=false"
-        );
+        let url = streaming_url(language, disable_partials);
 
         let (cmd_tx, cmd_rx) = mpsc::channel::<Cmd>();
         let (evt_tx, evt_rx) = mpsc::channel::<Evt>();
@@ -620,12 +620,36 @@ pub fn api_key_is_set() -> bool {
     resolve_api_key().is_some()
 }
 
+pub fn streaming_url(language: &str, disable_partials: bool) -> String {
+    let interim = !disable_partials;
+    format!(
+        "wss://api.x.ai/v1/stt?sample_rate={TARGET_SAMPLE_RATE}&encoding=pcm&interim_results={interim}&language={language}&endpointing=800&filler_words=false&model={MODEL_ID}"
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     fn ev(json: &str) -> ServerEvent {
         serde_json::from_str(json).expect("event json")
+    }
+
+    #[test]
+    fn streaming_url_pins_transcribe_2() {
+        let url = streaming_url("en", false);
+        assert!(url.contains("model=grok-voice-transcribe-2.0"));
+        assert!(url.contains("interim_results=true"));
+        assert!(url.contains("sample_rate=16000"));
+        assert!(url.contains("encoding=pcm"));
+        assert!(url.contains("language=en"));
+    }
+
+    #[test]
+    fn streaming_url_can_disable_partials() {
+        let url = streaming_url("en", true);
+        assert!(url.contains("interim_results=false"));
+        assert!(url.contains("model=grok-voice-transcribe-2.0"));
     }
 
     #[test]
