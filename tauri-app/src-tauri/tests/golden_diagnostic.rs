@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use tauri_app_lib::transcription::AsrWord;
-use tauri_app_lib::{evaluate_wer, AppConfig, LoadedEngine};
+use tauri_app_lib::{evaluate_wer, AppConfig, AsrBackend, LoadedEngine};
 
 fn app_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -138,7 +138,7 @@ fn print_wer(label: &str, hypothesis: &str, reference: &str) -> tauri_app_lib::W
 }
 
 #[test]
-#[ignore = "requires Nemotron helper/model setup and ffmpeg (~60s)"]
+#[ignore = "requires Nemotron helper/model setup (or ASR_BACKEND=xai + API key) and ffmpeg (~60s+)"]
 fn diagnose_model_vs_commit_strategy() {
     let root = app_root();
     let video = golden_dataset_root()
@@ -146,9 +146,13 @@ fn diagnose_model_vs_commit_strategy() {
         .join("test-youtube-video.mp4");
     assert!(video.exists(), "missing {}", video.display());
 
+    let backend = AsrBackend::from_env();
     let config = AppConfig::load();
-    config.validate().expect("Nemotron setup");
-    let engine = LoadedEngine::load(&config).expect("load model");
+    if backend == AsrBackend::Local {
+        config.validate().expect("Nemotron setup");
+    }
+    let engine = LoadedEngine::load(&config, backend).expect("load model");
+    println!("ASR backend: {}", backend.as_str());
 
     // Match typical macOS loopback capture: 48 kHz, ~21 ms cpal callbacks.
     let sample_rate = 48_000u32;
@@ -170,12 +174,25 @@ fn diagnose_model_vs_commit_strategy() {
     let out_dir = root.join("test-output/diagnostic");
     fs::create_dir_all(&out_dir).ok();
 
+    let suffix = backend.as_str();
     fs::write(
-        out_dir.join("file-committed-only.txt"),
+        out_dir.join(format!("file-committed-only-{suffix}.txt")),
         &file.committed_only,
     )
     .ok();
-    fs::write(out_dir.join("file-with-finish.txt"), &file.with_finish).ok();
+    fs::write(
+        out_dir.join(format!("file-with-finish-{suffix}.txt")),
+        &file.with_finish,
+    )
+    .ok();
+    if backend == AsrBackend::Local {
+        fs::write(
+            out_dir.join("file-committed-only.txt"),
+            &file.committed_only,
+        )
+        .ok();
+        fs::write(out_dir.join("file-with-finish.txt"), &file.with_finish).ok();
+    }
 
     println!("\n--- WER vs reference ---");
     let file_committed = print_wer("file committed-only", &file.committed_only, &reference);
@@ -207,9 +224,11 @@ fn diagnose_model_vs_commit_strategy() {
         );
     }
 
-    assert!(!file.with_finish.is_empty());
-    assert!(
-        file_finished.wer < 0.05,
-        "file pipeline WER exceeds the 5% product gate"
-    );
+    assert!(!file.with_finish.is_empty(), "empty transcript from {}", backend.as_str());
+    if backend == AsrBackend::Local {
+        assert!(
+            file_finished.wer < 0.05,
+            "file pipeline WER exceeds the 5% product gate"
+        );
+    }
 }

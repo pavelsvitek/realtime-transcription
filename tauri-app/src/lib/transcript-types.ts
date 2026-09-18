@@ -1,5 +1,14 @@
 export type AudioSource = "mic" | "system" | "both";
 
+export type AsrBackend = "local" | "xai";
+
+export type AsrSettings = {
+  backendOptions: string[];
+  xaiApiKeySet: boolean;
+  xaiApiKeySaved: boolean;
+  xaiApiKeyFromEnv: boolean;
+};
+
 export type TranscriptSegment = {
   id: string;
   speaker: string;

@@ -1,14 +1,22 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { MicIndicator } from "../components/MicIndicator";
 import { Spinner } from "../components/Spinner";
 import { TranscriptFeed } from "../components/TranscriptFeed";
 import { useAudioDevice } from "../hooks/useAudioDevice";
 import { useMicLevel } from "../hooks/useMicLevel";
 import { useTranscription } from "../hooks/useTranscription";
-import type { AudioSource } from "../lib/transcript-types";
+import type { AsrBackend, AudioSource } from "../lib/transcript-types";
+
+const BACKEND_STORAGE_KEY = "asrBackend";
+
+function loadBackend(): AsrBackend {
+  const raw = localStorage.getItem(BACKEND_STORAGE_KEY);
+  return raw === "xai" ? "xai" : "local";
+}
 
 export function TranscribePage() {
   const [audioSource, setAudioSource] = useState<AudioSource>("both");
+  const [backend, setBackend] = useState<AsrBackend>(loadBackend);
   const {
     segments,
     isActive,
@@ -23,6 +31,10 @@ export function TranscribePage() {
   const { device, error: deviceError } = useAudioDevice();
   const micActive = useMicLevel(isActive && !isStopping);
 
+  useEffect(() => {
+    localStorage.setItem(BACKEND_STORAGE_KEY, backend);
+  }, [backend]);
+
   return (
     <main className="page">
       <header className="page-header">
@@ -31,6 +43,17 @@ export function TranscribePage() {
           {model && <span className="model-badge">{model}</span>}
         </div>
         <div className="header-controls">
+          <label className="source-select">
+            <span className="source-select-label">ASR</span>
+            <select
+              value={backend}
+              onChange={(e) => setBackend(e.target.value as AsrBackend)}
+              disabled={isActive || isLoading || isStopping}
+            >
+              <option value="local">Local (Nemotron)</option>
+              <option value="xai">xAI Speech-to-Text</option>
+            </select>
+          </label>
           <label className="source-select">
             <span className="source-select-label">Input</span>
             <select
@@ -54,7 +77,7 @@ export function TranscribePage() {
           {!isActive ? (
             <button
               className="btn btn-start"
-              onClick={() => start(audioSource)}
+              onClick={() => start(audioSource, backend)}
               disabled={isLoading}
             >
               {isLoading ? "Loading model..." : "Start"}

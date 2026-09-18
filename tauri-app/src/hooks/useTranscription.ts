@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
   AudioSource,
+  AsrBackend,
   TranscriptSegment,
   TranscriptPayload,
   TranscriptionStatusPayload,
@@ -90,13 +91,14 @@ export function useTranscription() {
     };
   }, []);
 
-  const start = useCallback(async (source: AudioSource) => {
+  const start = useCallback(async (source: AudioSource, backend: AsrBackend = "local") => {
     setError(null);
     setIsLoading(true);
     setSegments([]);
     try {
       await invoke("start_transcription", {
         source,
+        backend,
       });
     } catch (e) {
       setIsLoading(false);

@@ -8,6 +8,7 @@ This is not a passive transcript viewer or generic chat assistant. The product h
 
 - [Product Overview](./product-overview.md) — purpose, user jobs, high-level flow, domain concepts, and product principles
 - [Developer Instructions](./instructions.md) — rebuild steps for Swift helper, tests, golden eval
+- [xAI Speech-to-Text](./technical/xai-speech-to-text.md) — dual-backend WebSocket STT alongside local Nemotron
 - [NOTSOFAR eval-small](./eval/dataset-notsofar.md) — local ASR WER on 10 far-field meetings
 - [Feature Specs](./features/README.md) — detailed UX and behavior specs
   - [Live Suggestion Cards](./features/live-suggestion-cards.md) — card layout, item lifecycle, generation rules, and state preservation

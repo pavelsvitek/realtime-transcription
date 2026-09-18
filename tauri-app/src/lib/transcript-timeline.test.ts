@@ -147,4 +147,74 @@ describe("applyTranscriptEvent", () => {
     expect(segments[0]?.isPartial).toBe(false);
     expect(segments[0]?.text).toBe("hello");
   });
+
+  it("keeps a zero-start live partial after already committed sentences", () => {
+    // Replay of 2026-09-14T13-01-38: xAI chunk/interim often has start=0.
+    let segments = applyTranscriptEvent(
+      [],
+      commit(
+        "seg-0",
+        "This is a test of XAI API real-time Voice to Text transcription service.",
+        1520,
+        13279,
+      ),
+      "commit",
+    );
+
+    segments = applyTranscriptEvent(
+      segments,
+      {
+        segmentId: "tentative-mic",
+        speaker: "User",
+        stream: "mic",
+        text: "It seems that some of the sentences are being overwritten",
+        startMs: 0,
+        endMs: 800,
+      },
+      "partial",
+    );
+
+    expect(segments.map((s) => s.text)).toEqual([
+      "This is a test of XAI API real-time Voice to Text transcription service.",
+      "It seems that some of the sentences are being overwritten",
+    ]);
+    expect(segments[1]?.isPartial).toBe(true);
+  });
+
+  it("replaces the live partial in place without jumping it before commits", () => {
+    let segments = applyTranscriptEvent(
+      [],
+      commit("seg-0", "first sentence", 1520, 13279),
+      "commit",
+    );
+    segments = applyTranscriptEvent(
+      segments,
+      {
+        segmentId: "tentative-mic",
+        speaker: "User",
+        stream: "mic",
+        text: "It seems",
+        startMs: 15241,
+        endMs: 16000,
+      },
+      "partial",
+    );
+    segments = applyTranscriptEvent(
+      segments,
+      {
+        segmentId: "tentative-mic",
+        speaker: "User",
+        stream: "mic",
+        text: "It seems that some of the sentences",
+        startMs: 0,
+        endMs: 500,
+      },
+      "partial",
+    );
+
+    expect(segments).toHaveLength(2);
+    expect(segments[0]?.text).toBe("first sentence");
+    expect(segments[1]?.text).toBe("It seems that some of the sentences");
+    expect(segments[1]?.isPartial).toBe(true);
+  });
 });

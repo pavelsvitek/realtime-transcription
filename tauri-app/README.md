@@ -1,6 +1,6 @@
 # Tauri Transcription App
 
-Real-time English speech-to-text using NVIDIA Nemotron 3.5 ASR Streaming 0.6B on macOS.
+Real-time English speech-to-text using NVIDIA Nemotron 3.5 ASR Streaming 0.6B on macOS, with optional xAI Speech-to-Text as a cloud backend.
 
 ## Prerequisites
 
@@ -46,6 +46,8 @@ On first launch, grant permissions when prompted by macOS:
 - **System Audio Recording** — when using Chrome / system audio. macOS may prompt the first time you start system-audio capture. If capture is silent, open **System Settings → Privacy & Security → System Audio Recording Only** (or **Screen & System Audio Recording** on some macOS versions) and enable **tauri-app**, then quit and restart the app.
 
 `pnpm tauri dev` launches via a dev `.app` bundle (`src-tauri/target/debug/tauri-app-dev.app`) using `open`, so macOS can attribute system-audio permission to `com.pavel.tauri-app`. Running the raw `target/debug/tauri-app` binary from a terminal will not trigger the permission prompt and loopback will be silent.
+
+The **ASR** dropdown on New chat selects **Local (Nemotron)** or **xAI Speech-to-Text** (persisted in `localStorage`). For xAI, save an API key on **Settings** (stored under Application Support) or set `XAI_API_KEY`. Details: [docs/technical/xai-speech-to-text.md](../docs/technical/xai-speech-to-text.md).
 
 To reset system-audio permission during development:
 

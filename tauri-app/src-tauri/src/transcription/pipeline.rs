@@ -1,4 +1,4 @@
-use super::nemotron::NemotronPipeline;
+use anyhow::Result;
 
 #[derive(Debug, Clone)]
 pub struct AsrWord {
@@ -19,20 +19,26 @@ impl AsrOutput {
     }
 }
 
+/// Backend-agnostic streaming ASR interface used by the transcription worker.
+pub trait StreamingAsr: Send {
+    fn push_mono(&mut self, samples: &[f32]) -> Result<Option<AsrOutput>>;
+    fn finish(&mut self) -> Result<AsrOutput>;
+}
+
 pub struct StreamingPipeline {
-    helper: NemotronPipeline,
+    inner: Box<dyn StreamingAsr>,
 }
 
 impl StreamingPipeline {
-    pub fn new(helper: NemotronPipeline) -> Self {
-        Self { helper }
+    pub fn new(inner: Box<dyn StreamingAsr>) -> Self {
+        Self { inner }
     }
 
-    pub fn push_mono(&mut self, samples: &[f32]) -> anyhow::Result<Option<AsrOutput>> {
-        self.helper.push_mono(samples)
+    pub fn push_mono(&mut self, samples: &[f32]) -> Result<Option<AsrOutput>> {
+        self.inner.push_mono(samples)
     }
 
-    pub fn finish(&mut self) -> anyhow::Result<AsrOutput> {
-        self.helper.finish()
+    pub fn finish(&mut self) -> Result<AsrOutput> {
+        self.inner.finish()
     }
 }

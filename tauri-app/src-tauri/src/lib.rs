@@ -9,7 +9,7 @@ pub mod transcription;
 
 pub use config::AppConfig;
 pub use eval::wer::{evaluate as evaluate_wer, WerReport};
-pub use transcription::{AudioSource, LoadedEngine, TranscriptionService};
+pub use transcription::{AsrBackend, AudioSource, LoadedEngine, TranscriptionService};
 
 use state::TranscriptionHandle;
 use tracing_subscriber::EnvFilter;
@@ -47,6 +47,9 @@ pub fn run() {
             commands::transcription::start_transcription,
             commands::transcription::stop_transcription,
             commands::transcription::export_transcript,
+            commands::transcription::get_asr_settings,
+            commands::transcription::set_xai_api_key,
+            commands::transcription::clear_xai_api_key,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

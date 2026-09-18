@@ -11,11 +11,11 @@ use crate::error::AppError;
 use crate::ipc::transcript::*;
 use crate::transcription::asr::LoadedEngine;
 use crate::transcription::audio_source::AudioSource;
+use crate::transcription::backend::AsrBackend;
 use crate::transcription::capture;
 use crate::transcription::cpal_capture::CaptureCounters;
 use crate::transcription::debug_dump::{DebugSession, StreamCaptureStats};
 use crate::transcription::flac_convert::convert_wav_to_flac_background;
-use crate::transcription::nemotron;
 use crate::transcription::transcript_store::TranscriptStore;
 use crate::transcription::worker;
 
@@ -64,26 +64,33 @@ impl TranscriptionService {
         self.running.lock().unwrap().is_some()
     }
 
-    pub fn start(&self, app_handle: AppHandle, source: AudioSource) -> Result<(), AppError> {
-        self.start_internal(Some(app_handle), source)
+    pub fn start(
+        &self,
+        app_handle: AppHandle,
+        source: AudioSource,
+        backend: AsrBackend,
+    ) -> Result<(), AppError> {
+        self.start_internal(Some(app_handle), source, backend)
     }
 
     /// Start without a Tauri app handle (golden tests / headless runs).
+    /// Backend comes from `ASR_BACKEND` (`local` default, or `xai`).
     pub fn start_headless(&self, source: AudioSource) -> Result<(), AppError> {
-        self.start_internal(None, source)
+        self.start_internal(None, source, AsrBackend::from_env())
     }
 
     fn start_internal(
         &self,
         app_handle: Option<AppHandle>,
         source: AudioSource,
+        backend: AsrBackend,
     ) -> Result<(), AppError> {
         let mut running = self.running.lock().unwrap();
         if running.is_some() {
             return Err(AppError::AlreadyRunning);
         }
 
-        tracing::info!(?source, model = %nemotron::MODEL_REPOSITORY, "Starting transcription");
+        tracing::info!(?source, ?backend, "Starting transcription");
         self.transcript.clear();
         self.segment_counter.store(0, Ordering::Relaxed);
         *self.last_export.lock().unwrap() = None;
@@ -102,7 +109,7 @@ impl TranscriptionService {
             );
         }
 
-        self.ensure_models_loaded(&config, app_handle.as_ref())?;
+        self.ensure_engine_loaded(backend, &config, app_handle.as_ref())?;
 
         let debug_session = DebugSession::try_open(source, &config).map(Arc::new);
 
@@ -189,25 +196,31 @@ impl TranscriptionService {
         Ok(())
     }
 
-    fn ensure_models_loaded(
+    fn ensure_engine_loaded(
         &self,
+        backend: AsrBackend,
         config: &AppConfig,
         app_handle: Option<&AppHandle>,
     ) -> Result<(), AppError> {
         let mut models_guard = self.models.lock().unwrap();
-        if models_guard.is_some() {
-            return Ok(());
+        if let Some(existing) = models_guard.as_ref() {
+            if existing.backend == backend {
+                return Ok(());
+            }
+            *models_guard = None;
         }
 
-        config.validate().map_err(AppError::ModelLoad)?;
+        if backend == AsrBackend::Local {
+            config.validate().map_err(AppError::ModelLoad)?;
+        }
 
-        match LoadedEngine::load(config) {
+        match LoadedEngine::load(config, backend) {
             Ok(loaded) => {
                 *models_guard = Some(loaded);
             }
             Err(e) => {
                 let msg = format!("{e:#}");
-                tracing::error!(error = %msg, "Model loading failed");
+                tracing::error!(error = %msg, "ASR engine loading failed");
                 if let Some(app) = app_handle {
                     let _ = app.emit(
                         event_names::STATUS,
