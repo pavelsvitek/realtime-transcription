@@ -43,4 +43,4 @@ eval-data/
 debug/
 
 **/.build/
-src-tauri/binaries/nemotron-bridge-*
+**/binaries/
