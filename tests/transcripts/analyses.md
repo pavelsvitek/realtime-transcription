@@ -157,7 +157,7 @@ These belong in the LLM prompt as **session state**, not inside the sliding tran
 
 ### Current implementation
 
-`RECENT_TRANSCRIPT_MS = 180_000` in `web/src/lib/session/active-session.ts` is safe but ~50% wider than this fixture requires. Example: at `seg-010`, 180s sends 10 segments / 362 words vs 7 / 279 at 120s — extra context that does not improve stub insights and increases noise risk (`seg-020`: repeated bullets and rephrased suggestions are explicit turn-offs).
+`RECENT_TRANSCRIPT_MS = 180_000` in `apps/web/src/lib/session/active-session.ts` is safe but ~50% wider than this fixture requires. Example: at `seg-010`, 180s sends 10 segments / 362 words vs 7 / 279 at 120s — extra context that does not improve stub insights and increases noise risk (`seg-020`: repeated bullets and rephrased suggestions are explicit turn-offs).
 
 ### When more than 120s is needed
 

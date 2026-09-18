@@ -80,4 +80,4 @@ E2E WER gate: `GOLDEN_E2E_MAX_WER` defaults to `0.05` (5%).
 - `test-output/baseline/report.json` — regression baseline (committed)
 - `test-output/runs/<timestamp>/` — dated eval reports (gitignored)
 
-See also [../README.md](../README.md) for setup and [../../docs/technical/realtime-transcription.md](../../docs/technical/realtime-transcription.md) for the streaming architecture.
+See also [../README.md](../README.md) for setup and [../../../docs/technical/realtime-transcription.md](../../../docs/technical/realtime-transcription.md) for the streaming architecture.

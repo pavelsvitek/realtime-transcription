@@ -1,11 +1,11 @@
 # NOTSOFAR eval-small
 
-Speaker-agnostic WER on [NOTSOFAR-1](https://huggingface.co/datasets/microsoft/NOTSOFAR) eval-small far-field single-channel meetings. Same 10 meetings. Official NOTSOFAR ranking uses speaker-attributed tcpWER; these runs do not diarize, so scores are concatenated word WER ([`eval_wer.py`](../../tauri-app/scripts/eval_wer.py)).
+Speaker-agnostic WER on [NOTSOFAR-1](https://huggingface.co/datasets/microsoft/NOTSOFAR) eval-small far-field single-channel meetings. Same 10 meetings. Official NOTSOFAR ranking uses speaker-attributed tcpWER; these runs do not diarize, so scores are concatenated word WER ([`eval_wer.py`](../../apps/tauri-app/scripts/eval_wer.py)).
 
 Reproduce:
 
 ```bash
-cd tauri-app
+cd apps/tauri-app
 python3 scripts/eval_notsofar.py --n-meetings 10 --backends local
 python3 scripts/eval_notsofar.py --n-meetings 10 --backends xai
 ```
@@ -171,4 +171,4 @@ Not the production WebSocket path. This is the xAI quality ceiling on the same f
 
 Best: `MTG_32005` at 25.7%. Worst: `MTG_32008` at 46.8%.
 
-Eval driver: [`tauri-app/scripts/eval_notsofar.py`](../../tauri-app/scripts/eval_notsofar.py).
+Eval driver: [`apps/tauri-app/scripts/eval_notsofar.py`](../../apps/tauri-app/scripts/eval_notsofar.py).

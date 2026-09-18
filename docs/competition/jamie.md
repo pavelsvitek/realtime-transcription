@@ -206,10 +206,10 @@ The `audio-recorder` sidecar is Swift (`Audio_Recorder/main.swift`), not Rust �
 
 | Aspect | Jamie | Our project |
 | --- | --- | --- |
-| Desktop shell | **Tauri 2** | Tauri (`tauri-app/`) — same family |
+| Desktop shell | **Tauri 2** | Tauri (`apps/tauri-app/`) — same family |
 | Frontend | Next.js (embedded) | React + Vite (planned in Tauri) |
 | Audio capture | Swift sidecar | TBD |
-| ML / LLM | Cloud (GPT-4, Claude per public docs) | Cloud LLM API (`web/src/lib/llm/`) |
+| ML / LLM | Cloud (GPT-4, Claude per public docs) | Cloud LLM API (`apps/web/src/lib/llm/`) |
 | Live assistance | Post-meeting focus + in-meeting UI | **Live 2×2 suggestion cards** during call |
 | Meeting detection | Mic activity monitoring | TBD |
 | Distribution | Tauri updater plugin | TBD |

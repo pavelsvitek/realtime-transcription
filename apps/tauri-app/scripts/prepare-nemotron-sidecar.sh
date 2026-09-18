@@ -7,7 +7,7 @@ TARGET_DIR="$ROOT/src-tauri/binaries"
 
 if [[ ! -x "$SOURCE" ]]; then
   echo "Nemotron helper is not built: $SOURCE" >&2
-  echo "Run tauri-app/scripts/setup-nemotron.sh first." >&2
+  echo "Run apps/tauri-app/scripts/setup-nemotron.sh first." >&2
   exit 1
 fi
 

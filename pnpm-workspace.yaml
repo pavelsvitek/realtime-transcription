@@ -1,0 +1,16 @@
+packages:
+  - "apps/*"
+
+onlyBuiltDependencies:
+  - esbuild
+  - workerd
+
+allowBuilds:
+  esbuild: true
+  workerd: true
+
+ignoredBuiltDependencies:
+  - "@google/genai"
+  - protobufjs
+  - sharp
+  - unrs-resolver
