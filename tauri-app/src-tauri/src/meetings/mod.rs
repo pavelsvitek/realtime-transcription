@@ -122,6 +122,24 @@ impl MeetingStore {
         Ok(())
     }
 
+    /// Mark leftover `live` rows finished (crash / killed-app recovery).
+    pub fn finish_open_meetings(&self, finished_at: i64) -> Result<usize, AppError> {
+        let now = now_ms();
+        let conn = self.conn.lock().unwrap();
+        let changed = conn
+            .execute(
+                "UPDATE meetings
+                 SET status = 'finished',
+                     finished_at = COALESCE(finished_at, ?1),
+                     updated_at = ?2,
+                     revision = revision + 1
+                 WHERE status = 'live' AND deleted_at IS NULL",
+                params![finished_at, now],
+            )
+            .map_err(store_err)?;
+        Ok(changed)
+    }
+
     pub fn insert_segment(
         &self,
         id: &str,
@@ -355,6 +373,36 @@ mod tests {
         let record = store.get_record("m1").unwrap();
         let texts: Vec<_> = record.segments.iter().map(|s| s.text.as_str()).collect();
         assert_eq!(texts, vec!["first", "second"]);
+    }
+
+    #[test]
+    fn two_meetings_can_reuse_asr_segment_ids() {
+        let store = temp_db();
+        store.insert_live_meeting("m1", 1_000, "First").unwrap();
+        store.insert_live_meeting("m2", 2_000, "Second").unwrap();
+        store
+            .insert_segment("m1:seg-0", "m1", 0, 100, "hello")
+            .unwrap();
+        store
+            .insert_segment("m2:seg-0", "m2", 0, 100, "world")
+            .unwrap();
+        store.finish_meeting("m1", 1_500).unwrap();
+        store.finish_meeting("m2", 2_500).unwrap();
+
+        let first = store.get_record("m1").unwrap();
+        let second = store.get_record("m2").unwrap();
+        assert_eq!(first.segments[0].text, "hello");
+        assert_eq!(second.segments[0].text, "world");
+    }
+
+    #[test]
+    fn finish_open_meetings_closes_stale_live_rows() {
+        let store = temp_db();
+        store.insert_live_meeting("m1", 1_000, "Stuck").unwrap();
+        assert_eq!(store.finish_open_meetings(2_000).unwrap(), 1);
+        let row = store.get_record("m1").unwrap();
+        assert_eq!(row.meeting.status, "finished");
+        assert_eq!(row.meeting.finished_at, Some(2_000));
     }
 
     #[test]

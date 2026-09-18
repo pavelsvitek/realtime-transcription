@@ -122,6 +122,12 @@ impl TranscriptionService {
 
         self.ensure_engine_loaded(backend, &config, app_handle.as_ref())?;
 
+        if let Some(store) = &self.meetings {
+            if let Err(e) = store.finish_open_meetings(now_ms()) {
+                tracing::warn!(error = %e, "Failed to close leftover live meetings");
+            }
+        }
+
         let meeting_id = if let Some(store) = &self.meetings {
             let id = uuid::Uuid::new_v4().to_string();
             store.insert_live_meeting(&id, now_ms(), "Untitled meeting")?;
@@ -436,8 +442,10 @@ fn spawn_stream_worker(
                 if let TranscriptEvent::Commit(c) = &event {
                     transcript.append_commit(&c.text);
                     if let (Some(store), Some(meeting_id)) = (&meetings, &meeting_id) {
+                        // ASR recycles `seg-0` every session; PK is global so scope by meeting.
+                        let row_id = format!("{meeting_id}:{}", c.segment_id);
                         if let Err(e) = store.insert_segment(
-                            &c.segment_id,
+                            &row_id,
                             meeting_id,
                             c.start_ms as i64,
                             c.end_ms as i64,
