@@ -2,6 +2,9 @@
 # Cargo target runner: receives the built binary path as $1.
 # Launches via `open` from a dev .app bundle so LaunchServices attributes
 # system-audio TCC to com.pavel.tauri-app (exec from a terminal does not).
+#
+# Do not `exec open -n`: LaunchServices then owns the window, Cargo's SIGTERM
+# only kills this launcher, and `-n` stacks another instance on every rebuild.
 set -euo pipefail
 
 BINARY="${1:?missing binary path}"
@@ -19,8 +22,40 @@ INFO_PLIST="$APP/Contents/Info.plist"
 WRAPPER="$MACOS_DIR/tauri-app"
 REAL_BINARY="$MACOS_DIR/tauri-app-bin"
 ENV_FILE="$RESOURCES_DIR/dev-runner.env"
+PIDFILE="$ROOT/src-tauri/target/debug/tauri-app-dev.runner.pid"
 
-mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
+kill_bundle_bins() {
+  local pids
+  pids="$(pgrep -f "$REAL_BINARY" || true)"
+  if [[ -n "$pids" ]]; then
+    # shellcheck disable=SC2086
+    kill $pids 2>/dev/null || true
+    sleep 0.2
+    pids="$(pgrep -f "$REAL_BINARY" || true)"
+    if [[ -n "$pids" ]]; then
+      # shellcheck disable=SC2086
+      kill -9 $pids 2>/dev/null || true
+    fi
+  fi
+}
+
+owns_pidfile() {
+  [[ -f "$PIDFILE" ]] && [[ "$(cat "$PIDFILE" 2>/dev/null || true)" == "$$" ]]
+}
+
+cleanup() {
+  if owns_pidfile; then
+    rm -f "$PIDFILE"
+    kill_bundle_bins
+  fi
+}
+
+trap cleanup EXIT INT TERM HUP
+
+# Drop leftover windows from a previous cargo run / Ctrl-C before we replace the binary.
+kill_bundle_bins
+
+mkdir -p "$MACOS_DIR" "$RESOURCES_DIR" "$(dirname "$PIDFILE")"
 cp "$ROOT/src-tauri/Info.plist" "$INFO_PLIST"
 cp "$BINARY" "$REAL_BINARY"
 chmod +x "$REAL_BINARY"
@@ -54,4 +89,8 @@ if command -v codesign >/dev/null 2>&1; then
     "$APP" 2>/dev/null || codesign -s - --force --deep "$APP"
 fi
 
-exec open -W -n "$APP" --args "$@"
+echo $$ >"$PIDFILE"
+
+# No `-n`: one instance. No `exec`: this shell must keep the trap so Cargo
+# rebuild/Ctrl-C actually quits the .app LaunchServices spawned.
+open -W "$APP" --args "$@"

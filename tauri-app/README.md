@@ -47,6 +47,8 @@ On first launch, grant permissions when prompted by macOS:
 
 `pnpm tauri dev` launches via a dev `.app` bundle (`src-tauri/target/debug/tauri-app-dev.app`) using `open`, so macOS can attribute system-audio permission to `com.pavel.tauri-app`. Running the raw `target/debug/tauri-app` binary from a terminal will not trigger the permission prompt and loopback will be silent.
 
+Stopping `pnpm tauri dev` (or a Cargo rebuild) quits that window. The runner kills the previous `tauri-app-dev.app` process before launching so you do not stack extra instances.
+
 The **ASR** dropdown on New chat selects **Local (Nemotron)** or **xAI Speech-to-Text** (persisted in `localStorage`). For xAI, save an API key on **Settings** (stored under Application Support) or set `XAI_API_KEY`. Details: [docs/technical/xai-speech-to-text.md](../docs/technical/xai-speech-to-text.md).
 
 To reset system-audio permission during development:
