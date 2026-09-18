@@ -9,6 +9,7 @@ use tauri::{AppHandle, Emitter};
 use crate::config::AppConfig;
 use crate::error::AppError;
 use crate::ipc::transcript::*;
+use crate::llm::{emitter_from_app, SummaryService};
 use crate::meetings::{now_ms, MeetingStore};
 use crate::transcription::asr::LoadedEngine;
 use crate::transcription::audio_source::AudioSource;
@@ -49,6 +50,7 @@ pub struct TranscriptionService {
     transcript: TranscriptStore,
     last_export: Mutex<Option<TranscriptExport>>,
     meetings: Option<MeetingStore>,
+    summaries: Option<SummaryService>,
 }
 
 impl TranscriptionService {
@@ -60,6 +62,7 @@ impl TranscriptionService {
             transcript: TranscriptStore::new(),
             last_export: Mutex::new(None),
             meetings: None,
+            summaries: None,
         }
     }
 
@@ -68,6 +71,11 @@ impl TranscriptionService {
             meetings: Some(store),
             ..Self::new()
         }
+    }
+
+    pub fn with_summaries(mut self, summaries: SummaryService) -> Self {
+        self.summaries = Some(summaries);
+        self
     }
 
     #[allow(dead_code)]
@@ -279,7 +287,7 @@ impl TranscriptionService {
             Some(s) => s,
             None => {
                 return Ok(self.last_export.lock().unwrap().clone().unwrap_or_else(|| {
-                    self.build_export(AudioSource::Mic, self.transcript.text())
+                    self.build_export(AudioSource::Mic, self.transcript.text(), None)
                 }));
             }
         };
@@ -350,6 +358,15 @@ impl TranscriptionService {
             }
         }
 
+        // Summary HTTP lives in a spawned task — do not await it on this stop path.
+        if let (Some(summaries), Some(id)) = (self.summaries.as_ref(), state.meeting_id.clone()) {
+            let emit = match app_handle {
+                Some(app) => emitter_from_app(app.clone()),
+                None => std::sync::Arc::new(|_| {}),
+            };
+            summaries.start(id, emit);
+        }
+
         if let Some(session) = state.debug.as_ref() {
             for (stream, counters) in capture_info {
                 let (captured_samples, dropped_samples, dropped_frames) = counters.stats();
@@ -374,7 +391,7 @@ impl TranscriptionService {
             convert_wav_to_flac_background(wav_paths);
         }
 
-        let export = self.build_export(state.source, self.transcript.text());
+        let export = self.build_export(state.source, self.transcript.text(), state.meeting_id.clone());
         *self.last_export.lock().unwrap() = Some(export.clone());
 
         if let Some(app) = app_handle {
@@ -400,7 +417,7 @@ impl TranscriptionService {
             .unwrap()
             .clone()
             .filter(|e| !e.text.is_empty())
-            .unwrap_or_else(|| self.build_export(AudioSource::Mic, self.transcript.text()));
+            .unwrap_or_else(|| self.build_export(AudioSource::Mic, self.transcript.text(), None));
 
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)
@@ -413,7 +430,12 @@ impl TranscriptionService {
         Ok(export)
     }
 
-    fn build_export(&self, source: AudioSource, text: String) -> TranscriptExport {
+    fn build_export(
+        &self,
+        source: AudioSource,
+        text: String,
+        meeting_id: Option<String>,
+    ) -> TranscriptExport {
         let (speaker, stream) = match source {
             AudioSource::Both => ("Both".to_string(), "both".to_string()),
             s => {
@@ -428,6 +450,7 @@ impl TranscriptionService {
             speaker,
             stream,
             source: source.as_str().to_string(),
+            meeting_id,
         }
     }
 }

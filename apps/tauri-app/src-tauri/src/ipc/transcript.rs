@@ -54,6 +54,8 @@ pub struct TranscriptExport {
     pub speaker: String,
     pub stream: String,
     pub source: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub meeting_id: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -146,5 +148,20 @@ mod tests {
         assert_eq!(json["loading"], true);
         assert_eq!(json["model"], "Nemotron 3.5 ASR Streaming 0.6B CoreML INT8");
         assert!(json.get("error").is_none());
+    }
+
+    #[test]
+    fn export_includes_meeting_id() {
+        let export = TranscriptExport {
+            text: "hello".into(),
+            word_count: 1,
+            speaker: "User".into(),
+            stream: "mic".into(),
+            source: "mic".into(),
+            meeting_id: Some("m1".into()),
+        };
+        let json = serde_json::to_value(&export).unwrap();
+        assert_eq!(json["meetingId"], "m1");
+        assert!(json.get("meeting_id").is_none());
     }
 }

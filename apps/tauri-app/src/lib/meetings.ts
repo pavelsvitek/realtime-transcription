@@ -27,6 +27,27 @@ export type MeetingRecord = {
   segments: MeetingSegment[];
 };
 
+export type SummaryJobState = "idle" | "running" | "done" | "error";
+
+export type SummaryJobSnapshot = {
+  state: SummaryJobState;
+  draft: string;
+  title?: string;
+  error?: string;
+};
+
+export type SummaryDeltaPayload = {
+  meetingId: string;
+  text: string;
+  title?: string;
+};
+
+export type SummaryStatusPayload = {
+  meetingId: string;
+  state: "running" | "done" | "error";
+  error?: string;
+};
+
 export type MeetingDayGroup = {
   key: string;
   label: string;
@@ -38,6 +59,62 @@ export const DEFAULT_MEETING_TITLE = "Untitled meeting";
 export function commitMeetingTitle(draft: string): string {
   const trimmed = draft.trim();
   return trimmed.length === 0 ? DEFAULT_MEETING_TITLE : trimmed;
+}
+
+export function parseMeetingLlmOutput(raw: string): {
+  title: string | null;
+  summary: string;
+} {
+  const lines = raw.replace(/\r\n/g, "\n").split("\n");
+  const firstIdx = lines.findIndex((line) => line.trim().length > 0);
+  if (firstIdx === -1) {
+    return { title: null, summary: "" };
+  }
+
+  const rawTitle = rawTitleFromLine(lines[firstIdx] ?? "");
+  if (rawTitle !== null) {
+    return {
+      title: sanitizeGeneratedTitle(rawTitle),
+      summary: lines.slice(firstIdx + 1).join("\n").trim(),
+    };
+  }
+
+  return { title: null, summary: raw.trim() };
+}
+
+function rawTitleFromLine(line: string): string | null {
+  const stripped = line.trim().replace(/\*\*/g, "");
+  const titlePrefix = /^title:\s*/i;
+  if (titlePrefix.test(stripped)) {
+    return stripped.replace(titlePrefix, "");
+  }
+  if (stripped.startsWith("#") && !stripped.trimStart().slice(1).trim().startsWith("-")) {
+    return stripped.replace(/^#+\s*/, "");
+  }
+  return null;
+}
+
+function sanitizeGeneratedTitle(raw: string): string | null {
+  const collapsed = raw
+    .trim()
+    .replace(/^['"]|['"]$/g, "")
+    .split(/\s+/)
+    .join(" ")
+    .replace(/\.+$/, "")
+    .trim();
+  if (collapsed.length < 3) return null;
+  const lower = collapsed.toLowerCase();
+  if (
+    lower === "untitled" ||
+    lower === "untitled meeting" ||
+    lower === "meeting" ||
+    lower === "meeting notes" ||
+    lower === "summary" ||
+    lower === "executive summary"
+  ) {
+    return null;
+  }
+  return collapsed.slice(0, 80);
 }
 
 export function formatMeetingClock(startedAt: number): string {

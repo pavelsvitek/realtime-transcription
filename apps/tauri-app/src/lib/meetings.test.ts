@@ -3,6 +3,7 @@ import {
   commitMeetingTitle,
   formatMeetingDayLabel,
   groupMeetingsByDay,
+  parseMeetingLlmOutput,
 } from "./meetings";
 import type { MeetingListItem } from "./meetings";
 
@@ -40,5 +41,23 @@ describe("commitMeetingTitle", () => {
 
   it("replaces a blank draft with Untitled meeting", () => {
     expect(commitMeetingTitle("   ")).toBe("Untitled meeting");
+  });
+});
+
+describe("parseMeetingLlmOutput", () => {
+  it("splits Title: from bullets", () => {
+    expect(
+      parseMeetingLlmOutput("Title: UBS FA UI mocks\n\n- **Attest** every entry\n")
+    ).toEqual({
+      title: "UBS FA UI mocks",
+      summary: "- **Attest** every entry",
+    });
+  });
+
+  it("keeps bullet-only output as the summary", () => {
+    expect(parseMeetingLlmOutput("- **Ship** the API\n- Next steps")).toEqual({
+      title: null,
+      summary: "- **Ship** the API\n- Next steps",
+    });
   });
 });

@@ -1,3 +1,4 @@
+use crate::llm::SummaryService;
 use crate::meetings::MeetingStore;
 use crate::transcription::TranscriptionService;
 
@@ -6,9 +7,9 @@ pub struct TranscriptionHandle {
 }
 
 impl TranscriptionHandle {
-    pub fn new(store: MeetingStore) -> Self {
+    pub fn new(store: MeetingStore, summaries: SummaryService) -> Self {
         Self {
-            service: TranscriptionService::with_store(store),
+            service: TranscriptionService::with_store(store).with_summaries(summaries),
         }
     }
 }
