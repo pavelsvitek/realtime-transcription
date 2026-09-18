@@ -30,14 +30,17 @@ pub fn run_worker<E>(
     tracing::info!("Transcription worker started");
     let mut chunks_processed: u64 = 0;
 
-    // Optional diagnostics for denied macOS AudioCapture permission: loopback opens but
-    // delivers silence (~-91 dB). Not required for capture itself — safe to remove this
-    // block (state below + the `SYSTEM_STREAM` branch in the mic-level check) if you
-    // prefer a leaner worker once dev .app launch + TCC grant are reliable.
+    // Optional diagnostics for denied macOS capture permission: the stream opens but
+    // delivers digital silence (~-91 dB). Mic is checked quickly; system audio waits
+    // longer because loopback can be quiet until a call/video starts.
+    let mut mic_samples_seen: usize = 0;
+    let mut mic_peak_rms: f32 = 0.0;
+    let mut mic_silence_warned = false;
     let mut system_samples_seen: usize = 0;
     let mut system_peak_rms: f32 = 0.0;
     let mut system_silence_warned = false;
-    const SYSTEM_SILENCE_RMS_THRESHOLD: f32 = 0.01;
+    const SILENCE_RMS_THRESHOLD: f32 = 0.01;
+    const MIC_SILENCE_CHECK_SAMPLES: usize = 48_000;
     const SYSTEM_SILENCE_CHECK_SAMPLES: usize = 48_000 * 30;
 
     loop {
@@ -62,6 +65,29 @@ pub fn run_worker<E>(
         if labels.stream == crate::transcription::labels::MIC_STREAM {
             let rms = mic_input::compute_rms(&chunk);
             emit(TranscriptEvent::MicLevel(MicLevel { rms }));
+            mic_peak_rms = mic_peak_rms.max(rms);
+            mic_samples_seen += chunk.len();
+            if !mic_silence_warned && mic_samples_seen >= MIC_SILENCE_CHECK_SAMPLES {
+                mic_silence_warned = true;
+                if mic_peak_rms < SILENCE_RMS_THRESHOLD {
+                    tracing::warn!(
+                        peak_rms = mic_peak_rms,
+                        samples = mic_samples_seen,
+                        "Microphone is silent — likely missing Microphone permission"
+                    );
+                    emit(TranscriptEvent::Status(TranscriptionStatus {
+                        active: true,
+                        loading: None,
+                        model: None,
+                        error: Some(
+                            "Microphone is silent. Open System Settings → Privacy & Security → \
+                             Microphone and enable tauri-app, then Stop and Start again. \
+                             The mic icon should turn red when you talk."
+                                .into(),
+                        ),
+                    }));
+                }
+            }
         } else if labels.stream == crate::transcription::labels::SYSTEM_STREAM {
             // [silent-loopback diagnostic] see block comment above `system_samples_seen`
             let rms = mic_input::compute_rms(&chunk);
@@ -69,7 +95,7 @@ pub fn run_worker<E>(
             system_samples_seen += chunk.len();
             if !system_silence_warned && system_samples_seen >= SYSTEM_SILENCE_CHECK_SAMPLES {
                 system_silence_warned = true;
-                if system_peak_rms < SYSTEM_SILENCE_RMS_THRESHOLD {
+                if system_peak_rms < SILENCE_RMS_THRESHOLD {
                     tracing::warn!(
                         peak_rms = system_peak_rms,
                         samples = system_samples_seen,
