@@ -1,7 +1,7 @@
 use tauri::{AppHandle, State};
 
 use crate::ipc::meetings::{MeetingListItem, MeetingRecord};
-use crate::ipc::summary::SummaryJobSnapshot;
+use crate::ipc::summary::{GenerateAllSummariesResult, SummaryJobSnapshot};
 use crate::llm::{emitter_from_app, SummaryService};
 use crate::meetings::MeetingStore;
 
@@ -47,4 +47,12 @@ pub async fn get_summary_job(
     id: String,
 ) -> Result<SummaryJobSnapshot, String> {
     Ok(summaries.snapshot(&id))
+}
+
+#[tauri::command]
+pub async fn generate_all_meeting_summaries(
+    app: AppHandle,
+    summaries: State<'_, SummaryService>,
+) -> Result<GenerateAllSummariesResult, String> {
+    summaries.start_all_finished(emitter_from_app(app))
 }

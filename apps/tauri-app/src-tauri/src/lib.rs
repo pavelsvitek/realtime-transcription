@@ -50,6 +50,21 @@ pub fn run() {
             {
                 let _monitor = spawn_device_monitor(app.handle().clone());
             }
+            if std::env::var_os("GENERATE_ALL_MEETING_SUMMARIES").is_some() {
+                use tauri::Manager;
+                let summaries = app.state::<SummaryService>().inner().clone();
+                match summaries.start_all_finished(llm::emitter_from_app(app.handle().clone())) {
+                    Ok(result) => tracing::info!(
+                        queued = result.queued,
+                        skipped_empty = result.skipped_empty,
+                        "Queued meeting summary backfill"
+                    ),
+                    Err(e) => tracing::error!(
+                        error = %e,
+                        "Failed to queue meeting summary backfill"
+                    ),
+                }
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -66,6 +81,7 @@ pub fn run() {
             commands::meetings::update_meeting_title,
             commands::meetings::generate_meeting_summary,
             commands::meetings::get_summary_job,
+            commands::meetings::generate_all_meeting_summaries,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

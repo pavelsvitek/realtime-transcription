@@ -5,7 +5,8 @@ use tauri::async_runtime::JoinHandle;
 
 use super::provider::{create_client, LlmClient, LlmError, LlmProviderId};
 use crate::ipc::summary::{
-    SummaryDelta, SummaryJobSnapshot, SummaryJobState, SummaryStatus,
+    GenerateAllSummariesResult, SummaryDelta, SummaryJobSnapshot, SummaryJobState,
+    SummaryStatus,
 };
 use crate::meetings::MeetingStore;
 
@@ -72,6 +73,27 @@ impl SummaryService {
             .get(meeting_id)
             .map(|slot| slot.snapshot.clone())
             .unwrap_or_else(SummaryJobSnapshot::idle)
+    }
+
+    /// Queue summaries for every finished meeting that has transcript text.
+    /// Returns immediately; each job runs on `tauri::async_runtime::spawn`.
+    pub fn start_all_finished(
+        &self,
+        emit: SummaryEmitter,
+    ) -> Result<GenerateAllSummariesResult, String> {
+        if crate::transcription::xai::resolve_api_key().is_none() {
+            return Err(MISSING_KEY_MESSAGE.to_string());
+        }
+
+        let (ids, skipped_empty) =
+            collect_summary_targets(&self.store).map_err(|e| e.to_user_message())?;
+        for id in &ids {
+            self.start(id.clone(), emit.clone());
+        }
+        Ok(GenerateAllSummariesResult {
+            queued: ids.len() as u32,
+            skipped_empty,
+        })
     }
 
     /// Kick off a summary job. Returns immediately; the HTTP stream lives on
@@ -249,6 +271,23 @@ impl SummaryService {
     }
 }
 
+fn collect_summary_targets(
+    store: &MeetingStore,
+) -> Result<(Vec<String>, u32), crate::error::AppError> {
+    let items = store.list_finished()?;
+    let mut ids = Vec::new();
+    let mut skipped_empty = 0u32;
+    for item in items {
+        let record = store.get_record(&item.id)?;
+        if format_transcript(&record.segments).trim().is_empty() {
+            skipped_empty += 1;
+            continue;
+        }
+        ids.push(item.id);
+    }
+    Ok((ids, skipped_empty))
+}
+
 fn format_transcript(segments: &[crate::ipc::meetings::MeetingSegment]) -> String {
     segments
         .iter()
@@ -323,6 +362,22 @@ mod tests {
         );
         let record = service.store.get_record("m1").unwrap();
         assert!(record.meeting.summary.is_none());
+    }
+
+    #[test]
+    fn collect_summary_targets_skips_empty_transcripts() {
+        let store = temp_store();
+        store.insert_live_meeting("empty", 1_000, "Empty").unwrap();
+        store.finish_meeting("empty", 2_000).unwrap();
+        store.insert_live_meeting("full", 3_000, "Full").unwrap();
+        store
+            .insert_segment("full:s1", "full", 0, 10, "hello")
+            .unwrap();
+        store.finish_meeting("full", 4_000).unwrap();
+
+        let (ids, skipped) = collect_summary_targets(&store).unwrap();
+        assert_eq!(ids, vec!["full".to_string()]);
+        assert_eq!(skipped, 1);
     }
 
     #[test]

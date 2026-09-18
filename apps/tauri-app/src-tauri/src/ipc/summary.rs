@@ -55,6 +55,13 @@ impl SummaryJobSnapshot {
     }
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GenerateAllSummariesResult {
+    pub queued: u32,
+    pub skipped_empty: u32,
+}
+
 pub mod event_names {
     pub const DELTA: &str = "summary/delta";
     pub const STATUS: &str = "summary/status";
@@ -94,5 +101,16 @@ mod tests {
         assert_eq!(json["state"], "idle");
         assert_eq!(json["draft"], "");
         assert!(json.get("error").is_none());
+    }
+
+    #[test]
+    fn generate_all_result_serializes_camel_case() {
+        let json = serde_json::to_value(GenerateAllSummariesResult {
+            queued: 4,
+            skipped_empty: 6,
+        })
+        .unwrap();
+        assert_eq!(json["queued"], 4);
+        assert_eq!(json["skippedEmpty"], 6);
     }
 }
