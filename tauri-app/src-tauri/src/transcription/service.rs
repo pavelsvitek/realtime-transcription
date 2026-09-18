@@ -9,6 +9,7 @@ use tauri::{AppHandle, Emitter};
 use crate::config::AppConfig;
 use crate::error::AppError;
 use crate::ipc::transcript::*;
+use crate::meetings::{now_ms, MeetingStore};
 use crate::transcription::asr::LoadedEngine;
 use crate::transcription::audio_source::AudioSource;
 use crate::transcription::backend::AsrBackend;
@@ -38,6 +39,7 @@ struct RunningState {
     /// Present when `source` is `SystemAudio` or `Both`.
     system: Option<StreamPair>,
     debug: Option<Arc<DebugSession>>,
+    meeting_id: Option<String>,
 }
 
 pub struct TranscriptionService {
@@ -46,6 +48,7 @@ pub struct TranscriptionService {
     segment_counter: Arc<AtomicU64>,
     transcript: TranscriptStore,
     last_export: Mutex<Option<TranscriptExport>>,
+    meetings: Option<MeetingStore>,
 }
 
 impl TranscriptionService {
@@ -56,6 +59,14 @@ impl TranscriptionService {
             segment_counter: Arc::new(AtomicU64::new(0)),
             transcript: TranscriptStore::new(),
             last_export: Mutex::new(None),
+            meetings: None,
+        }
+    }
+
+    pub fn with_store(store: MeetingStore) -> Self {
+        Self {
+            meetings: Some(store),
+            ..Self::new()
         }
     }
 
@@ -111,6 +122,14 @@ impl TranscriptionService {
 
         self.ensure_engine_loaded(backend, &config, app_handle.as_ref())?;
 
+        let meeting_id = if let Some(store) = &self.meetings {
+            let id = uuid::Uuid::new_v4().to_string();
+            store.insert_live_meeting(&id, now_ms(), "Untitled meeting")?;
+            Some(id)
+        } else {
+            None
+        };
+
         let debug_session = DebugSession::try_open(source, &config).map(Arc::new);
 
         let models_guard = self.models.lock().unwrap();
@@ -131,6 +150,8 @@ impl TranscriptionService {
                     transcript.clone(),
                     app_handle.clone(),
                     debug_session.clone(),
+                    self.meetings.clone(),
+                    meeting_id.clone(),
                 )?;
                 let system = spawn_stream_worker(
                     AudioSource::SystemAudio,
@@ -140,6 +161,8 @@ impl TranscriptionService {
                     transcript,
                     app_handle.clone(),
                     debug_session.clone(),
+                    self.meetings.clone(),
+                    meeting_id.clone(),
                 )?;
                 (Some(mic), Some(system))
             }
@@ -152,6 +175,8 @@ impl TranscriptionService {
                     transcript,
                     app_handle.clone(),
                     debug_session.clone(),
+                    self.meetings.clone(),
+                    meeting_id.clone(),
                 )?;
                 (Some(pair), None)
             }
@@ -164,6 +189,8 @@ impl TranscriptionService {
                     transcript,
                     app_handle.clone(),
                     debug_session.clone(),
+                    self.meetings.clone(),
+                    meeting_id.clone(),
                 )?;
                 (None, Some(pair))
             }
@@ -175,6 +202,7 @@ impl TranscriptionService {
             mic,
             system,
             debug: debug_session,
+            meeting_id,
         });
 
         drop(models_guard);
@@ -281,6 +309,12 @@ impl TranscriptionService {
             }
         }
 
+        if let (Some(store), Some(id)) = (&self.meetings, state.meeting_id.as_deref()) {
+            if let Err(e) = store.finish_meeting(id, now_ms()) {
+                tracing::error!(error = %e, meeting_id = id, "Failed to mark meeting finished");
+            }
+        }
+
         if let Some(session) = state.debug.as_ref() {
             for (stream, counters) in capture_info {
                 let (captured_samples, dropped_samples, dropped_frames) = counters.stats();
@@ -374,6 +408,8 @@ fn spawn_stream_worker(
     transcript: TranscriptStore,
     app_handle: Option<AppHandle>,
     debug_session: Option<Arc<DebugSession>>,
+    meetings: Option<MeetingStore>,
+    meeting_id: Option<String>,
 ) -> Result<StreamPair, AppError> {
     super::cpal_capture::reset_capture_stats();
     let (audio_tx, audio_rx) = mpsc::sync_channel::<Vec<f32>>(AUDIO_CHANNEL_BOUND);
@@ -399,6 +435,21 @@ fn spawn_stream_worker(
             let emit = |event: TranscriptEvent| {
                 if let TranscriptEvent::Commit(c) = &event {
                     transcript.append_commit(&c.text);
+                    if let (Some(store), Some(meeting_id)) = (&meetings, &meeting_id) {
+                        if let Err(e) = store.insert_segment(
+                            &c.segment_id,
+                            meeting_id,
+                            c.start_ms as i64,
+                            c.end_ms as i64,
+                            &c.text,
+                        ) {
+                            tracing::error!(
+                                error = %e,
+                                segment_id = %c.segment_id,
+                                "Failed to persist transcript segment"
+                            );
+                        }
+                    }
                 }
                 if let Some(app) = &app_handle {
                     emit_to_app(app, event);
