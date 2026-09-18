@@ -1,13 +1,14 @@
+use crate::meetings::MeetingStore;
 use crate::transcription::TranscriptionService;
 
 pub struct TranscriptionHandle {
     pub service: TranscriptionService,
 }
 
-impl Default for TranscriptionHandle {
-    fn default() -> Self {
+impl TranscriptionHandle {
+    pub fn new(store: MeetingStore) -> Self {
         Self {
-            service: TranscriptionService::new(),
+            service: TranscriptionService::with_store(store),
         }
     }
 }

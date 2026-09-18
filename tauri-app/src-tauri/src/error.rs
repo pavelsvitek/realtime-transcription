@@ -20,6 +20,9 @@ pub enum AppError {
 
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
+
+    #[error("Meeting store failed: {0}")]
+    Store(String),
 }
 
 impl AppError {
@@ -31,6 +34,7 @@ impl AppError {
             Self::Asr(msg) => format!("Transcription engine error: {msg}"),
             Self::ModelLoad(msg) => format!("Failed to load model: {msg}"),
             Self::Io(err) => format!("File error: {err}"),
+            Self::Store(msg) => format!("Couldn't save the meeting: {msg}"),
         }
     }
 }

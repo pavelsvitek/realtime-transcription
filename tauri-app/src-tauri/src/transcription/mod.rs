@@ -1,6 +1,7 @@
 pub mod asr;
 pub use asr::LoadedEngine;
 pub mod audio_source;
+pub mod backend;
 pub mod capture;
 pub mod cpal_capture;
 pub mod debug_dump;
@@ -13,10 +14,12 @@ pub mod service;
 pub mod system_audio;
 pub mod transcript_store;
 pub mod worker;
+pub mod xai;
 
 pub use audio_source::AudioSource;
+pub use backend::AsrBackend;
 pub use cpal_capture::{capture_stats, reset_capture_stats, CaptureCounters};
 pub use debug_dump::{debug_save_enabled, DebugSession, StreamCaptureStats, StreamObserver};
 pub use flac_convert::convert_wav_to_flac_background;
-pub use pipeline::{AsrOutput, AsrWord, StreamingPipeline};
+pub use pipeline::{AsrOutput, AsrWord, StreamingAsr, StreamingPipeline};
 pub use service::TranscriptionService;

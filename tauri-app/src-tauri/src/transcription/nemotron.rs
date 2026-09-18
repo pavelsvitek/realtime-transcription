@@ -10,7 +10,7 @@ use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use base64::Engine;
 use serde::{Deserialize, Serialize};
 
-use super::pipeline::{AsrOutput, AsrWord};
+use super::pipeline::{AsrOutput, AsrWord, StreamingAsr};
 
 pub const MODEL_DISPLAY_NAME: &str = "Nemotron 3.5 ASR Streaming 0.6B CoreML INT8";
 pub const CACHE_SUBDIR: &str = "nemotron";
@@ -265,6 +265,16 @@ impl Drop for NemotronPipeline {
         let _ = self.send(&BasicRequest { kind: "shutdown" });
         let _ = self.child.kill();
         let _ = self.child.wait();
+    }
+}
+
+impl StreamingAsr for NemotronPipeline {
+    fn push_mono(&mut self, samples: &[f32]) -> anyhow::Result<Option<AsrOutput>> {
+        NemotronPipeline::push_mono(self, samples)
+    }
+
+    fn finish(&mut self) -> anyhow::Result<AsrOutput> {
+        NemotronPipeline::finish(self)
     }
 }
 

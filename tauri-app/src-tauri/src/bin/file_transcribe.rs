@@ -14,7 +14,7 @@ use std::time::Instant;
 
 use serde::Deserialize;
 use tauri_app_lib::transcription::AsrWord;
-use tauri_app_lib::{AppConfig, LoadedEngine};
+use tauri_app_lib::{AppConfig, AsrBackend, LoadedEngine};
 
 const SAMPLE_RATE: u32 = 48_000;
 const CHUNK_SAMPLES: usize = 1024;
@@ -57,7 +57,8 @@ fn main() {
 
     let config = AppConfig::load();
     config.validate().unwrap_or_else(|e| panic!("Nemotron setup: {e}"));
-    let engine = LoadedEngine::load(&config).unwrap_or_else(|e| panic!("load models: {e:#}"));
+    let engine = LoadedEngine::load(&config, AsrBackend::Local)
+        .unwrap_or_else(|e| panic!("load models: {e:#}"));
     eprintln!("file_transcribe: loaded {}", engine.model_name);
 
     let mut failures = 0usize;

@@ -55,12 +55,15 @@ export function applyPartial(
   payload: TranscriptPayload
 ): TranscriptSegment[] {
   const segment = payloadToSegment(payload, true);
-  const idx = prev.findIndex((s) => s.isPartial && s.id === segment.id);
-  const next =
-    idx >= 0
-      ? prev.map((s, i) => (i === idx ? segment : s))
-      : [...prev, segment];
-  return sortSegments(next);
+  const withoutThisPartial = prev.filter((s) => s.id !== segment.id);
+  const committed = sortSegments(withoutThisPartial.filter((s) => !s.isPartial));
+  const otherPartials = sortSegments(
+    withoutThisPartial.filter((s) => s.isPartial)
+  );
+  // Live partials stay after committed lines. xAI chunk events often have
+  // start=0 or chunk-local times, which would otherwise sort them in front
+  // of sentences that were already committed.
+  return [...committed, ...otherPartials, segment];
 }
 
 export function applyCommit(
