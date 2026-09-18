@@ -1,6 +1,6 @@
 # Tauri Transcription App
 
-Real-time English speech-to-text using NVIDIA Nemotron 3.5 ASR Streaming 0.6B on macOS, with optional xAI Speech-to-Text as a cloud backend.
+Real-time English speech-to-text using NVIDIA Nemotron 3.5 ASR Streaming 0.6B on macOS, with optional xAI Transcribe 2.0 as a cloud backend.
 
 ## Prerequisites
 
@@ -36,8 +36,15 @@ export NEMOTRON_BRIDGE_PATH=/absolute/path/to/nemotron-bridge
 
 ## Development
 
+From the repo root after `pnpm install`:
+
 ```bash
-pnpm install
+pnpm dev:desktop
+```
+
+Or from this package:
+
+```bash
 pnpm tauri dev
 ```
 
@@ -49,7 +56,7 @@ On first launch, grant permissions when prompted by macOS:
 
 Stopping `pnpm tauri dev` (or a Cargo rebuild) quits that window. The runner kills the previous `tauri-app-dev.app` process before launching so you do not stack extra instances.
 
-The **ASR** dropdown on New chat selects **Local (Nemotron)** or **xAI Speech-to-Text** (persisted in `localStorage`). For xAI, save an API key on **Settings** (stored under Application Support) or set `XAI_API_KEY`. Details: [docs/technical/xai-speech-to-text.md](../docs/technical/xai-speech-to-text.md).
+The **ASR** dropdown on New chat selects **Local (Nemotron)** or **xAI Transcribe 2.0** (persisted in `localStorage`). For xAI, save an API key on **Settings** (stored under Application Support) or set `XAI_API_KEY`. Details: [docs/technical/xai-speech-to-text.md](../../docs/technical/xai-speech-to-text.md).
 
 To reset system-audio permission during development:
 
@@ -81,7 +88,7 @@ nemotron-helper/.build/release/nemotron-bridge
 
 `pnpm tauri dev` and `pnpm tauri build` copy that binary into Tauri's target-specific sidecar location before launching or bundling.
 
-After editing `nemotron-helper`, rebuild release and restart the app. See [docs/instructions.md](../docs/instructions.md).
+After editing `nemotron-helper`, rebuild release and restart the app. See [docs/instructions.md](../../docs/instructions.md).
 
 ```bash
 cd nemotron-helper
@@ -143,7 +150,7 @@ The Rust E2E test enforces `GOLDEN_E2E_MAX_WER` default `0.05` (5%).
 
 ### NOTSOFAR eval-small (local vs xAI)
 
-Speaker-agnostic WER on far-field single-channel meetings. Default **10 meetings**. Results: [docs/eval/dataset-notsofar.md](../docs/eval/dataset-notsofar.md).
+Speaker-agnostic WER on far-field single-channel meetings. Default **10 meetings**. Results: [docs/eval/dataset-notsofar.md](../../docs/eval/dataset-notsofar.md).
 
 ```bash
 python3 scripts/eval_notsofar.py --n-meetings 10 --backends local
@@ -151,7 +158,7 @@ python3 scripts/eval_notsofar.py --n-meetings 10 --backends local
 
 Requires the Nemotron helper/model (`./scripts/setup-nemotron.sh`) and `ffmpeg`. Downloads go to `eval-data/notsofar/` (gitignored).
 
-Nemotron 3.5 validation measured 4.59% file-pipeline WER and 4.95% clean system-audio E2E WER with the repository scorer, passing the 5% product gate. See [MODEL_INVESTIGATION.md](../MODEL_INVESTIGATION.md).
+Nemotron 3.5 validation measured 4.59% file-pipeline WER and 4.95% clean system-audio E2E WER with the repository scorer, passing the 5% product gate. See [MODEL_INVESTIGATION.md](../../MODEL_INVESTIGATION.md).
 
 `stop_transcription` returns a `TranscriptExport` for programmatic export; use `export_transcript` to write a file without stopping.
 

@@ -52,11 +52,11 @@ run_eval() {
 
 ensure_nemotron_cache() {
   if [[ ! -x "$HELPER_BIN" ]]; then
-    echo "Nemotron helper not built. Run tauri-app/scripts/setup-nemotron.sh first." >&2
+    echo "Nemotron helper not built. Run apps/tauri-app/scripts/setup-nemotron.sh first." >&2
     exit 1
   fi
   if [[ ! -d "$MODEL_DIR/encoder.mlmodelc" ]]; then
-    echo "Nemotron model is missing. Run tauri-app/scripts/setup-nemotron.sh first." >&2
+    echo "Nemotron model is missing. Run apps/tauri-app/scripts/setup-nemotron.sh first." >&2
     exit 1
   fi
 }

@@ -281,13 +281,13 @@ impl StreamingAsr for NemotronPipeline {
 pub fn validate_installation(helper_path: &Path, model_bundle_dir: &Path) -> Result<(), String> {
     if !helper_path.exists() {
         return Err(format!(
-            "Nemotron helper not found at {}. Run tauri-app/scripts/setup-nemotron.sh.",
+            "Nemotron helper not found at {}. Run apps/tauri-app/scripts/setup-nemotron.sh.",
             helper_path.display()
         ));
     }
     if !model_bundle_dir.is_dir() {
         return Err(format!(
-            "Nemotron model bundle not found at {}. Run tauri-app/scripts/setup-nemotron.sh.",
+            "Nemotron model bundle not found at {}. Run apps/tauri-app/scripts/setup-nemotron.sh.",
             model_bundle_dir.display()
         ));
     }
@@ -296,7 +296,7 @@ pub fn validate_installation(helper_path: &Path, model_bundle_dir: &Path) -> Res
         let path = model_bundle_dir.join(component);
         if !path.exists() {
             return Err(format!(
-                "Nemotron model component {} is missing at {}. Run tauri-app/scripts/setup-nemotron.sh.",
+                "Nemotron model component {} is missing at {}. Run apps/tauri-app/scripts/setup-nemotron.sh.",
                 component,
                 path.display()
             ));

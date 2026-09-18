@@ -104,7 +104,7 @@ fn golden_system_audio_e2e() {
     let backend = AsrBackend::from_env();
     if backend == AsrBackend::Local {
         config.validate().unwrap_or_else(|err| {
-            panic!("Nemotron cache incomplete: {err}\nRun: tauri-app/scripts/setup-nemotron.sh");
+            panic!("Nemotron cache incomplete: {err}\nRun: apps/tauri-app/scripts/setup-nemotron.sh");
         });
     } else {
         println!("E2E ASR backend: {}", backend.as_str());

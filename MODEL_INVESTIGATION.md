@@ -46,8 +46,8 @@ Published benchmark results are not directly comparable to this repository’s g
 
 The model is governed by the NVIDIA Open Model License. Redistribution includes:
 
-- `tauri-app/licenses/NVIDIA-OPEN-MODEL-LICENSE.txt`
-- `tauri-app/licenses/NOTICE`
+- `apps/tauri-app/licenses/NVIDIA-OPEN-MODEL-LICENSE.txt`
+- `apps/tauri-app/licenses/NOTICE`
 
 The runtime code is Apache-2.0.
 

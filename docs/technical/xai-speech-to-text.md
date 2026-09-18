@@ -12,6 +12,7 @@ How the Tauri app adds **xAI real-time STT** alongside the local Nemotron path, 
 | Decision | Choice |
 | --- | --- |
 | Transport | **WebSocket streaming** (`wss://api.x.ai/v1/stt`), not batch `POST /v1/stt` |
+| Model | **`grok-voice-transcribe-2.0`** (explicit `model` query param; API default remains 1.0 if omitted) |
 | Dual-stream (`mic` + `system`) | **Two independent WebSocket sessions** (one per stream) — preserves User/Remote labels |
 | Selection | UI toggle on New chat + API key on Settings |
 | Local path | Unchanged Nemotron behavior; default `AsrBackend::Local` |
@@ -37,7 +38,7 @@ flowchart LR
 
 ### Trait (required for dual-backend)
 
-[`tauri-app/src-tauri/src/transcription/pipeline.rs`](../../tauri-app/src-tauri/src/transcription/pipeline.rs):
+[`apps/tauri-app/src-tauri/src/transcription/pipeline.rs`](../../apps/tauri-app/src-tauri/src/transcription/pipeline.rs):
 
 ```rust
 pub trait StreamingAsr: Send {
@@ -54,16 +55,16 @@ pub struct StreamingPipeline {
 
 ### Factory
 
-[`LoadedEngine`](../../tauri-app/src-tauri/src/transcription/asr.rs) loads by `AsrBackend`:
+[`LoadedEngine`](../../apps/tauri-app/src-tauri/src/transcription/asr.rs) loads by `AsrBackend`:
 
 - **Local** — validate Nemotron helper + CoreML bundle; `create_pipeline` → `NemotronPipeline`
-- **Xai** — resolve API key; skip Nemotron validate; `create_pipeline` → `XaiWsPipeline` (`language=en`, `disable_partials=false`)
+- **Xai** — resolve API key; skip Nemotron validate; `create_pipeline` → `XaiWsPipeline` (`language=en`, `disable_partials=false`, `model=grok-voice-transcribe-2.0`)
 
 Switching backends mid-process drops the cached engine and reloads.
 
 ### Dual-stream
 
-[`TranscriptionService`](../../tauri-app/src-tauri/src/transcription/service.rs) still spawns **two** `StreamPair`s for `AudioSource::Both`. Each pair gets its own `create_pipeline(sample_rate, stream="mic"|"system")`. For xAI that means two sockets and two API streams — intentional.
+[`TranscriptionService`](../../apps/tauri-app/src-tauri/src/transcription/service.rs) still spawns **two** `StreamPair`s for `AudioSource::Both`. Each pair gets its own `create_pipeline(sample_rate, stream="mic"|"system")`. For xAI that means two sockets and two API streams — intentional.
 
 ---
 
@@ -73,8 +74,8 @@ Switching backends mid-process drops the cached engine and reloads.
 
 | Path | Role |
 | --- | --- |
-| `tauri-app/src-tauri/src/transcription/xai.rs` | WebSocket client, resample, pacing, event→`AsrOutput`, API key IO |
-| `tauri-app/src-tauri/src/transcription/backend.rs` | `AsrBackend { Local, Xai }` + `parse` / `from_env` (`nemotron` / `parakeet` aliases map to Local) |
+| `apps/tauri-app/src-tauri/src/transcription/xai.rs` | WebSocket client, resample, pacing, event→`AsrOutput`, API key IO |
+| `apps/tauri-app/src-tauri/src/transcription/backend.rs` | `AsrBackend { Local, Xai }` + `parse` / `from_env` (`nemotron` / `parakeet` aliases map to Local) |
 
 ### Rust
 
@@ -109,7 +110,7 @@ Switching backends mid-process drops the cached engine and reloads.
 ### Connect
 
 ```
-wss://api.x.ai/v1/stt?sample_rate=16000&encoding=pcm&interim_results={bool}&language={lang}&endpointing=800&filler_words=false
+wss://api.x.ai/v1/stt?sample_rate=16000&encoding=pcm&interim_results={bool}&language={lang}&endpointing=800&filler_words=false&model=grok-voice-transcribe-2.0
 Authorization: Bearer <api_key>
 ```
 
@@ -174,13 +175,13 @@ Settings UI never returns the raw key to the frontend — only booleans (`xaiApi
 
 ### Status badge
 
-`transcription.status.model` is `"xAI Speech-to-Text"` or the Nemotron display name — UI already shows opaque model string.
+`transcription.status.model` is `"xAI Transcribe 2.0"` or the Nemotron display name — UI already shows opaque model string.
 
 ---
 
 ## Dependencies
 
-In `tauri-app/src-tauri/Cargo.toml`:
+In `apps/tauri-app/src-tauri/Cargo.toml`:
 
 ```toml
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "net"] }
@@ -195,7 +196,7 @@ futures-util = "0.3"
 ### Local golden (unchanged)
 
 ```bash
-cd tauri-app && pnpm test:golden
+cd apps/tauri-app && pnpm test:golden
 ```
 
 Phase-1 eval vs baseline; headless E2E still defaults to Nemotron unless overridden.
@@ -205,7 +206,7 @@ Phase-1 eval vs baseline; headless E2E still defaults to Nemotron unless overrid
 Requires saved key or `XAI_API_KEY`. Takes ~realtime length of the clip (~80s for `test-youtube-video`).
 
 ```bash
-cd tauri-app
+cd apps/tauri-app
 ASR_BACKEND=xai cargo test diagnose_model_vs_commit_strategy \
   --manifest-path src-tauri/Cargo.toml -- --ignored --nocapture
 ```
@@ -215,7 +216,7 @@ Artifacts: `test-output/diagnostic/file-*-xai.txt`
 ### Manual UI
 
 1. Settings → save xAI API key (or export `XAI_API_KEY`)
-2. New chat → ASR: **xAI Speech-to-Text** → Start
+2. New chat → ASR: **xAI Transcribe 2.0** → Start
 3. Prefer mic-only first, then **Mic + system** (two sockets)
 
 ---

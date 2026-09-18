@@ -276,6 +276,7 @@ def post_xai_stt(api_key: str, wav_path: Path) -> str:
 
     write_field("format", "true")
     write_field("language", "en")
+    write_field("model", "grok-voice-transcribe-2.0")
     body.write(f"--{boundary}\r\n".encode())
     body.write(
         f'Content-Disposition: form-data; name="file"; filename="{wav_path.name}"\r\n'.encode()

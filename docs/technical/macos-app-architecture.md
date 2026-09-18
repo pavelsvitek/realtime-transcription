@@ -187,8 +187,8 @@ Evaluate later: FFmpeg bindings for encoding, `cpal` for cross-platform mic if n
 
 Minimum macOS is **15.0**, set in:
 
-- `tauri-app/src-tauri/.cargo/config.toml` — `MACOSX_DEPLOYMENT_TARGET = "15.0"`
-- `tauri-app/src-tauri/tauri.conf.json` — `bundle.macOS.minimumSystemVersion = "15.0"` (sets `LSMinimumSystemVersion` in the app bundle)
+- `apps/tauri-app/src-tauri/.cargo/config.toml` — `MACOSX_DEPLOYMENT_TARGET = "15.0"`
+- `apps/tauri-app/src-tauri/tauri.conf.json` — `bundle.macOS.minimumSystemVersion = "15.0"` (sets `LSMinimumSystemVersion` in the app bundle)
 
 macOS 14 is no longer a target. Canary CoreML requires the stateful CoreML decoder API introduced in macOS 15.
 
