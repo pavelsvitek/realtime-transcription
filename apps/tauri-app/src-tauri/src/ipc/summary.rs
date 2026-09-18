@@ -25,6 +25,8 @@ impl SummaryJobState {
 pub struct SummaryDelta {
     pub meeting_id: String,
     pub text: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -42,6 +44,8 @@ pub struct SummaryJobSnapshot {
     pub state: SummaryJobState,
     pub draft: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
 }
 
@@ -50,6 +54,7 @@ impl SummaryJobSnapshot {
         Self {
             state: SummaryJobState::Idle,
             draft: String::new(),
+            title: None,
             error: None,
         }
     }
@@ -76,10 +81,12 @@ mod tests {
         let delta = SummaryDelta {
             meeting_id: "m1".into(),
             text: "- **Ship** it".into(),
+            title: Some("Ship the API".into()),
         };
         let json = serde_json::to_value(&delta).unwrap();
         assert_eq!(json["meetingId"], "m1");
         assert_eq!(json["text"], "- **Ship** it");
+        assert_eq!(json["title"], "Ship the API");
         assert!(json.get("meeting_id").is_none());
     }
 
@@ -100,6 +107,7 @@ mod tests {
         let json = serde_json::to_value(SummaryJobSnapshot::idle()).unwrap();
         assert_eq!(json["state"], "idle");
         assert_eq!(json["draft"], "");
+        assert!(json.get("title").is_none());
         assert!(json.get("error").is_none());
     }
 

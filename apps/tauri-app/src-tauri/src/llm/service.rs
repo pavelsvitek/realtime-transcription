@@ -3,6 +3,7 @@ use std::sync::{Arc, Mutex};
 
 use tauri::async_runtime::JoinHandle;
 
+use super::output::parse_meeting_output;
 use super::provider::{create_client, LlmClient, LlmError, LlmProviderId};
 use crate::ipc::summary::{
     GenerateAllSummariesResult, SummaryDelta, SummaryJobSnapshot, SummaryJobState,
@@ -29,6 +30,7 @@ struct JobSlot {
     generation: u64,
     handle: Option<JoinHandle<()>>,
     snapshot: SummaryJobSnapshot,
+    raw: String,
 }
 
 impl JobSlot {
@@ -37,6 +39,7 @@ impl JobSlot {
             generation: 0,
             handle: None,
             snapshot: SummaryJobSnapshot::idle(),
+            raw: String::new(),
         }
     }
 }
@@ -64,6 +67,15 @@ impl SummaryService {
             jobs: Arc::new(Mutex::new(HashMap::new())),
             factory,
         }
+    }
+
+    #[cfg(test)]
+    fn prime_job(&self, meeting_id: &str, generation: u64) {
+        let mut jobs = self.jobs.lock().unwrap();
+        let slot = jobs
+            .entry(meeting_id.to_string())
+            .or_insert_with(JobSlot::new);
+        slot.generation = generation;
     }
 
     pub fn snapshot(&self, meeting_id: &str) -> SummaryJobSnapshot {
@@ -107,6 +119,7 @@ impl SummaryService {
             }
             slot.generation = slot.generation.wrapping_add(1);
             slot.snapshot = SummaryJobSnapshot::idle();
+            slot.raw.clear();
             slot.generation
         };
 
@@ -167,7 +180,7 @@ impl SummaryService {
         let emit_delta = emit.clone();
         let id_for_delta = meeting_id.clone();
         let on_delta = move |delta: &str| {
-            let accumulated = {
+            let (summary, title) = {
                 let mut jobs = jobs.lock().unwrap();
                 let Some(slot) = jobs.get_mut(&id_for_delta) else {
                     return;
@@ -175,12 +188,16 @@ impl SummaryService {
                 if slot.generation != generation {
                     return;
                 }
-                slot.snapshot.draft.push_str(delta);
-                slot.snapshot.draft.clone()
+                slot.raw.push_str(delta);
+                let parsed = parse_meeting_output(&slot.raw);
+                slot.snapshot.draft = parsed.summary.clone();
+                slot.snapshot.title = parsed.title.clone();
+                (parsed.summary, parsed.title)
             };
             emit_delta(SummaryEvent::Delta(SummaryDelta {
                 meeting_id: id_for_delta.clone(),
-                text: accumulated,
+                text: summary,
+                title,
             }));
         };
 
@@ -202,11 +219,27 @@ impl SummaryService {
                 );
             }
             Ok(text) => {
-                if let Err(e) = self.store.update_summary(&meeting_id, &text) {
+                let parsed = parse_meeting_output(&text);
+                if parsed.summary.trim().is_empty() {
+                    self.fail(
+                        &meeting_id,
+                        generation,
+                        &emit,
+                        "The model returned an empty summary.".into(),
+                    );
+                    return;
+                }
+                if let Err(e) = self.store.update_summary(&meeting_id, &parsed.summary) {
                     self.fail(&meeting_id, generation, &emit, e.to_user_message());
                     return;
                 }
-                self.set_done(&meeting_id, generation, text);
+                if let Some(title) = parsed.title.as_deref() {
+                    if let Err(e) = self.store.update_title(&meeting_id, title) {
+                        self.fail(&meeting_id, generation, &emit, e.to_user_message());
+                        return;
+                    }
+                }
+                self.set_done(&meeting_id, generation, parsed.summary.clone(), parsed.title);
                 emit(SummaryEvent::Status(SummaryStatus {
                     meeting_id: meeting_id.clone(),
                     state: SummaryJobState::Done,
@@ -237,16 +270,19 @@ impl SummaryService {
                 slot.snapshot.state = SummaryJobState::Running;
                 slot.snapshot.error = None;
                 slot.snapshot.draft.clear();
+                slot.snapshot.title = None;
+                slot.raw.clear();
             }
         }
     }
 
-    fn set_done(&self, meeting_id: &str, generation: u64, text: String) {
+    fn set_done(&self, meeting_id: &str, generation: u64, text: String, title: Option<String>) {
         let mut jobs = self.jobs.lock().unwrap();
         if let Some(slot) = jobs.get_mut(meeting_id) {
             if slot.generation == generation {
                 slot.snapshot.state = SummaryJobState::Done;
                 slot.snapshot.draft = text;
+                slot.snapshot.title = title;
                 slot.snapshot.error = None;
             }
         }
@@ -326,6 +362,59 @@ mod tests {
             self.called.store(true, Ordering::SeqCst);
             Box::pin(async { Ok("should not be called".into()) })
         }
+    }
+
+    struct FixedClient {
+        text: String,
+    }
+
+    impl LlmClient for FixedClient {
+        fn stream_text<'a>(
+            &'a self,
+            _system: &'a str,
+            _user: &'a str,
+            on_delta: &'a (dyn Fn(&str) + Send + Sync),
+        ) -> Pin<Box<dyn Future<Output = Result<String, LlmError>> + Send + 'a>> {
+            let text = self.text.clone();
+            Box::pin(async move {
+                on_delta(&text);
+                Ok(text)
+            })
+        }
+    }
+
+    #[tokio::test]
+    async fn run_job_persists_title_and_strips_it_from_summary() {
+        let store = temp_store();
+        store
+            .insert_live_meeting("m1", 1_000, "Untitled meeting")
+            .unwrap();
+        store
+            .insert_segment("m1:s1", "m1", 0, 10, "Switzerland POC scope")
+            .unwrap();
+        store.finish_meeting("m1", 2_000).unwrap();
+
+        std::env::set_var("XAI_API_KEY", "test-key");
+        let factory: ClientFactory = Arc::new(|| {
+            Ok(Arc::new(FixedClient {
+                text: "Title: Switzerland POC\n\n- **UBS** keeps the engine\n".into(),
+            }) as Arc<dyn LlmClient>)
+        });
+        let service = SummaryService::with_factory(store, factory);
+        service.prime_job("m1", 1);
+        let emit: SummaryEmitter = Arc::new(|_| {});
+        service.run_job("m1".into(), 1, emit).await;
+
+        let record = service.store.get_record("m1").unwrap();
+        assert_eq!(record.meeting.title, "Switzerland POC");
+        assert_eq!(
+            record.meeting.summary.as_deref(),
+            Some("- **UBS** keeps the engine")
+        );
+        assert_eq!(
+            record.meeting.teaser.as_deref(),
+            Some("UBS keeps the engine")
+        );
     }
 
     #[tokio::test]

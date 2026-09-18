@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { Spinner } from "../components/Spinner";
@@ -8,6 +8,7 @@ import {
   formatMeetingClock,
   formatMeetingDetailWhen,
   groupMeetingsByDay,
+  parseMeetingLlmOutput,
   type MeetingListItem,
   type MeetingRecord,
   type SummaryDeltaPayload,
@@ -24,8 +25,28 @@ type MeetingsView =
   | { kind: "list" }
   | { kind: "detail"; id: string };
 
+function applyGeneratedTitle(
+  meetingId: string,
+  title: string | undefined,
+  setRecord: Dispatch<SetStateAction<MeetingRecord | null>>,
+  setMeetings: Dispatch<SetStateAction<MeetingListItem[]>>,
+) {
+  if (!title) return;
+  setRecord((prev) =>
+    prev && prev.meeting.id === meetingId
+      ? { ...prev, meeting: { ...prev.meeting, title } }
+      : prev
+  );
+  setMeetings((prev) =>
+    prev.map((meeting) =>
+      meeting.id === meetingId ? { ...meeting, title } : meeting
+    )
+  );
+}
+
 function renderSummary(markdown: string) {
-  return markdown
+  return parseMeetingLlmOutput(markdown)
+    .summary
     .split(/\n+/)
     .map((line) => line.trim())
     .filter(Boolean)
@@ -87,10 +108,20 @@ export function MeetingsPage() {
     try {
       const job = await invoke<SummaryJobSnapshot>("get_summary_job", { id });
       const next = await invoke<MeetingRecord>("get_meeting", { id });
+      if (job.title) {
+        next.meeting.title = job.title;
+      }
       setJobState(job.state);
       setDraft(job.draft);
       setSummaryError(job.error ?? null);
       setRecord(next);
+      if (job.title) {
+        setMeetings((prev) =>
+          prev.map((meeting) =>
+            meeting.id === id ? { ...meeting, title: job.title! } : meeting
+          )
+        );
+      }
       if (job.state === "running") {
         setSummarizingIds((prev) => {
           const nextIds = new Set(prev);
@@ -121,12 +152,13 @@ export function MeetingsPage() {
       const unlistenDelta = await listen<SummaryDeltaPayload>(
         EVENT_SUMMARY_DELTA,
         (event) => {
-          const { meetingId, text } = event.payload;
+          const { meetingId, text, title } = event.payload;
           setSummarizingIds((prev) => {
             const nextIds = new Set(prev);
             nextIds.add(meetingId);
             return nextIds;
           });
+          applyGeneratedTitle(meetingId, title, setRecord, setMeetings);
           if (detailIdRef.current === meetingId) {
             setDraft(text);
             setJobState("running");

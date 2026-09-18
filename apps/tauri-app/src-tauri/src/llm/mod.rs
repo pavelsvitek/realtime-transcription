@@ -1,3 +1,4 @@
+pub mod output;
 pub mod provider;
 pub mod service;
 pub mod sse;
