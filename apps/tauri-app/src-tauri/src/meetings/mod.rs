@@ -416,18 +416,33 @@ fn migrate(conn: &Connection) -> Result<(), AppError> {
         )
         .unwrap_or(0);
 
-    if current >= SCHEMA_VERSION {
-        return Ok(());
-    }
     if current < 1 {
         conn.execute_batch(MIGRATION_V1).map_err(store_err)?;
         record_migration(conn, 1)?;
     }
-    if current < 2 {
-        conn.execute_batch(MIGRATION_V2).map_err(store_err)?;
+
+    // Add archived_at even if version 2 was stamped without the column.
+    if current < SCHEMA_VERSION || !column_exists(conn, "meetings", "archived_at")? {
+        if !column_exists(conn, "meetings", "archived_at")? {
+            conn.execute_batch(MIGRATION_V2).map_err(store_err)?;
+        }
         record_migration(conn, 2)?;
     }
     Ok(())
+}
+
+fn column_exists(conn: &Connection, table: &str, column: &str) -> Result<bool, AppError> {
+    let mut stmt = conn
+        .prepare(&format!("PRAGMA table_info({table})"))
+        .map_err(store_err)?;
+    let mut rows = stmt.query([]).map_err(store_err)?;
+    while let Some(row) = rows.next().map_err(store_err)? {
+        let name: String = row.get(1).map_err(store_err)?;
+        if name == column {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 fn record_migration(conn: &Connection, version: i64) -> Result<(), AppError> {
@@ -741,5 +756,36 @@ mod tests {
         store.archive_meeting("m1").unwrap();
         assert!(store.list_finished().unwrap().is_empty());
         assert_eq!(store.get_record("m1").unwrap().meeting.title, "Old");
+    }
+
+    #[test]
+    fn repairs_version_2_stamp_missing_archived_at() {
+        let dir = std::env::temp_dir().join(format!("meetings-v2-gap-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("meetings.db");
+        {
+            let conn = Connection::open(&path).unwrap();
+            conn.execute_batch(MIGRATION_V1).unwrap();
+            conn.execute(
+                "INSERT INTO schema_migrations (version, applied_at) VALUES (1, 1), (2, 2)",
+                [],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO meetings (
+                    id, started_at, finished_at, title, teaser, summary, status,
+                    updated_at, deleted_at, revision, last_writer_device_id
+                ) VALUES ('m1', 1000, 2000, 'Old', NULL, NULL, 'finished', 2000, NULL, 1, 'dev')",
+                [],
+            )
+            .unwrap();
+        }
+
+        let store = MeetingStore::open(&path).unwrap();
+        let list = store.list_finished().unwrap();
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].id, "m1");
+        store.archive_meeting("m1").unwrap();
+        assert!(store.list_finished().unwrap().is_empty());
     }
 }
