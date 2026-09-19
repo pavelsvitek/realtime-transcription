@@ -10,7 +10,7 @@ use crate::ipc::meetings::{MeetingDetail, MeetingListItem, MeetingRecord, Meetin
 
 const APP_SUPPORT_DIR: &str = "com.pavel.tauri-app";
 const DB_FILE: &str = "meetings.db";
-const SCHEMA_VERSION: i64 = 1;
+const SCHEMA_VERSION: i64 = 2;
 const DEVICE_ID_KEY: &str = "device_id";
 
 const MIGRATION_V1: &str = r#"
@@ -69,6 +69,13 @@ CREATE TABLE IF NOT EXISTS sync_state (
 );
 "#;
 
+const MIGRATION_V2: &str = r#"
+ALTER TABLE meetings ADD COLUMN archived_at INTEGER;
+
+CREATE INDEX IF NOT EXISTS meetings_list_archived_idx
+    ON meetings (status, deleted_at, archived_at, started_at);
+"#;
+
 #[derive(Clone)]
 pub struct MeetingStore {
     conn: Arc<Mutex<Connection>>,
@@ -114,7 +121,12 @@ impl MeetingStore {
         &self.path
     }
 
-    pub fn insert_live_meeting(&self, id: &str, started_at: i64, title: &str) -> Result<(), AppError> {
+    pub fn insert_live_meeting(
+        &self,
+        id: &str,
+        started_at: i64,
+        title: &str,
+    ) -> Result<(), AppError> {
         let now = now_ms();
         let conn = self.conn.lock().unwrap();
         conn.execute(
@@ -260,13 +272,53 @@ impl MeetingStore {
         Ok(())
     }
 
+    pub fn archive_meeting(&self, id: &str) -> Result<(), AppError> {
+        let now = now_ms();
+        let conn = self.conn.lock().unwrap();
+        let changed = conn
+            .execute(
+                "UPDATE meetings
+                 SET archived_at = ?1,
+                     updated_at = ?1,
+                     revision = revision + 1,
+                     last_writer_device_id = ?2
+                 WHERE id = ?3 AND deleted_at IS NULL AND archived_at IS NULL",
+                params![now, self.device_id, id],
+            )
+            .map_err(store_err)?;
+        if changed == 0 {
+            return Err(AppError::Store("Meeting not found".into()));
+        }
+        Ok(())
+    }
+
+    pub fn delete_meeting(&self, id: &str) -> Result<(), AppError> {
+        let mut conn = self.conn.lock().unwrap();
+        let tx = conn.transaction().map_err(store_err)?;
+        tx.execute(
+            "DELETE FROM transcript_segments WHERE meeting_id = ?1",
+            params![id],
+        )
+        .map_err(store_err)?;
+        let changed = tx
+            .execute("DELETE FROM meetings WHERE id = ?1", params![id])
+            .map_err(store_err)?;
+        if changed == 0 {
+            return Err(AppError::Store("Meeting not found".into()));
+        }
+        tx.commit().map_err(store_err)?;
+        Ok(())
+    }
+
     pub fn list_finished(&self) -> Result<Vec<MeetingListItem>, AppError> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn
             .prepare(
                 "SELECT id, started_at, title, teaser
                  FROM meetings
-                 WHERE status = 'finished' AND deleted_at IS NULL
+                 WHERE status = 'finished'
+                   AND deleted_at IS NULL
+                   AND archived_at IS NULL
                  ORDER BY started_at DESC",
             )
             .map_err(store_err)?;
@@ -367,11 +419,21 @@ fn migrate(conn: &Connection) -> Result<(), AppError> {
     if current >= SCHEMA_VERSION {
         return Ok(());
     }
+    if current < 1 {
+        conn.execute_batch(MIGRATION_V1).map_err(store_err)?;
+        record_migration(conn, 1)?;
+    }
+    if current < 2 {
+        conn.execute_batch(MIGRATION_V2).map_err(store_err)?;
+        record_migration(conn, 2)?;
+    }
+    Ok(())
+}
 
-    conn.execute_batch(MIGRATION_V1).map_err(store_err)?;
+fn record_migration(conn: &Connection, version: i64) -> Result<(), AppError> {
     conn.execute(
         "INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (?1, ?2)",
-        params![SCHEMA_VERSION, now_ms()],
+        params![version, now_ms()],
     )
     .map_err(store_err)?;
     Ok(())
@@ -473,7 +535,9 @@ mod tests {
     fn segments_order_by_start_ms_and_skip_empty_text() {
         let store = temp_db();
         store.insert_live_meeting("m1", 1_000, "Call").unwrap();
-        store.insert_segment("s2", "m1", 400, 800, "second").unwrap();
+        store
+            .insert_segment("s2", "m1", 400, 800, "second")
+            .unwrap();
         store.insert_segment("s1", "m1", 0, 300, "first").unwrap();
         store.insert_segment("s0", "m1", 10, 20, "").unwrap();
         store.finish_meeting("m1", 2_000).unwrap();
@@ -520,9 +584,7 @@ mod tests {
         let path = dir.join("meetings.db");
         {
             let store = MeetingStore::open(&path).unwrap();
-            store
-                .insert_live_meeting("m1", 1_000, "Stuck")
-                .unwrap();
+            store.insert_live_meeting("m1", 1_000, "Stuck").unwrap();
             store
                 .insert_segment("m1:seg-0", "m1", 0, 100, "hello")
                 .unwrap();
@@ -587,14 +649,20 @@ mod tests {
         store.finish_meeting("m1", 2_000).unwrap();
 
         store
-            .update_summary("m1", "- **Ship** the API by Friday\n- Next steps for billing")
+            .update_summary(
+                "m1",
+                "- **Ship** the API by Friday\n- Next steps for billing",
+            )
             .unwrap();
         let row = store.get_record("m1").unwrap();
         assert_eq!(
             row.meeting.summary.as_deref(),
             Some("- **Ship** the API by Friday\n- Next steps for billing")
         );
-        assert_eq!(row.meeting.teaser.as_deref(), Some("Ship the API by Friday"));
+        assert_eq!(
+            row.meeting.teaser.as_deref(),
+            Some("Ship the API by Friday")
+        );
         assert_eq!(
             store.list_finished().unwrap()[0].teaser.as_deref(),
             Some("Ship the API by Friday")
@@ -606,5 +674,72 @@ mod tests {
         assert_eq!(teaser.chars().count(), 80);
 
         assert!(store.update_summary("missing", "Nope").is_err());
+    }
+
+    #[test]
+    fn archive_hides_from_list_but_keeps_the_row() {
+        let store = temp_db();
+        store.insert_live_meeting("keep", 1_000, "Keep").unwrap();
+        store.insert_live_meeting("hide", 2_000, "Hide").unwrap();
+        store.finish_meeting("keep", 1_500).unwrap();
+        store.finish_meeting("hide", 2_500).unwrap();
+
+        store.archive_meeting("hide").unwrap();
+
+        let list = store.list_finished().unwrap();
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].id, "keep");
+        assert_eq!(store.get_record("hide").unwrap().meeting.title, "Hide");
+        assert!(store.archive_meeting("hide").is_err());
+        assert!(store.archive_meeting("missing").is_err());
+    }
+
+    #[test]
+    fn delete_meeting_removes_row_and_segments() {
+        let store = temp_db();
+        store.insert_live_meeting("m1", 1_000, "Keep").unwrap();
+        store.insert_live_meeting("m2", 2_000, "Delete me").unwrap();
+        store.finish_meeting("m1", 1_500).unwrap();
+        store.finish_meeting("m2", 2_500).unwrap();
+        store
+            .insert_segment("m2:seg-0", "m2", 0, 100, "hello")
+            .unwrap();
+
+        store.delete_meeting("m2").unwrap();
+
+        assert_eq!(store.list_finished().unwrap().len(), 1);
+        assert_eq!(store.list_finished().unwrap()[0].id, "m1");
+        assert!(store.get_record("m2").is_err());
+        assert_eq!(store.segment_count("m2").unwrap(), 0);
+        assert!(store.delete_meeting("m2").is_err());
+    }
+
+    #[test]
+    fn migrates_v1_database_and_adds_archived_at() {
+        let dir = std::env::temp_dir().join(format!("meetings-v1-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("meetings.db");
+        {
+            let conn = Connection::open(&path).unwrap();
+            conn.execute_batch(MIGRATION_V1).unwrap();
+            conn.execute(
+                "INSERT INTO schema_migrations (version, applied_at) VALUES (1, 1)",
+                [],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO meetings (
+                    id, started_at, finished_at, title, teaser, summary, status,
+                    updated_at, deleted_at, revision, last_writer_device_id
+                ) VALUES ('m1', 1000, 2000, 'Old', NULL, NULL, 'finished', 2000, NULL, 1, 'dev')",
+                [],
+            )
+            .unwrap();
+        }
+
+        let store = MeetingStore::open(&path).unwrap();
+        store.archive_meeting("m1").unwrap();
+        assert!(store.list_finished().unwrap().is_empty());
+        assert_eq!(store.get_record("m1").unwrap().meeting.title, "Old");
     }
 }

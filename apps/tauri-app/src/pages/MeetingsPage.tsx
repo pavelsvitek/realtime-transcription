@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { Spinner } from "../components/Spinner";
 import { MeetingTitle } from "../components/MeetingTitle";
+import { MeetingOverflowMenu } from "../components/MeetingOverflowMenu";
 import { formatTime } from "../lib/format";
 import {
   formatMeetingClock,
@@ -81,6 +82,7 @@ export function MeetingsPage() {
   const [summarizingIds, setSummarizingIds] = useState<Set<string>>(
     () => new Set()
   );
+  const [mutating, setMutating] = useState(false);
 
   const detailIdRef = useRef<string | null>(null);
   detailIdRef.current = view.kind === "detail" ? view.id : null;
@@ -284,6 +286,34 @@ export function MeetingsPage() {
     }
   };
 
+  const archiveMeeting = async () => {
+    if (view.kind !== "detail" || mutating) return;
+    setMutating(true);
+    setError(null);
+    try {
+      await invoke("archive_meeting", { id: view.id });
+      goBackToList();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setMutating(false);
+    }
+  };
+
+  const deleteMeeting = async () => {
+    if (view.kind !== "detail" || mutating) return;
+    setMutating(true);
+    setError(null);
+    try {
+      await invoke("delete_meeting", { id: view.id });
+      goBackToList();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setMutating(false);
+    }
+  };
+
   if (view.kind === "detail") {
     const meeting = record?.meeting;
     const running = jobState === "running";
@@ -309,6 +339,11 @@ export function MeetingsPage() {
           >
             Meetings
           </button>
+          <MeetingOverflowMenu
+            disabled={mutating}
+            onArchive={() => void archiveMeeting()}
+            onDelete={() => void deleteMeeting()}
+          />
         </header>
 
         {error && <div className="error-banner">{error}</div>}

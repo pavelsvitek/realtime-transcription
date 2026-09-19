@@ -82,6 +82,8 @@ pub fn run() {
             commands::meetings::generate_meeting_summary,
             commands::meetings::get_summary_job,
             commands::meetings::generate_all_meeting_summaries,
+            commands::meetings::archive_meeting,
+            commands::meetings::delete_meeting,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

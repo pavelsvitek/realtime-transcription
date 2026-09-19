@@ -795,7 +795,8 @@ body,
 }
 
 .meetings-detail-header {
-  justify-content: flex-start;
+  justify-content: space-between;
+  padding-right: 24px;
 }
 
 .meetings-back {
@@ -810,6 +811,106 @@ body,
 
 .meetings-back:hover {
   color: var(--text-primary);
+}
+
+.meeting-menu {
+  position: relative;
+}
+
+.meeting-menu-trigger {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  background: var(--surface-content);
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0;
+}
+
+.meeting-menu-trigger:hover {
+  color: var(--text-primary);
+  background: var(--surface-hover);
+}
+
+.meeting-menu-trigger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.meeting-menu-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 8;
+  min-width: 220px;
+  padding: 8px;
+  border: 1px solid var(--border-default);
+  border-radius: 16px;
+  background: var(--surface-elevated);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
+}
+
+.meeting-menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  padding: 10px 12px;
+}
+
+.meeting-menu-item:hover {
+  background: var(--surface-hover);
+}
+
+.meeting-menu-item-danger {
+  color: #ef4444;
+}
+
+.meeting-menu-icon {
+  flex-shrink: 0;
+}
+
+.meeting-menu-divider {
+  height: 1px;
+  margin: 4px 8px;
+  background: var(--border-default);
+}
+
+.meeting-menu-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 6px 4px 2px;
+}
+
+.meeting-menu-confirm-copy {
+  margin: 0;
+  padding: 0 8px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+.meeting-menu-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.meeting-menu-confirm-actions .meeting-menu-item {
+  width: auto;
 }
 
 .meeting-detail {
