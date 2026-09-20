@@ -91,6 +91,36 @@ body,
   min-height: 0;
 }
 
+.sidebar-start-item {
+  margin-bottom: 8px;
+}
+
+.sidebar-start-meeting {
+  width: 100%;
+  text-align: left;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  color: #ffffff;
+  background: #2563eb;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background-color 0.15s ease;
+}
+
+.sidebar-start-meeting:hover {
+  background: #1d4ed8;
+}
+
+.sidebar-start-meeting .sidebar-link-icon {
+  color: #ffffff;
+}
+
 .sidebar-footer {
   flex-shrink: 0;
   padding-top: 8px;

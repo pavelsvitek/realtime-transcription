@@ -14,7 +14,15 @@ function loadBackend(): AsrBackend {
   return raw === "xai" ? "xai" : "local";
 }
 
-export function TranscribePage() {
+type TranscribePageProps = {
+  startRequestId?: number;
+  onStartRequestHandled?: () => void;
+};
+
+export function TranscribePage({
+  startRequestId = 0,
+  onStartRequestHandled,
+}: TranscribePageProps) {
   const [audioSource, setAudioSource] = useState<AudioSource>("both");
   const [backend, setBackend] = useState<AsrBackend>(loadBackend);
   const {
@@ -34,6 +42,17 @@ export function TranscribePage() {
   useEffect(() => {
     localStorage.setItem(BACKEND_STORAGE_KEY, backend);
   }, [backend]);
+
+  useEffect(() => {
+    if (startRequestId === 0) {
+      return;
+    }
+    onStartRequestHandled?.();
+    if (isActive || isLoading || isStopping) {
+      return;
+    }
+    start(audioSource, backend);
+  }, [startRequestId]);
 
   return (
     <main className="page">

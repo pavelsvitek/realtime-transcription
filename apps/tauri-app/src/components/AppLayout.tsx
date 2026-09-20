@@ -6,15 +6,25 @@ import { TitleBar } from "./TitleBar";
 interface AppLayoutProps {
   currentPage: AppPage;
   onNavigate: (page: AppPage) => void;
+  onStartMeeting: () => void;
   children: ReactNode;
 }
 
-export function AppLayout({ currentPage, onNavigate, children }: AppLayoutProps) {
+export function AppLayout({
+  currentPage,
+  onNavigate,
+  onStartMeeting,
+  children,
+}: AppLayoutProps) {
   useNavHotkeys(onNavigate);
 
   return (
     <div className="app-shell">
-      <Sidebar currentPage={currentPage} onNavigate={onNavigate} />
+      <Sidebar
+        currentPage={currentPage}
+        onNavigate={onNavigate}
+        onStartMeeting={onStartMeeting}
+      />
       <div className="app-main">
         <TitleBar>
 

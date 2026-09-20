@@ -20,9 +20,10 @@ const NAV_ITEMS: { id: AppPage; label: string; icon: ReactNode }[] = [
 interface SidebarProps {
   currentPage: AppPage;
   onNavigate: (page: AppPage) => void;
+  onStartMeeting: () => void;
 }
 
-export function Sidebar({ currentPage, onNavigate }: SidebarProps) {
+export function Sidebar({ currentPage, onNavigate, onStartMeeting }: SidebarProps) {
   const { scheme, toggleScheme } = useColorScheme();
 
   return (
@@ -30,6 +31,16 @@ export function Sidebar({ currentPage, onNavigate }: SidebarProps) {
       <div className="sidebar-chrome" data-tauri-drag-region aria-hidden="true" />
       <div className="sidebar-brand">tauri-app</div>
       <ul className="sidebar-nav">
+        <li className="sidebar-start-item">
+          <button
+            type="button"
+            className="sidebar-start-meeting"
+            onClick={onStartMeeting}
+          >
+            <TranscriptionIcon />
+            <span className="sidebar-link-label">Start a meeting</span>
+          </button>
+        </li>
         {NAV_ITEMS.map((item) => (
           <li key={item.id}>
             <button
