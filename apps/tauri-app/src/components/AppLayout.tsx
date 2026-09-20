@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useNavHotkeys } from "../hooks/useNavHotkeys";
 import { Sidebar, type AppPage } from "./Sidebar";
 import { TitleBar } from "./TitleBar";
 
@@ -9,6 +10,8 @@ interface AppLayoutProps {
 }
 
 export function AppLayout({ currentPage, onNavigate, children }: AppLayoutProps) {
+  useNavHotkeys(onNavigate);
+
   return (
     <div className="app-shell">
       <Sidebar currentPage={currentPage} onNavigate={onNavigate} />
