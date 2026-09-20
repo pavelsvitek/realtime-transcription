@@ -470,6 +470,90 @@ body,
   background: var(--surface-hover);
 }
 
+.btn-primary {
+  background: #2563eb;
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+/* Add context dialog */
+.context-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 15, 15, 0.4);
+}
+
+.context-dialog {
+  width: min(520px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
+}
+
+.context-dialog-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.context-dialog-copy {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.context-dialog-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.context-dialog-textarea {
+  width: 100%;
+  min-height: 180px;
+  resize: vertical;
+  border: 1px solid var(--border-input);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.45;
+  font-family: inherit;
+  background: var(--surface-input);
+  color: var(--text-primary);
+  outline: none;
+}
+
+.context-dialog-textarea:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+}
+
+.context-dialog-error {
+  margin: 0;
+  font-size: 13px;
+  color: #b91c1c;
+}
+
+.context-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 /* Error banner */
 .error-banner {
   padding: 8px 16px;
@@ -663,11 +747,19 @@ body,
   border-bottom-color: #4a1c1c;
 }
 
+[data-theme="dark"] .context-dialog-error {
+  color: #fca5a5;
+}
+
 @media (prefers-color-scheme: dark) {
   :root[data-theme="system"] .error-banner {
     background: #2d1111;
     color: #fca5a5;
     border-bottom-color: #4a1c1c;
+  }
+
+  :root[data-theme="system"] .context-dialog-error {
+    color: #fca5a5;
   }
 }
 

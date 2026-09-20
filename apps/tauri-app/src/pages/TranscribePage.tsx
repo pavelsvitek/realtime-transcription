@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { AddContextDialog } from "../components/AddContextDialog";
 import { MicIndicator } from "../components/MicIndicator";
 import { Spinner } from "../components/Spinner";
 import { TranscriptFeed } from "../components/TranscriptFeed";
 import { useAudioDevice } from "../hooks/useAudioDevice";
 import { useMicLevel } from "../hooks/useMicLevel";
 import { useTranscription } from "../hooks/useTranscription";
+import type { MeetingDetail } from "../lib/meetings";
 import type { AsrBackend, AudioSource } from "../lib/transcript-types";
 
 const BACKEND_STORAGE_KEY = "asrBackend";
@@ -30,10 +33,90 @@ export function TranscribePage() {
   } = useTranscription();
   const { device, error: deviceError } = useAudioDevice();
   const micActive = useMicLevel(isActive && !isStopping);
+  const [contextOpen, setContextOpen] = useState(false);
+  const [contextMeetingId, setContextMeetingId] = useState<string | null>(null);
+  const [contextDraft, setContextDraft] = useState("");
+  const [contextHasValue, setContextHasValue] = useState(false);
+  const [contextSaving, setContextSaving] = useState(false);
+  const [contextError, setContextError] = useState<string | null>(null);
 
   useEffect(() => {
     localStorage.setItem(BACKEND_STORAGE_KEY, backend);
   }, [backend]);
+
+  useEffect(() => {
+    if (!isActive) {
+      setContextHasValue(false);
+      return;
+    }
+    let cancelled = false;
+    void invoke<MeetingDetail | null>("get_live_meeting")
+      .then((meeting) => {
+        if (cancelled || !meeting) return;
+        setContextMeetingId(meeting.id);
+        setContextHasValue(Boolean(meeting.context?.trim()));
+      })
+      .catch(() => {
+        /* Button still opens the dialog and loads context there. */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isActive]);
+
+  const closeContext = () => {
+    if (contextSaving) return;
+    setContextOpen(false);
+    setContextError(null);
+  };
+
+  const saveContext = async (draft: string = contextDraft) => {
+    const meetingId = contextMeetingId;
+    if (!meetingId || contextSaving) return false;
+    setContextSaving(true);
+    setContextError(null);
+    try {
+      const saved = await invoke<string | null>("update_meeting_context", {
+        id: meetingId,
+        context: draft,
+      });
+      setContextHasValue(Boolean(saved?.trim()));
+      setContextDraft(saved ?? "");
+      setContextOpen(false);
+      return true;
+    } catch (e) {
+      setContextError(String(e));
+      return false;
+    } finally {
+      setContextSaving(false);
+    }
+  };
+
+  const openContext = async () => {
+    setContextError(null);
+    try {
+      const meeting = await invoke<MeetingDetail | null>("get_live_meeting");
+      if (!meeting) {
+        setContextError("No live meeting is in progress.");
+        setContextOpen(true);
+        return;
+      }
+      setContextMeetingId(meeting.id);
+      setContextDraft(meeting.context ?? "");
+      setContextHasValue(Boolean(meeting.context?.trim()));
+      setContextOpen(true);
+    } catch (e) {
+      setContextError(String(e));
+      setContextOpen(true);
+    }
+  };
+
+  const handleStop = async () => {
+    if (contextOpen && contextMeetingId) {
+      await saveContext();
+    }
+    await stop();
+  };
 
   return (
     <main className="page">
@@ -74,6 +157,18 @@ export function TranscribePage() {
             deviceKind={device?.kind ?? null}
             deviceError={deviceError}
           />
+          {isActive && (
+            <button
+              type="button"
+              className="btn btn-clear"
+              onClick={() => void openContext()}
+              disabled={isStopping || contextSaving}
+              aria-haspopup="dialog"
+              aria-expanded={contextOpen}
+            >
+              {contextHasValue ? "Edit context" : "Add context"}
+            </button>
+          )}
           {!isActive ? (
             <button
               className="btn btn-start"
@@ -85,7 +180,7 @@ export function TranscribePage() {
           ) : (
             <button
               className="btn btn-stop"
-              onClick={stop}
+              onClick={() => void handleStop()}
               disabled={isStopping}
               aria-busy={isStopping}
               aria-label={isStopping ? "Stopping transcription" : "Stop transcription"}
@@ -129,6 +224,18 @@ export function TranscribePage() {
               : "Ready"}
         </span>
       </footer>
+
+      <AddContextDialog
+        open={contextOpen}
+        value={contextDraft}
+        saving={contextSaving}
+        error={contextError}
+        onChange={setContextDraft}
+        onCancel={closeContext}
+        onSave={() => {
+          void saveContext();
+        }}
+      />
     </main>
   );
 }

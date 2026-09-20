@@ -19,6 +19,7 @@ pub struct MeetingDetail {
     pub teaser: Option<String>,
     pub summary: Option<String>,
     pub status: String,
+    pub context: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -52,5 +53,22 @@ mod tests {
         let json = serde_json::to_value(&item).unwrap();
         assert_eq!(json["startedAt"], 1_000);
         assert!(json.get("started_at").is_none());
+    }
+
+    #[test]
+    fn detail_serializes_context() {
+        let detail = MeetingDetail {
+            id: "m1".into(),
+            started_at: 1_000,
+            finished_at: None,
+            title: "POC".into(),
+            teaser: None,
+            summary: None,
+            status: "live".into(),
+            context: Some("Pavel, Igor".into()),
+        };
+        let json = serde_json::to_value(&detail).unwrap();
+        assert_eq!(json["context"], "Pavel, Igor");
+        assert_eq!(json["status"], "live");
     }
 }

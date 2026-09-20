@@ -20,6 +20,8 @@ The title must:
 - Name this meeting specifically (topic / who), not "Untitled meeting", "Meeting notes", "Summary", or "Executive Summary"
 - Be a single line with no quotes and no trailing period
 - Use the transcript's own language; do not invent facts
+- If the user message includes a Meeting context section, treat it as supplied facts (participants, projects, constraints, and other background). Use it to disambiguate names, roles, and topics that are unclear in the transcript
+- Do not contradict the transcript; do not invent facts beyond the transcript and that context
 
 Voice and attribution:
 - Write in third-person past tense as a neutral meeting report

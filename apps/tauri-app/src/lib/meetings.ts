@@ -13,6 +13,7 @@ export type MeetingDetail = {
   teaser: string | null;
   summary: string | null;
   status: string;
+  context: string | null;
 };
 
 export type MeetingSegment = {
