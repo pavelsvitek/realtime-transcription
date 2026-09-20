@@ -6,7 +6,9 @@ use rusqlite::{params, Connection, OptionalExtension};
 use uuid::Uuid;
 
 use crate::error::AppError;
-use crate::ipc::meetings::{MeetingDetail, MeetingListItem, MeetingRecord, MeetingSegment};
+use crate::ipc::meetings::{
+    MeetingDetail, MeetingListItem, MeetingRecord, MeetingSegment, PatchMeeting,
+};
 
 const APP_SUPPORT_DIR: &str = "com.pavel.tauri-app";
 const DB_FILE: &str = "meetings.db";
@@ -320,23 +322,52 @@ impl MeetingStore {
     }
 
     pub fn archive_meeting(&self, id: &str) -> Result<(), AppError> {
+        self.set_archived_at(id, now_ms(), false)
+    }
+
+    fn set_archived_at(
+        &self,
+        id: &str,
+        archived_at: i64,
+        allow_already_archived: bool,
+    ) -> Result<(), AppError> {
         let now = now_ms();
         let conn = self.conn.lock().unwrap();
+        let sql = if allow_already_archived {
+            "UPDATE meetings
+             SET archived_at = ?1,
+                 updated_at = ?2,
+                 revision = revision + 1,
+                 last_writer_device_id = ?3
+             WHERE id = ?4 AND deleted_at IS NULL"
+        } else {
+            "UPDATE meetings
+             SET archived_at = ?1,
+                 updated_at = ?2,
+                 revision = revision + 1,
+                 last_writer_device_id = ?3
+             WHERE id = ?4 AND deleted_at IS NULL AND archived_at IS NULL"
+        };
         let changed = conn
-            .execute(
-                "UPDATE meetings
-                 SET archived_at = ?1,
-                     updated_at = ?1,
-                     revision = revision + 1,
-                     last_writer_device_id = ?2
-                 WHERE id = ?3 AND deleted_at IS NULL AND archived_at IS NULL",
-                params![now, self.device_id, id],
-            )
+            .execute(sql, params![archived_at, now, self.device_id, id])
             .map_err(store_err)?;
         if changed == 0 {
             return Err(AppError::Store("Meeting not found".into()));
         }
         Ok(())
+    }
+
+    pub fn patch_meeting(&self, id: &str, patch: &PatchMeeting) -> Result<MeetingRecord, AppError> {
+        if let Some(title) = &patch.title {
+            self.update_title(id, title)?;
+        }
+        if let Some(context) = &patch.context {
+            self.update_context(id, context)?;
+        }
+        if let Some(archived_at) = patch.archived_at {
+            self.set_archived_at(id, archived_at, true)?;
+        }
+        self.get_record(id)
     }
 
     pub fn delete_meeting(&self, id: &str) -> Result<(), AppError> {
@@ -387,7 +418,7 @@ impl MeetingStore {
         Ok(items)
     }
 
-    pub fn get_record(&self, id: &str) -> Result<MeetingRecord, AppError> {
+    pub fn find_record(&self, id: &str) -> Result<Option<MeetingRecord>, AppError> {
         let conn = self.conn.lock().unwrap();
         let meeting = conn
             .query_row(
@@ -398,8 +429,11 @@ impl MeetingStore {
                 meeting_from_row,
             )
             .optional()
-            .map_err(store_err)?
-            .ok_or_else(|| AppError::Store("Meeting not found".into()))?;
+            .map_err(store_err)?;
+
+        let Some(meeting) = meeting else {
+            return Ok(None);
+        };
 
         let mut stmt = conn
             .prepare(
@@ -425,7 +459,12 @@ impl MeetingStore {
             segments.push(row.map_err(store_err)?);
         }
 
-        Ok(MeetingRecord { meeting, segments })
+        Ok(Some(MeetingRecord { meeting, segments }))
+    }
+
+    pub fn get_record(&self, id: &str) -> Result<MeetingRecord, AppError> {
+        self.find_record(id)?
+            .ok_or_else(|| AppError::Store("Meeting not found".into()))
     }
 }
 
@@ -901,6 +940,77 @@ mod tests {
         assert!(cleared.is_none());
         assert!(store.get_record("m1").unwrap().meeting.context.is_none());
         assert!(store.update_context("missing", "Nope").is_err());
+    }
+
+    #[test]
+    fn find_record_returns_none_when_missing() {
+        let store = temp_db();
+        assert!(store.find_record("missing").unwrap().is_none());
+    }
+
+    #[test]
+    fn patch_meeting_updates_only_provided_keys() {
+        let store = temp_db();
+        store
+            .insert_live_meeting("m1", 1_000, "Untitled meeting")
+            .unwrap();
+        store
+            .insert_segment("m1:seg-0", "m1", 0, 100, "hello")
+            .unwrap();
+
+        let titled = store
+            .patch_meeting(
+                "m1",
+                &PatchMeeting {
+                    title: Some("  Weekly sync  ".into()),
+                    ..PatchMeeting::default()
+                },
+            )
+            .unwrap();
+        assert_eq!(titled.meeting.title, "Weekly sync");
+        assert!(titled.meeting.context.is_none());
+        assert_eq!(titled.segments.len(), 1);
+
+        let both = store
+            .patch_meeting(
+                "m1",
+                &PatchMeeting {
+                    title: Some("Standup".into()),
+                    context: Some("  Pavel, Igor  ".into()),
+                    ..PatchMeeting::default()
+                },
+            )
+            .unwrap();
+        assert_eq!(both.meeting.title, "Standup");
+        assert_eq!(both.meeting.context.as_deref(), Some("Pavel, Igor"));
+
+        let context_only = store
+            .patch_meeting(
+                "m1",
+                &PatchMeeting {
+                    context: Some("".into()),
+                    ..PatchMeeting::default()
+                },
+            )
+            .unwrap();
+        assert_eq!(context_only.meeting.title, "Standup");
+        assert!(context_only.meeting.context.is_none());
+
+        store.finish_meeting("m1", 2_000).unwrap();
+        store
+            .patch_meeting(
+                "m1",
+                &PatchMeeting {
+                    archived_at: Some(3_000),
+                    ..PatchMeeting::default()
+                },
+            )
+            .unwrap();
+        assert!(store.list_finished().unwrap().is_empty());
+        assert_eq!(store.get_record("m1").unwrap().meeting.title, "Standup");
+        assert!(store
+            .patch_meeting("missing", &PatchMeeting::default())
+            .is_err());
     }
 
     #[test]

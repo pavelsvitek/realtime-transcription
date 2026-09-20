@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { createDebouncer } from "../lib/debounce";
+import { usePatchMeetingMutation } from "../models/Meeting";
 
 export const MEETING_CONTEXT_SAVE_DEBOUNCE_MS = 250;
 
@@ -30,6 +30,9 @@ export const MeetingContextEditor = forwardRef<
   const inFlightRef = useRef<Promise<void>>(Promise.resolve());
   const onContextChangeRef = useRef(onContextChange);
   onContextChangeRef.current = onContextChange;
+  const patchMeeting = usePatchMeetingMutation();
+  const patchMeetingRef = useRef(patchMeeting);
+  patchMeetingRef.current = patchMeeting;
 
   const persistRef = useRef<(next: string) => Promise<void>>(async () => {});
   persistRef.current = async (next: string) => {
@@ -38,13 +41,13 @@ export const MeetingContextEditor = forwardRef<
     setStatus("Saving…");
     setError(null);
     try {
-      const saved = await invoke<string | null>("update_meeting_context", {
+      const saved = await patchMeetingRef.current.mutateAsync({
         id,
-        context: next,
+        payload: { context: next },
       });
       if (meetingIdRef.current !== id) return;
-      lastSavedRef.current = saved ?? "";
-      onContextChangeRef.current?.(saved);
+      lastSavedRef.current = saved.meeting.context ?? "";
+      onContextChangeRef.current?.(saved.meeting.context);
       setStatus("Saved");
     } catch (e) {
       if (meetingIdRef.current !== id) return;

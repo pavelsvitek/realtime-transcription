@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -38,6 +38,15 @@ pub struct MeetingRecord {
     pub segments: Vec<MeetingSegment>,
 }
 
+/// Optional Meeting fields. Omitted keys are left unchanged.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PatchMeeting {
+    pub title: Option<String>,
+    pub context: Option<String>,
+    pub archived_at: Option<i64>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -70,5 +79,23 @@ mod tests {
         let json = serde_json::to_value(&detail).unwrap();
         assert_eq!(json["context"], "Pavel, Igor");
         assert_eq!(json["status"], "live");
+    }
+
+    #[test]
+    fn patch_deserializes_optional_camel_case_keys() {
+        let title_only: PatchMeeting =
+            serde_json::from_value(serde_json::json!({ "title": "Weekly sync" })).unwrap();
+        assert_eq!(title_only.title.as_deref(), Some("Weekly sync"));
+        assert!(title_only.context.is_none());
+        assert!(title_only.archived_at.is_none());
+
+        let context_and_archive: PatchMeeting = serde_json::from_value(serde_json::json!({
+            "context": "",
+            "archivedAt": 1_700_000_000_000i64
+        }))
+        .unwrap();
+        assert_eq!(context_and_archive.context.as_deref(), Some(""));
+        assert_eq!(context_and_archive.archived_at, Some(1_700_000_000_000));
+        assert!(context_and_archive.title.is_none());
     }
 }

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   MeetingContextEditor,
   type MeetingContextEditorHandle,
@@ -17,8 +17,8 @@ import { TranscriptFeed } from "../components/TranscriptFeed";
 import { useAudioDevice } from "../hooks/useAudioDevice";
 import { useMicLevel } from "../hooks/useMicLevel";
 import { useTranscription } from "../hooks/useTranscription";
-import type { MeetingDetail } from "../lib/meetings";
 import type { AsrBackend, AudioSource } from "../lib/transcript-types";
+import { meetingKeys, useGetLiveMeetingQuery } from "../models/Meeting";
 
 const BACKEND_STORAGE_KEY = "asrBackend";
 const LIVE_TAB_PREFIX = "transcribe";
@@ -53,7 +53,9 @@ export function TranscribePage({
   const { device, error: deviceError } = useAudioDevice();
   const micActive = useMicLevel(isActive && !isStopping);
   const [tab, setTab] = useState<MeetingDetailTab>("transcript");
-  const [liveMeeting, setLiveMeeting] = useState<MeetingDetail | null>(null);
+  const queryClient = useQueryClient();
+  const liveQuery = useGetLiveMeetingQuery(isActive);
+  const liveMeeting = isActive ? liveQuery.data ?? null : null;
   const contextEditorRef = useRef<MeetingContextEditorHandle>(null);
 
   useEffect(() => {
@@ -69,29 +71,13 @@ export function TranscribePage({
       return;
     }
     setTab("transcript");
-    setLiveMeeting(null);
+    queryClient.removeQueries({ queryKey: meetingKeys.live() });
     start(audioSource, backend);
   }, [startRequestId]);
 
-  useEffect(() => {
-    if (!isActive) {
-      return;
-    }
-    let cancelled = false;
-    void invoke<MeetingDetail | null>("get_live_meeting")
-      .then((meeting) => {
-        if (cancelled || !meeting) return;
-        setLiveMeeting(meeting);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [isActive]);
-
   const handleStart = async () => {
     setTab("transcript");
-    setLiveMeeting(null);
+    queryClient.removeQueries({ queryKey: meetingKeys.live() });
     await start(audioSource, backend);
   };
 
@@ -209,11 +195,6 @@ export function TranscribePage({
             meetingId={liveMeeting.id}
             initialContext={liveMeeting.context}
             fieldId="live-meeting-context-editor"
-            onContextChange={(context) => {
-              setLiveMeeting((prev) =>
-                prev ? { ...prev, context } : prev
-              );
-            }}
           />
         ) : (
           <p className="meetings-empty-copy">

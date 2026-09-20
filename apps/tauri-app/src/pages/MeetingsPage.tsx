@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { useQueryClient } from "@tanstack/react-query";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useStartMeetingConfirmOpen } from "../components/StartMeetingConfirm";
 import { Spinner } from "../components/Spinner";
@@ -28,37 +29,44 @@ import {
   EVENT_SUMMARY_DELTA,
   EVENT_SUMMARY_STATUS,
 } from "../lib/tauri-events";
+import {
+  meetingKeys,
+  useDeleteMeetingMutation,
+  useGenerateMeetingSummaryMutation,
+  useGetAllMeetingsQuery,
+  useGetMeetingQuery,
+  usePatchMeetingMutation,
+} from "../models/Meeting";
 
 type MeetingsView =
   | { kind: "list" }
   | { kind: "detail"; id: string };
 
 function applyGeneratedTitle(
+  queryClient: ReturnType<typeof useQueryClient>,
   meetingId: string,
   title: string | undefined,
-  setRecord: Dispatch<SetStateAction<MeetingRecord | null>>,
-  setMeetings: Dispatch<SetStateAction<MeetingListItem[]>>,
 ) {
   if (!title) return;
-  setRecord((prev) =>
-    prev && prev.meeting.id === meetingId
-      ? { ...prev, meeting: { ...prev.meeting, title } }
-      : prev
+  queryClient.setQueryData(
+    meetingKeys.detail(meetingId),
+    (prev: MeetingRecord | null | undefined) =>
+      prev ? { ...prev, meeting: { ...prev.meeting, title } } : prev,
   );
-  setMeetings((prev) =>
-    prev.map((meeting) =>
-      meeting.id === meetingId ? { ...meeting, title } : meeting
-    )
+  queryClient.setQueryData(
+    meetingKeys.list(),
+    (prev: MeetingListItem[] | undefined) =>
+      prev?.map((meeting) =>
+        meeting.id === meetingId ? { ...meeting, title } : meeting,
+      ),
   );
 }
 
 export function MeetingsPage() {
+  const queryClient = useQueryClient();
   const [view, setView] = useState<MeetingsView>({ kind: "list" });
-  const [meetings, setMeetings] = useState<MeetingListItem[]>([]);
-  const [record, setRecord] = useState<MeetingRecord | null>(null);
   const [tab, setTab] = useState<MeetingDetailTab>("summary");
   const contextEditorRef = useRef<MeetingContextEditorHandle>(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
   const [jobState, setJobState] = useState<SummaryJobState>("idle");
@@ -67,68 +75,26 @@ export function MeetingsPage() {
   const [summarizingIds, setSummarizingIds] = useState<Set<string>>(
     () => new Set()
   );
-  const [mutating, setMutating] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const startConfirmOpen = useStartMeetingConfirmOpen();
+
+  const listQuery = useGetAllMeetingsQuery();
+  const detailId = view.kind === "detail" ? view.id : undefined;
+  const detailQuery = useGetMeetingQuery(detailId);
+  const patchMeeting = usePatchMeetingMutation();
+  const deleteMeetingMutation = useDeleteMeetingMutation();
+  const generateSummaryMutation = useGenerateMeetingSummaryMutation();
+
+  const meetings = listQuery.data ?? [];
+  const record = detailQuery.data ?? null;
+  const mutating = patchMeeting.isPending || deleteMeetingMutation.isPending;
 
   const detailIdRef = useRef<string | null>(null);
   detailIdRef.current = view.kind === "detail" ? view.id : null;
 
-  const loadList = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const items = await invoke<MeetingListItem[]>("list_meetings");
-      setMeetings(items);
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const loadDetail = useCallback(async (id: string) => {
-    setLoading(true);
-    setError(null);
-    setRecord(null);
-    setJobState("idle");
-    setDraft("");
-    setSummaryError(null);
-    try {
-      const job = await invoke<SummaryJobSnapshot>("get_summary_job", { id });
-      const next = await invoke<MeetingRecord>("get_meeting", { id });
-      if (job.title) {
-        next.meeting.title = job.title;
-      }
-      setJobState(job.state);
-      setDraft(job.draft);
-      setSummaryError(job.error ?? null);
-      setRecord(next);
-      if (job.title) {
-        setMeetings((prev) =>
-          prev.map((meeting) =>
-            meeting.id === id ? { ...meeting, title: job.title! } : meeting
-          )
-        );
-      }
-      if (job.state === "running") {
-        setSummarizingIds((prev) => {
-          const nextIds = new Set(prev);
-          nextIds.add(id);
-          return nextIds;
-        });
-      }
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   const goBackToList = useCallback(() => {
     void contextEditorRef.current?.flush();
     setTab("summary");
-    setRecord(null);
     setMenuOpen(false);
     setView({ kind: "list" });
   }, []);
@@ -148,12 +114,49 @@ export function MeetingsPage() {
   );
 
   useEffect(() => {
-    if (view.kind === "list") {
-      void loadList();
+    if (view.kind !== "detail") {
+      setJobState("idle");
+      setDraft("");
+      setSummaryError(null);
       return;
     }
-    void loadDetail(view.id);
-  }, [view, loadList, loadDetail]);
+
+    const id = view.id;
+    let cancelled = false;
+    setJobState("idle");
+    setDraft("");
+    setSummaryError(null);
+    void invoke<SummaryJobSnapshot>("get_summary_job", { id })
+      .then((job) => {
+        if (cancelled) return;
+        if (job.title) {
+          applyGeneratedTitle(queryClient, id, job.title);
+        }
+        setJobState(job.state);
+        setDraft(job.draft);
+        setSummaryError(job.error ?? null);
+        if (job.state === "running") {
+          setSummarizingIds((prev) => {
+            const nextIds = new Set(prev);
+            nextIds.add(id);
+            return nextIds;
+          });
+        }
+      })
+      .catch((e) => {
+        if (!cancelled) setError(String(e));
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [view, queryClient]);
+
+  useEffect(() => {
+    if (jobState === "done" && record?.meeting.summary) {
+      setDraft(record.meeting.summary);
+    }
+  }, [jobState, record?.meeting.summary]);
 
   useEffect(() => {
     let cancelled = false;
@@ -169,7 +172,7 @@ export function MeetingsPage() {
             nextIds.add(meetingId);
             return nextIds;
           });
-          applyGeneratedTitle(meetingId, title, setRecord, setMeetings);
+          applyGeneratedTitle(queryClient, meetingId, title);
           if (detailIdRef.current === meetingId) {
             setDraft(text);
             setJobState("running");
@@ -205,21 +208,16 @@ export function MeetingsPage() {
             setJobState(state);
             setSummaryError(jobError ?? null);
             if (state === "done") {
-              void invoke<MeetingRecord>("get_meeting", { id: meetingId })
-                .then((next) => {
-                  if (detailIdRef.current === meetingId) {
-                    setRecord(next);
-                    setDraft(next.meeting.summary ?? "");
-                  }
-                })
-                .catch(() => {});
+              void queryClient.invalidateQueries({
+                queryKey: meetingKeys.detail(meetingId),
+              });
             }
           }
 
           if (state === "done") {
-            void invoke<MeetingListItem[]>("list_meetings")
-              .then(setMeetings)
-              .catch(() => {});
+            void queryClient.invalidateQueries({
+              queryKey: meetingKeys.list(),
+            });
           }
         }
       );
@@ -236,9 +234,22 @@ export function MeetingsPage() {
       cancelled = true;
       unlisteners.forEach((fn) => fn());
     };
-  }, []);
+  }, [queryClient]);
 
   const groups = groupMeetingsByDay(meetings);
+  const queryError =
+    (view.kind === "list" && listQuery.error
+      ? String(listQuery.error)
+      : null) ||
+    (view.kind === "detail" && detailQuery.error
+      ? String(detailQuery.error)
+      : null);
+  const displayError = error ?? queryError;
+  const detailMissing =
+    view.kind === "detail" &&
+    !detailQuery.isPending &&
+    !detailQuery.isError &&
+    detailQuery.data === null;
 
   const copySummary = async () => {
     const text = record?.meeting.summary;
@@ -257,7 +268,7 @@ export function MeetingsPage() {
     setSummaryError(null);
     try {
       await contextEditorRef.current?.flush();
-      await invoke("generate_meeting_summary", { id: record.meeting.id });
+      await generateSummaryMutation.mutateAsync({ id: record.meeting.id });
     } catch (e) {
       setSummaryError(String(e));
     }
@@ -265,29 +276,26 @@ export function MeetingsPage() {
 
   const archiveMeeting = async () => {
     if (view.kind !== "detail" || mutating) return;
-    setMutating(true);
     setError(null);
     try {
-      await invoke("archive_meeting", { id: view.id });
+      await patchMeeting.mutateAsync({
+        id: view.id,
+        payload: { archivedAt: Date.now() },
+      });
       goBackToList();
     } catch (e) {
       setError(String(e));
-    } finally {
-      setMutating(false);
     }
   };
 
   const deleteMeeting = async () => {
     if (view.kind !== "detail" || mutating) return;
-    setMutating(true);
     setError(null);
     try {
-      await invoke("delete_meeting", { id: view.id });
+      await deleteMeetingMutation.mutateAsync({ id: view.id });
       goBackToList();
     } catch (e) {
       setError(String(e));
-    } finally {
-      setMutating(false);
     }
   };
 
@@ -305,6 +313,7 @@ export function MeetingsPage() {
       : meeting?.summary
         ? "Regenerate"
         : "Generate";
+    const loading = detailQuery.isPending && !record;
 
     return (
       <main className="page meetings-page">
@@ -324,9 +333,12 @@ export function MeetingsPage() {
           />
         </header>
 
-        {error && <div className="error-banner">{error}</div>}
+        {displayError && <div className="error-banner">{displayError}</div>}
+        {detailMissing && (
+          <div className="error-banner">Meeting not found.</div>
+        )}
 
-        {loading && !record ? (
+        {loading ? (
           <div className="meetings-state">
             <Spinner />
             <p>Loading meeting…</p>
@@ -337,13 +349,6 @@ export function MeetingsPage() {
             <MeetingTitle
               meetingId={meeting.id}
               title={meeting.title}
-              onTitleChange={(title) => {
-                setRecord((prev) =>
-                  prev
-                    ? { ...prev, meeting: { ...prev.meeting, title } }
-                    : prev
-                );
-              }}
               onError={(message) => setError(message)}
             />
 
@@ -408,13 +413,6 @@ export function MeetingsPage() {
                 ref={contextEditorRef}
                 meetingId={meeting.id}
                 initialContext={meeting.context}
-                onContextChange={(context) => {
-                  setRecord((prev) =>
-                    prev
-                      ? { ...prev, meeting: { ...prev.meeting, context } }
-                      : prev
-                  );
-                }}
               />
             </div>
 
@@ -455,9 +453,9 @@ export function MeetingsPage() {
         <h1 className="page-title">Meetings</h1>
       </header>
 
-      {error && <div className="error-banner">{error}</div>}
+      {displayError && <div className="error-banner">{displayError}</div>}
 
-      {loading ? (
+      {listQuery.isPending && !listQuery.data ? (
         <div className="meetings-state">
           <Spinner />
           <p>Loading meetings…</p>
@@ -482,6 +480,7 @@ export function MeetingsPage() {
                       className="meetings-row"
                       onClick={() => {
                         setTab("summary");
+                        setError(null);
                         setView({ kind: "detail", id: meeting.id });
                       }}
                     >
