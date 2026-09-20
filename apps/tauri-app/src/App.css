@@ -1034,10 +1034,30 @@ body,
   color: var(--text-muted);
 }
 
+.meeting-summary {
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
 .meeting-summary-heading {
   margin: 0 0 12px;
   font-size: 16px;
   font-weight: 600;
+}
+
+.meeting-summary-heading:not(:first-child) {
+  margin-top: 28px;
+}
+
+.meeting-summary-subheading {
+  margin: 22px 0 10px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.meeting-summary-paragraph {
+  margin: 0 0 12px;
 }
 
 .meeting-summary-list {
@@ -1046,9 +1066,11 @@ body,
   display: flex;
   flex-direction: column;
   gap: 12px;
-  color: var(--text-primary);
-  font-size: 14px;
-  line-height: 1.55;
+}
+
+.meeting-summary-list .meeting-summary-list {
+  margin-top: 8px;
+  gap: 8px;
 }
 
 .meeting-transcript {

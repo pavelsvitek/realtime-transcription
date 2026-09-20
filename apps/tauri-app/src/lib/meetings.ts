@@ -88,8 +88,9 @@ function rawTitleFromLine(line: string): string | null {
   if (titlePrefix.test(stripped)) {
     return stripped.replace(titlePrefix, "");
   }
-  if (stripped.startsWith("#") && !stripped.trimStart().slice(1).trim().startsWith("-")) {
-    return stripped.replace(/^#+\s*/, "");
+  // Only a single ATX `# ` heading is a title. `##` / `###` belong in the summary.
+  if (/^#\s+/.test(stripped) && !stripped.startsWith("##")) {
+    return stripped.replace(/^#\s+/, "");
   }
   return null;
 }

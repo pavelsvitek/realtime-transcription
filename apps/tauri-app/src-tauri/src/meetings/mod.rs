@@ -482,7 +482,10 @@ fn store_err(err: rusqlite::Error) -> AppError {
 }
 
 fn teaser_from_summary(summary: &str) -> Option<String> {
-    let line = summary.lines().map(str::trim).find(|l| !l.is_empty())?;
+    let line = summary
+        .lines()
+        .map(str::trim)
+        .find(|l| !l.is_empty() && !l.starts_with('#'))?;
     let stripped = strip_summary_markdown(line);
     if stripped.is_empty() {
         return None;
@@ -689,6 +692,25 @@ mod tests {
         assert_eq!(teaser.chars().count(), 80);
 
         assert!(store.update_summary("missing", "Nope").is_err());
+    }
+
+    #[test]
+    fn teaser_skips_section_headings() {
+        let store = temp_db();
+        store
+            .insert_live_meeting("m1", 1_000, "Untitled meeting")
+            .unwrap();
+        store.finish_meeting("m1", 2_000).unwrap();
+        store
+            .update_summary(
+                "m1",
+                "## Executive Summary\n\n- **Pavel Svitek** will start the mock\n",
+            )
+            .unwrap();
+        assert_eq!(
+            store.get_record("m1").unwrap().meeting.teaser.as_deref(),
+            Some("Pavel Svitek will start the mock")
+        );
     }
 
     #[test]
