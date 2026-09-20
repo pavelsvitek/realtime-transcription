@@ -1,13 +1,16 @@
 import { useEffect, useRef, useState } from "react";
+import { useHotkey } from "@tanstack/react-hotkeys";
 
 type MeetingOverflowMenuProps = {
   disabled?: boolean;
+  onOpenChange?: (open: boolean) => void;
   onArchive: () => void;
   onDelete: () => void;
 };
 
 export function MeetingOverflowMenu({
   disabled,
+  onOpenChange,
   onArchive,
   onDelete,
 }: MeetingOverflowMenuProps) {
@@ -21,6 +24,23 @@ export function MeetingOverflowMenu({
   };
 
   useEffect(() => {
+    onOpenChange?.(open);
+  }, [open, onOpenChange]);
+
+  useHotkey(
+    "Escape",
+    (event) => {
+      if (event.isComposing) return;
+      close();
+    },
+    {
+      enabled: open,
+      conflictBehavior: "allow",
+      meta: { name: "Close meeting menu" },
+    },
+  );
+
+  useEffect(() => {
     if (!open) return;
 
     const onPointerDown = (event: PointerEvent) => {
@@ -29,20 +49,10 @@ export function MeetingOverflowMenu({
         close();
       }
     };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || event.defaultPrevented || event.isComposing) {
-        return;
-      }
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      close();
-    };
 
     window.addEventListener("pointerdown", onPointerDown);
-    window.addEventListener("keydown", onKeyDown, true);
     return () => {
       window.removeEventListener("pointerdown", onPointerDown);
-      window.removeEventListener("keydown", onKeyDown, true);
     };
   }, [open]);
 
