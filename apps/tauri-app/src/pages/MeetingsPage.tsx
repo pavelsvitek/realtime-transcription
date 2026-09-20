@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateA
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { useHotkey } from "@tanstack/react-hotkeys";
+import { useStartMeetingConfirmOpen } from "../components/StartMeetingConfirm";
 import { Spinner } from "../components/Spinner";
 import { MeetingTitle } from "../components/MeetingTitle";
 import { MeetingOverflowMenu } from "../components/MeetingOverflowMenu";
@@ -62,6 +63,7 @@ export function MeetingsPage() {
   );
   const [mutating, setMutating] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const startConfirmOpen = useStartMeetingConfirmOpen();
 
   const detailIdRef = useRef<string | null>(null);
   detailIdRef.current = view.kind === "detail" ? view.id : null;
@@ -131,7 +133,7 @@ export function MeetingsPage() {
       goBackToList();
     },
     {
-      enabled: view.kind === "detail" && !menuOpen,
+      enabled: view.kind === "detail" && !menuOpen && !startConfirmOpen,
       ignoreInputs: true,
       conflictBehavior: "allow",
       meta: { name: "Back to meetings" },

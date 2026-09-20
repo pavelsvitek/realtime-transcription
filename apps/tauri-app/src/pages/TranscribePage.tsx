@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { AddContextDialog } from "../components/AddContextDialog";
 import { MicIndicator } from "../components/MicIndicator";
 import { Spinner } from "../components/Spinner";
+import { StartMeetingButton } from "../components/StartMeetingButton";
 import { TranscriptFeed } from "../components/TranscriptFeed";
 import { useAudioDevice } from "../hooks/useAudioDevice";
 import { useMicLevel } from "../hooks/useMicLevel";
@@ -17,7 +18,15 @@ function loadBackend(): AsrBackend {
   return raw === "xai" ? "xai" : "local";
 }
 
-export function TranscribePage() {
+type TranscribePageProps = {
+  startRequestId?: number;
+  onStartRequestHandled?: () => void;
+};
+
+export function TranscribePage({
+  startRequestId = 0,
+  onStartRequestHandled,
+}: TranscribePageProps) {
   const [audioSource, setAudioSource] = useState<AudioSource>("both");
   const [backend, setBackend] = useState<AsrBackend>(loadBackend);
   const {
@@ -43,6 +52,17 @@ export function TranscribePage() {
   useEffect(() => {
     localStorage.setItem(BACKEND_STORAGE_KEY, backend);
   }, [backend]);
+
+  useEffect(() => {
+    if (startRequestId === 0) {
+      return;
+    }
+    onStartRequestHandled?.();
+    if (isActive || isLoading || isStopping) {
+      return;
+    }
+    start(audioSource, backend);
+  }, [startRequestId]);
 
   useEffect(() => {
     if (!isActive) {
@@ -170,13 +190,12 @@ export function TranscribePage() {
             </button>
           )}
           {!isActive ? (
-            <button
-              className="btn btn-start"
+            <StartMeetingButton
               onClick={() => start(audioSource, backend)}
               disabled={isLoading}
             >
-              {isLoading ? "Loading model..." : "Start"}
-            </button>
+              {isLoading ? "Loading model..." : "Start a meeting"}
+            </StartMeetingButton>
           ) : (
             <button
               className="btn btn-stop"
