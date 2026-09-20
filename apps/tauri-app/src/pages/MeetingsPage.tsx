@@ -6,6 +6,10 @@ import { useStartMeetingConfirmOpen } from "../components/StartMeetingConfirm";
 import { Spinner } from "../components/Spinner";
 import { MeetingTitle } from "../components/MeetingTitle";
 import { MeetingOverflowMenu } from "../components/MeetingOverflowMenu";
+import {
+  MeetingContextEditor,
+  type MeetingContextEditorHandle,
+} from "../components/MeetingContextEditor";
 import { formatTime } from "../lib/format";
 import { SummaryMarkdown } from "../components/SummaryMarkdown";
 import {
@@ -51,7 +55,8 @@ export function MeetingsPage() {
   const [view, setView] = useState<MeetingsView>({ kind: "list" });
   const [meetings, setMeetings] = useState<MeetingListItem[]>([]);
   const [record, setRecord] = useState<MeetingRecord | null>(null);
-  const [tab, setTab] = useState<"summary" | "transcript">("summary");
+  const [tab, setTab] = useState<"summary" | "context" | "transcript">("summary");
+  const contextEditorRef = useRef<MeetingContextEditorHandle>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
@@ -120,6 +125,7 @@ export function MeetingsPage() {
   }, []);
 
   const goBackToList = useCallback(() => {
+    void contextEditorRef.current?.flush();
     setTab("summary");
     setRecord(null);
     setMenuOpen(false);
@@ -249,6 +255,7 @@ export function MeetingsPage() {
     if (!record) return;
     setSummaryError(null);
     try {
+      await contextEditorRef.current?.flush();
       await invoke("generate_meeting_summary", { id: record.meeting.id });
     } catch (e) {
       setSummaryError(String(e));
@@ -343,6 +350,8 @@ export function MeetingsPage() {
               <button
                 type="button"
                 role="tab"
+                id="meeting-tab-summary"
+                aria-controls="meeting-panel-summary"
                 aria-selected={tab === "summary"}
                 className={tab === "summary" ? "meeting-tab active" : "meeting-tab"}
                 onClick={() => setTab("summary")}
@@ -352,6 +361,19 @@ export function MeetingsPage() {
               <button
                 type="button"
                 role="tab"
+                id="meeting-tab-context"
+                aria-controls="meeting-panel-context"
+                aria-selected={tab === "context"}
+                className={tab === "context" ? "meeting-tab active" : "meeting-tab"}
+                onClick={() => setTab("context")}
+              >
+                Context
+              </button>
+              <button
+                type="button"
+                role="tab"
+                id="meeting-tab-transcript"
+                aria-controls="meeting-panel-transcript"
                 aria-selected={tab === "transcript"}
                 className={tab === "transcript" ? "meeting-tab active" : "meeting-tab"}
                 onClick={() => setTab("transcript")}
@@ -360,7 +382,12 @@ export function MeetingsPage() {
               </button>
             </div>
 
-            {tab === "summary" ? (
+            <div
+              id="meeting-panel-summary"
+              role="tabpanel"
+              aria-labelledby="meeting-tab-summary"
+              hidden={tab !== "summary"}
+            >
               <section className="meeting-panel">
                 <div className="meeting-summary-toolbar">
                   <button
@@ -402,7 +429,34 @@ export function MeetingsPage() {
                   </p>
                 )}
               </section>
-            ) : (
+            </div>
+
+            <div
+              id="meeting-panel-context"
+              role="tabpanel"
+              aria-labelledby="meeting-tab-context"
+              hidden={tab !== "context"}
+            >
+              <MeetingContextEditor
+                ref={contextEditorRef}
+                meetingId={meeting.id}
+                initialContext={meeting.context}
+                onContextChange={(context) => {
+                  setRecord((prev) =>
+                    prev
+                      ? { ...prev, meeting: { ...prev.meeting, context } }
+                      : prev
+                  );
+                }}
+              />
+            </div>
+
+            <div
+              id="meeting-panel-transcript"
+              role="tabpanel"
+              aria-labelledby="meeting-tab-transcript"
+              hidden={tab !== "transcript"}
+            >
               <section className="meeting-panel">
                 {record && record.segments.length > 0 ? (
                   <ol className="meeting-transcript">
@@ -421,7 +475,7 @@ export function MeetingsPage() {
                   </p>
                 )}
               </section>
-            )}
+            </div>
           </div>
         ) : null}
       </main>
