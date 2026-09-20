@@ -10,6 +10,7 @@ import {
   MeetingContextEditor,
   type MeetingContextEditorHandle,
 } from "../components/MeetingContextEditor";
+import { MeetingTabs, meetingTabDomIds, type MeetingDetailTab } from "../components/MeetingTabs";
 import { formatTime } from "../lib/format";
 import { SummaryMarkdown } from "../components/SummaryMarkdown";
 import {
@@ -55,7 +56,7 @@ export function MeetingsPage() {
   const [view, setView] = useState<MeetingsView>({ kind: "list" });
   const [meetings, setMeetings] = useState<MeetingListItem[]>([]);
   const [record, setRecord] = useState<MeetingRecord | null>(null);
-  const [tab, setTab] = useState<"summary" | "context" | "transcript">("summary");
+  const [tab, setTab] = useState<MeetingDetailTab>("summary");
   const contextEditorRef = useRef<MeetingContextEditorHandle>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -346,46 +347,12 @@ export function MeetingsPage() {
               onError={(message) => setError(message)}
             />
 
-            <div className="meeting-tabs" role="tablist">
-              <button
-                type="button"
-                role="tab"
-                id="meeting-tab-summary"
-                aria-controls="meeting-panel-summary"
-                aria-selected={tab === "summary"}
-                className={tab === "summary" ? "meeting-tab active" : "meeting-tab"}
-                onClick={() => setTab("summary")}
-              >
-                Summary
-              </button>
-              <button
-                type="button"
-                role="tab"
-                id="meeting-tab-context"
-                aria-controls="meeting-panel-context"
-                aria-selected={tab === "context"}
-                className={tab === "context" ? "meeting-tab active" : "meeting-tab"}
-                onClick={() => setTab("context")}
-              >
-                Context
-              </button>
-              <button
-                type="button"
-                role="tab"
-                id="meeting-tab-transcript"
-                aria-controls="meeting-panel-transcript"
-                aria-selected={tab === "transcript"}
-                className={tab === "transcript" ? "meeting-tab active" : "meeting-tab"}
-                onClick={() => setTab("transcript")}
-              >
-                Transcript
-              </button>
-            </div>
+            <MeetingTabs tab={tab} onChange={setTab} />
 
             <div
-              id="meeting-panel-summary"
+              id={meetingTabDomIds("meeting", "summary").panelId}
               role="tabpanel"
-              aria-labelledby="meeting-tab-summary"
+              aria-labelledby={meetingTabDomIds("meeting", "summary").tabId}
               hidden={tab !== "summary"}
             >
               <section className="meeting-panel">
@@ -432,9 +399,9 @@ export function MeetingsPage() {
             </div>
 
             <div
-              id="meeting-panel-context"
+              id={meetingTabDomIds("meeting", "context").panelId}
               role="tabpanel"
-              aria-labelledby="meeting-tab-context"
+              aria-labelledby={meetingTabDomIds("meeting", "context").tabId}
               hidden={tab !== "context"}
             >
               <MeetingContextEditor
@@ -452,9 +419,9 @@ export function MeetingsPage() {
             </div>
 
             <div
-              id="meeting-panel-transcript"
+              id={meetingTabDomIds("meeting", "transcript").panelId}
               role="tabpanel"
-              aria-labelledby="meeting-tab-transcript"
+              aria-labelledby={meetingTabDomIds("meeting", "transcript").tabId}
               hidden={tab !== "transcript"}
             >
               <section className="meeting-panel">

@@ -11,6 +11,7 @@ export type MeetingContextEditorHandle = {
 type MeetingContextEditorProps = {
   meetingId: string;
   initialContext: string | null;
+  fieldId?: string;
   onContextChange?: (context: string | null) => void;
 };
 
@@ -18,7 +19,7 @@ export const MeetingContextEditor = forwardRef<
   MeetingContextEditorHandle,
   MeetingContextEditorProps
 >(function MeetingContextEditor(
-  { meetingId, initialContext, onContextChange },
+  { meetingId, initialContext, fieldId = "meeting-context-editor", onContextChange },
   ref,
 ) {
   const [value, setValue] = useState(initialContext ?? "");
@@ -83,7 +84,7 @@ export const MeetingContextEditor = forwardRef<
 
   return (
     <section className="meeting-panel">
-      <label className="meeting-context-label" htmlFor="meeting-context-editor">
+      <label className="meeting-context-label" htmlFor={fieldId}>
         Context
       </label>
       <p className="meeting-context-copy">
@@ -91,7 +92,7 @@ export const MeetingContextEditor = forwardRef<
         summary. Changes save automatically.
       </p>
       <textarea
-        id="meeting-context-editor"
+        id={fieldId}
         className="meeting-context-textarea"
         value={value}
         rows={14}

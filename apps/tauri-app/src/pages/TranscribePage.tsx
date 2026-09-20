@@ -1,6 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { AddContextDialog } from "../components/AddContextDialog";
+import {
+  MeetingContextEditor,
+  type MeetingContextEditorHandle,
+} from "../components/MeetingContextEditor";
+import {
+  MeetingTabs,
+  meetingTabDomIds,
+  LIVE_TRANSCRIPT_TAB_LABEL,
+  type MeetingDetailTab,
+} from "../components/MeetingTabs";
 import { MicIndicator } from "../components/MicIndicator";
 import { Spinner } from "../components/Spinner";
 import { StartMeetingButton } from "../components/StartMeetingButton";
@@ -12,6 +21,7 @@ import type { MeetingDetail } from "../lib/meetings";
 import type { AsrBackend, AudioSource } from "../lib/transcript-types";
 
 const BACKEND_STORAGE_KEY = "asrBackend";
+const LIVE_TAB_PREFIX = "transcribe";
 
 function loadBackend(): AsrBackend {
   const raw = localStorage.getItem(BACKEND_STORAGE_KEY);
@@ -42,12 +52,9 @@ export function TranscribePage({
   } = useTranscription();
   const { device, error: deviceError } = useAudioDevice();
   const micActive = useMicLevel(isActive && !isStopping);
-  const [contextOpen, setContextOpen] = useState(false);
-  const [contextMeetingId, setContextMeetingId] = useState<string | null>(null);
-  const [contextDraft, setContextDraft] = useState("");
-  const [contextHasValue, setContextHasValue] = useState(false);
-  const [contextSaving, setContextSaving] = useState(false);
-  const [contextError, setContextError] = useState<string | null>(null);
+  const [tab, setTab] = useState<MeetingDetailTab>("transcript");
+  const [liveMeeting, setLiveMeeting] = useState<MeetingDetail | null>(null);
+  const contextEditorRef = useRef<MeetingContextEditorHandle>(null);
 
   useEffect(() => {
     localStorage.setItem(BACKEND_STORAGE_KEY, backend);
@@ -61,85 +68,44 @@ export function TranscribePage({
     if (isActive || isLoading || isStopping) {
       return;
     }
+    setTab("transcript");
+    setLiveMeeting(null);
     start(audioSource, backend);
   }, [startRequestId]);
 
   useEffect(() => {
     if (!isActive) {
-      setContextHasValue(false);
       return;
     }
     let cancelled = false;
     void invoke<MeetingDetail | null>("get_live_meeting")
       .then((meeting) => {
         if (cancelled || !meeting) return;
-        setContextMeetingId(meeting.id);
-        setContextHasValue(Boolean(meeting.context?.trim()));
+        setLiveMeeting(meeting);
       })
-      .catch(() => {
-        /* Button still opens the dialog and loads context there. */
-      });
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
   }, [isActive]);
 
-  const closeContext = () => {
-    if (contextSaving) return;
-    setContextOpen(false);
-    setContextError(null);
-  };
-
-  const saveContext = async (draft: string = contextDraft) => {
-    const meetingId = contextMeetingId;
-    if (!meetingId || contextSaving) return false;
-    setContextSaving(true);
-    setContextError(null);
-    try {
-      const saved = await invoke<string | null>("update_meeting_context", {
-        id: meetingId,
-        context: draft,
-      });
-      setContextHasValue(Boolean(saved?.trim()));
-      setContextDraft(saved ?? "");
-      setContextOpen(false);
-      return true;
-    } catch (e) {
-      setContextError(String(e));
-      return false;
-    } finally {
-      setContextSaving(false);
-    }
-  };
-
-  const openContext = async () => {
-    setContextError(null);
-    try {
-      const meeting = await invoke<MeetingDetail | null>("get_live_meeting");
-      if (!meeting) {
-        setContextError("No live meeting is in progress.");
-        setContextOpen(true);
-        return;
-      }
-      setContextMeetingId(meeting.id);
-      setContextDraft(meeting.context ?? "");
-      setContextHasValue(Boolean(meeting.context?.trim()));
-      setContextOpen(true);
-    } catch (e) {
-      setContextError(String(e));
-      setContextOpen(true);
-    }
+  const handleStart = async () => {
+    setTab("transcript");
+    setLiveMeeting(null);
+    await start(audioSource, backend);
   };
 
   const handleStop = async () => {
-    if (contextOpen && contextMeetingId) {
-      await saveContext();
-    }
+    await contextEditorRef.current?.flush();
     await stop();
   };
 
+  const summaryIds = meetingTabDomIds(LIVE_TAB_PREFIX, "summary");
+  const contextIds = meetingTabDomIds(LIVE_TAB_PREFIX, "context");
+  const transcriptIds = meetingTabDomIds(LIVE_TAB_PREFIX, "transcript");
+
   return (
-    <main className="page">
+    <main className="page transcribe-page">
       <header className="page-header">
         <div className="header-left">
           <h1 className="page-title">New chat</h1>
@@ -177,21 +143,9 @@ export function TranscribePage({
             deviceKind={device?.kind ?? null}
             deviceError={deviceError}
           />
-          {isActive && (
-            <button
-              type="button"
-              className="btn btn-clear"
-              onClick={() => void openContext()}
-              disabled={isStopping || contextSaving}
-              aria-haspopup="dialog"
-              aria-expanded={contextOpen}
-            >
-              {contextHasValue ? "Edit context" : "Add context"}
-            </button>
-          )}
           {!isActive ? (
             <StartMeetingButton
-              onClick={() => start(audioSource, backend)}
+              onClick={() => void handleStart()}
               disabled={isLoading}
             >
               {isLoading ? "Loading model..." : "Start a meeting"}
@@ -221,12 +175,68 @@ export function TranscribePage({
         </div>
       )}
 
-      <TranscriptFeed
-        segments={segments}
-        audioSource={audioSource}
-        deviceName={device?.name ?? null}
-        deviceKind={device?.kind ?? null}
-      />
+      <div className="transcribe-tabs-bar">
+        <MeetingTabs
+          tab={tab}
+          onChange={setTab}
+          prefix={LIVE_TAB_PREFIX}
+          transcriptLabel={LIVE_TRANSCRIPT_TAB_LABEL}
+        />
+      </div>
+
+      <div
+        id={summaryIds.panelId}
+        role="tabpanel"
+        aria-labelledby={summaryIds.tabId}
+        className="transcribe-tab-panel transcribe-tab-panel--padded"
+        hidden={tab !== "summary"}
+      >
+        <p className="meetings-empty-copy">
+          Summary is generated after you stop the meeting.
+        </p>
+      </div>
+
+      <div
+        id={contextIds.panelId}
+        role="tabpanel"
+        aria-labelledby={contextIds.tabId}
+        className="transcribe-tab-panel transcribe-tab-panel--padded"
+        hidden={tab !== "context"}
+      >
+        {liveMeeting ? (
+          <MeetingContextEditor
+            ref={contextEditorRef}
+            meetingId={liveMeeting.id}
+            initialContext={liveMeeting.context}
+            fieldId="live-meeting-context-editor"
+            onContextChange={(context) => {
+              setLiveMeeting((prev) =>
+                prev ? { ...prev, context } : prev
+              );
+            }}
+          />
+        ) : (
+          <p className="meetings-empty-copy">
+            Start transcription to add context for this meeting.
+          </p>
+        )}
+      </div>
+
+      <div
+        id={transcriptIds.panelId}
+        role="tabpanel"
+        aria-labelledby={transcriptIds.tabId}
+        className="transcribe-tab-panel"
+        hidden={tab !== "transcript"}
+      >
+        <TranscriptFeed
+          segments={segments}
+          audioSource={audioSource}
+          deviceName={device?.name ?? null}
+          deviceKind={device?.kind ?? null}
+          active={tab === "transcript"}
+        />
+      </div>
 
       <footer className="page-footer">
         <span className="status-text">
@@ -243,18 +253,6 @@ export function TranscribePage({
               : "Ready"}
         </span>
       </footer>
-
-      <AddContextDialog
-        open={contextOpen}
-        value={contextDraft}
-        saving={contextSaving}
-        error={contextError}
-        onChange={setContextDraft}
-        onCancel={closeContext}
-        onSave={() => {
-          void saveContext();
-        }}
-      />
     </main>
   );
 }
