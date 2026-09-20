@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { useHotkey } from "@tanstack/react-hotkeys";
 import { Spinner } from "../components/Spinner";
 import { MeetingTitle } from "../components/MeetingTitle";
 import { MeetingOverflowMenu } from "../components/MeetingOverflowMenu";
@@ -83,6 +84,7 @@ export function MeetingsPage() {
     () => new Set()
   );
   const [mutating, setMutating] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const detailIdRef = useRef<string | null>(null);
   detailIdRef.current = view.kind === "detail" ? view.id : null;
@@ -141,8 +143,23 @@ export function MeetingsPage() {
   const goBackToList = useCallback(() => {
     setTab("summary");
     setRecord(null);
+    setMenuOpen(false);
     setView({ kind: "list" });
   }, []);
+
+  useHotkey(
+    "Escape",
+    (event) => {
+      if (event.isComposing) return;
+      goBackToList();
+    },
+    {
+      enabled: view.kind === "detail" && !menuOpen,
+      ignoreInputs: true,
+      conflictBehavior: "allow",
+      meta: { name: "Back to meetings" },
+    },
+  );
 
   useEffect(() => {
     if (view.kind === "list") {
@@ -151,33 +168,6 @@ export function MeetingsPage() {
     }
     void loadDetail(view.id);
   }, [view, loadList, loadDetail]);
-
-  useEffect(() => {
-    if (view.kind !== "detail") return;
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || event.defaultPrevented || event.isComposing) {
-        return;
-      }
-      const target = event.target;
-      if (target instanceof HTMLElement) {
-        const tag = target.tagName;
-        if (
-          tag === "INPUT" ||
-          tag === "TEXTAREA" ||
-          tag === "SELECT" ||
-          target.isContentEditable
-        ) {
-          return;
-        }
-      }
-      event.preventDefault();
-      goBackToList();
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [view.kind, goBackToList]);
 
   useEffect(() => {
     let cancelled = false;
@@ -341,6 +331,7 @@ export function MeetingsPage() {
           </button>
           <MeetingOverflowMenu
             disabled={mutating}
+            onOpenChange={setMenuOpen}
             onArchive={() => void archiveMeeting()}
             onDelete={() => void deleteMeeting()}
           />

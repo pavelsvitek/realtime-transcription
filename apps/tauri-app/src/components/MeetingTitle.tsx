@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { useHotkey } from "@tanstack/react-hotkeys";
 import { commitMeetingTitle } from "../lib/meetings";
 
 type MeetingTitleProps = {
@@ -17,7 +18,6 @@ export function MeetingTitle({
 }: MeetingTitleProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(title);
-  const inputRef = useRef<HTMLInputElement>(null);
   const skipBlurCommit = useRef(false);
   const saving = useRef(false);
 
@@ -26,14 +26,6 @@ export function MeetingTitle({
       setDraft(title);
     }
   }, [title, editing]);
-
-  useEffect(() => {
-    if (!editing) return;
-    const input = inputRef.current;
-    if (!input) return;
-    input.focus();
-    input.select();
-  }, [editing]);
 
   const commit = async () => {
     if (saving.current) return;
@@ -89,31 +81,82 @@ export function MeetingTitle({
   }
 
   return (
+    <MeetingTitleEditor
+      draft={draft}
+      onDraftChange={setDraft}
+      onCommit={() => void commit()}
+      onCancel={cancel}
+      onBlurCommit={() => {
+        if (skipBlurCommit.current) {
+          skipBlurCommit.current = false;
+          return;
+        }
+        void commit();
+      }}
+    />
+  );
+}
+
+type MeetingTitleEditorProps = {
+  draft: string;
+  onDraftChange: (draft: string) => void;
+  onCommit: () => void;
+  onCancel: () => void;
+  onBlurCommit: () => void;
+};
+
+function MeetingTitleEditor({
+  draft,
+  onDraftChange,
+  onCommit,
+  onCancel,
+  onBlurCommit,
+}: MeetingTitleEditorProps) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const input = inputRef.current;
+    if (!input) return;
+    input.focus();
+    input.select();
+  }, []);
+
+  useHotkey(
+    "Enter",
+    (event) => {
+      if (event.isComposing) return;
+      onCommit();
+    },
+    {
+      target: inputRef,
+      ignoreInputs: false,
+      meta: { name: "Save title" },
+    },
+  );
+
+  useHotkey(
+    "Escape",
+    (event) => {
+      if (event.isComposing) return;
+      onCancel();
+    },
+    {
+      target: inputRef,
+      ignoreInputs: false,
+      conflictBehavior: "allow",
+      meta: { name: "Cancel rename" },
+    },
+  );
+
+  return (
     <h1 className="meeting-title">
       <input
         ref={inputRef}
         className="meeting-title-input"
         value={draft}
         aria-label="Meeting title"
-        onChange={(event) => setDraft(event.target.value)}
-        onBlur={() => {
-          if (skipBlurCommit.current) {
-            skipBlurCommit.current = false;
-            return;
-          }
-          void commit();
-        }}
-        onKeyDown={(event) => {
-          if (event.nativeEvent.isComposing) return;
-          if (event.key === "Enter") {
-            event.preventDefault();
-            void commit();
-          } else if (event.key === "Escape") {
-            event.preventDefault();
-            event.stopPropagation();
-            cancel();
-          }
-        }}
+        onChange={(event) => onDraftChange(event.target.value)}
+        onBlur={onBlurCommit}
       />
     </h1>
   );
