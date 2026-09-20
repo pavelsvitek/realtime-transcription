@@ -7,12 +7,21 @@ import { SettingsPage } from "./pages/SettingsPage";
 import { TranscribePage } from "./pages/TranscribePage";
 import "./App.css";
 
-function renderPage(page: AppPage) {
+function renderPage(
+  page: AppPage,
+  startRequestId: number,
+  onStartRequestHandled: () => void,
+) {
   switch (page) {
     case "home":
       return <HomePage />;
     case "transcribe":
-      return <TranscribePage />;
+      return (
+        <TranscribePage
+          startRequestId={startRequestId}
+          onStartRequestHandled={onStartRequestHandled}
+        />
+      );
     case "meetings":
       return <MeetingsPage />;
     case "settings":
@@ -22,10 +31,18 @@ function renderPage(page: AppPage) {
 
 function App() {
   const [page, setPage] = useState<AppPage>("transcribe");
+  const [startRequestId, setStartRequestId] = useState(0);
 
   return (
-    <AppLayout currentPage={page} onNavigate={setPage}>
-      {renderPage(page)}
+    <AppLayout
+      currentPage={page}
+      onNavigate={setPage}
+      onStartMeeting={() => {
+        setPage("transcribe");
+        setStartRequestId((id) => id + 1);
+      }}
+    >
+      {renderPage(page, startRequestId, () => setStartRequestId(0))}
     </AppLayout>
   );
 }

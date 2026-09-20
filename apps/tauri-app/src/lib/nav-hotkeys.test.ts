@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { NAV_HOTKEYS } from "./nav-hotkeys";
+import { NAV_HOTKEYS, START_MEETING_HOTKEY } from "./nav-hotkeys";
 
 describe("NAV_HOTKEYS", () => {
   it("maps Mod+1 through Mod+4 to the sidebar pages", () => {
@@ -9,5 +9,11 @@ describe("NAV_HOTKEYS", () => {
       ["Mod+3", "meetings", "Meetings"],
       ["Mod+4", "settings", "Settings"],
     ]);
+  });
+});
+
+describe("START_MEETING_HOTKEY", () => {
+  it("uses Mod+N so Command/Control+N opens the start confirm", () => {
+    expect(START_MEETING_HOTKEY).toBe("Mod+N");
   });
 });
