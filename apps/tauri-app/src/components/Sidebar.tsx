@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { ThemeToggle } from "./ThemeToggle";
 import { useColorScheme } from "../hooks/useColorScheme";
+import { StartMeetingButton } from "./StartMeetingButton";
 import {
   HomeIcon,
   MeetingsIcon,
@@ -31,14 +32,10 @@ export function Sidebar({ currentPage, onNavigate, onStartMeeting }: SidebarProp
       <div className="sidebar-chrome" data-tauri-drag-region aria-hidden="true" />
       <ul className="sidebar-nav">
         <li className="sidebar-start-item">
-          <button
-            type="button"
+          <StartMeetingButton
             className="sidebar-start-meeting"
             onClick={onStartMeeting}
-          >
-            <TranscriptionIcon />
-            <span className="sidebar-link-label">Start a meeting</span>
-          </button>
+          />
         </li>
         {NAV_ITEMS.map((item) => (
           <li key={item.id}>

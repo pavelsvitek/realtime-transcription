@@ -87,8 +87,7 @@ body,
   margin-bottom: 8px;
 }
 
-.sidebar-start-meeting {
-  width: 100%;
+.start-meeting-button {
   text-align: left;
   border: none;
   border-radius: 10px;
@@ -105,12 +104,21 @@ body,
   transition: background-color 0.15s ease;
 }
 
-.sidebar-start-meeting:hover {
+.start-meeting-button:hover:not(:disabled) {
   background: #1d4ed8;
 }
 
-.sidebar-start-meeting .sidebar-link-icon {
+.start-meeting-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.start-meeting-button .sidebar-link-icon {
   color: #ffffff;
+}
+
+.sidebar-start-meeting {
+  width: 100%;
 }
 
 .sidebar-footer {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { MicIndicator } from "../components/MicIndicator";
 import { Spinner } from "../components/Spinner";
+import { StartMeetingButton } from "../components/StartMeetingButton";
 import { TranscriptFeed } from "../components/TranscriptFeed";
 import { useAudioDevice } from "../hooks/useAudioDevice";
 import { useMicLevel } from "../hooks/useMicLevel";
@@ -94,13 +95,12 @@ export function TranscribePage({
             deviceError={deviceError}
           />
           {!isActive ? (
-            <button
-              className="btn btn-start"
+            <StartMeetingButton
               onClick={() => start(audioSource, backend)}
               disabled={isLoading}
             >
-              {isLoading ? "Loading model..." : "Start"}
-            </button>
+              {isLoading ? "Loading model..." : "Start a meeting"}
+            </StartMeetingButton>
           ) : (
             <button
               className="btn btn-stop"
