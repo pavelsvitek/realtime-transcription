@@ -1,4 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import {
+  MeetingContextEditor,
+  type MeetingContextEditorHandle,
+} from "../components/MeetingContextEditor";
+import {
+  MeetingTabs,
+  meetingTabDomIds,
+  LIVE_TRANSCRIPT_TAB_LABEL,
+  type MeetingDetailTab,
+} from "../components/MeetingTabs";
 import { MicIndicator } from "../components/MicIndicator";
 import { Spinner } from "../components/Spinner";
 import { StartMeetingButton } from "../components/StartMeetingButton";
@@ -6,9 +17,11 @@ import { TranscriptFeed } from "../components/TranscriptFeed";
 import { useAudioDevice } from "../hooks/useAudioDevice";
 import { useMicLevel } from "../hooks/useMicLevel";
 import { useTranscription } from "../hooks/useTranscription";
+import type { MeetingDetail } from "../lib/meetings";
 import type { AsrBackend, AudioSource } from "../lib/transcript-types";
 
 const BACKEND_STORAGE_KEY = "asrBackend";
+const LIVE_TAB_PREFIX = "transcribe";
 
 function loadBackend(): AsrBackend {
   const raw = localStorage.getItem(BACKEND_STORAGE_KEY);
@@ -39,6 +52,9 @@ export function TranscribePage({
   } = useTranscription();
   const { device, error: deviceError } = useAudioDevice();
   const micActive = useMicLevel(isActive && !isStopping);
+  const [tab, setTab] = useState<MeetingDetailTab>("transcript");
+  const [liveMeeting, setLiveMeeting] = useState<MeetingDetail | null>(null);
+  const contextEditorRef = useRef<MeetingContextEditorHandle>(null);
 
   useEffect(() => {
     localStorage.setItem(BACKEND_STORAGE_KEY, backend);
@@ -52,11 +68,44 @@ export function TranscribePage({
     if (isActive || isLoading || isStopping) {
       return;
     }
+    setTab("transcript");
+    setLiveMeeting(null);
     start(audioSource, backend);
   }, [startRequestId]);
 
+  useEffect(() => {
+    if (!isActive) {
+      return;
+    }
+    let cancelled = false;
+    void invoke<MeetingDetail | null>("get_live_meeting")
+      .then((meeting) => {
+        if (cancelled || !meeting) return;
+        setLiveMeeting(meeting);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [isActive]);
+
+  const handleStart = async () => {
+    setTab("transcript");
+    setLiveMeeting(null);
+    await start(audioSource, backend);
+  };
+
+  const handleStop = async () => {
+    await contextEditorRef.current?.flush();
+    await stop();
+  };
+
+  const summaryIds = meetingTabDomIds(LIVE_TAB_PREFIX, "summary");
+  const contextIds = meetingTabDomIds(LIVE_TAB_PREFIX, "context");
+  const transcriptIds = meetingTabDomIds(LIVE_TAB_PREFIX, "transcript");
+
   return (
-    <main className="page">
+    <main className="page transcribe-page">
       <header className="page-header">
         <div className="header-left">
           <h1 className="page-title">New chat</h1>
@@ -96,7 +145,7 @@ export function TranscribePage({
           />
           {!isActive ? (
             <StartMeetingButton
-              onClick={() => start(audioSource, backend)}
+              onClick={() => void handleStart()}
               disabled={isLoading}
             >
               {isLoading ? "Loading model..." : "Start a meeting"}
@@ -104,7 +153,7 @@ export function TranscribePage({
           ) : (
             <button
               className="btn btn-stop"
-              onClick={stop}
+              onClick={() => void handleStop()}
               disabled={isStopping}
               aria-busy={isStopping}
               aria-label={isStopping ? "Stopping transcription" : "Stop transcription"}
@@ -126,12 +175,68 @@ export function TranscribePage({
         </div>
       )}
 
-      <TranscriptFeed
-        segments={segments}
-        audioSource={audioSource}
-        deviceName={device?.name ?? null}
-        deviceKind={device?.kind ?? null}
-      />
+      <div className="transcribe-tabs-bar">
+        <MeetingTabs
+          tab={tab}
+          onChange={setTab}
+          prefix={LIVE_TAB_PREFIX}
+          transcriptLabel={LIVE_TRANSCRIPT_TAB_LABEL}
+        />
+      </div>
+
+      <div
+        id={summaryIds.panelId}
+        role="tabpanel"
+        aria-labelledby={summaryIds.tabId}
+        className="transcribe-tab-panel transcribe-tab-panel--padded"
+        hidden={tab !== "summary"}
+      >
+        <p className="meetings-empty-copy">
+          Summary is generated after you stop the meeting.
+        </p>
+      </div>
+
+      <div
+        id={contextIds.panelId}
+        role="tabpanel"
+        aria-labelledby={contextIds.tabId}
+        className="transcribe-tab-panel transcribe-tab-panel--padded"
+        hidden={tab !== "context"}
+      >
+        {liveMeeting ? (
+          <MeetingContextEditor
+            ref={contextEditorRef}
+            meetingId={liveMeeting.id}
+            initialContext={liveMeeting.context}
+            fieldId="live-meeting-context-editor"
+            onContextChange={(context) => {
+              setLiveMeeting((prev) =>
+                prev ? { ...prev, context } : prev
+              );
+            }}
+          />
+        ) : (
+          <p className="meetings-empty-copy">
+            Start transcription to add context for this meeting.
+          </p>
+        )}
+      </div>
+
+      <div
+        id={transcriptIds.panelId}
+        role="tabpanel"
+        aria-labelledby={transcriptIds.tabId}
+        className="transcribe-tab-panel"
+        hidden={tab !== "transcript"}
+      >
+        <TranscriptFeed
+          segments={segments}
+          audioSource={audioSource}
+          deviceName={device?.name ?? null}
+          deviceKind={device?.kind ?? null}
+          active={tab === "transcript"}
+        />
+      </div>
 
       <footer className="page-footer">
         <span className="status-text">

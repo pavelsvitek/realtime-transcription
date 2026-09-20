@@ -1,6 +1,6 @@
 use tauri::{AppHandle, State};
 
-use crate::ipc::meetings::{MeetingListItem, MeetingRecord};
+use crate::ipc::meetings::{MeetingDetail, MeetingListItem, MeetingRecord};
 use crate::ipc::summary::{GenerateAllSummariesResult, SummaryJobSnapshot};
 use crate::llm::{emitter_from_app, SummaryService};
 use crate::meetings::MeetingStore;
@@ -26,6 +26,24 @@ pub async fn update_meeting_title(
 ) -> Result<String, String> {
     store
         .update_title(&id, &title)
+        .map_err(|e| e.to_user_message())
+}
+
+#[tauri::command]
+pub async fn get_live_meeting(
+    store: State<'_, MeetingStore>,
+) -> Result<Option<MeetingDetail>, String> {
+    store.get_live_meeting().map_err(|e| e.to_user_message())
+}
+
+#[tauri::command]
+pub async fn update_meeting_context(
+    store: State<'_, MeetingStore>,
+    id: String,
+    context: String,
+) -> Result<Option<String>, String> {
+    store
+        .update_context(&id, &context)
         .map_err(|e| e.to_user_message())
 }
 

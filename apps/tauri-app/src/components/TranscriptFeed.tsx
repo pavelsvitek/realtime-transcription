@@ -8,6 +8,7 @@ type TranscriptFeedProps = {
   audioSource: AudioSource;
   deviceName: string | null;
   deviceKind: DeviceKind | null;
+  active?: boolean;
 };
 
 function lineClassName(segment: TranscriptSegment): string {
@@ -23,16 +24,18 @@ export function TranscriptFeed({
   audioSource,
   deviceName,
   deviceKind,
+  active = true,
 }: TranscriptFeedProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const showMicHint = usesMicrophoneInput(audioSource);
   const recordingDeviceName = getMicrophoneRecordingName(deviceName, deviceKind);
 
   useEffect(() => {
+    if (!active) return;
     const container = scrollRef.current;
     if (!container) return;
     container.scrollTop = container.scrollHeight;
-  }, [segments]);
+  }, [segments, active]);
 
   return (
     <div ref={scrollRef} className="transcript-feed">

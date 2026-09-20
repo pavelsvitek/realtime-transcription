@@ -6,8 +6,7 @@ use tauri::async_runtime::JoinHandle;
 use super::output::parse_meeting_output;
 use super::provider::{create_client, LlmClient, LlmError, LlmProviderId};
 use crate::ipc::summary::{
-    GenerateAllSummariesResult, SummaryDelta, SummaryJobSnapshot, SummaryJobState,
-    SummaryStatus,
+    GenerateAllSummariesResult, SummaryDelta, SummaryJobSnapshot, SummaryJobState, SummaryStatus,
 };
 use crate::meetings::MeetingStore;
 
@@ -23,8 +22,7 @@ pub enum SummaryEvent {
     Status(SummaryStatus),
 }
 
-type ClientFactory =
-    Arc<dyn Fn() -> Result<Arc<dyn LlmClient>, LlmError> + Send + Sync>;
+type ClientFactory = Arc<dyn Fn() -> Result<Arc<dyn LlmClient>, LlmError> + Send + Sync>;
 
 struct JobSlot {
     generation: u64,
@@ -155,9 +153,15 @@ impl SummaryService {
             tracing::info!(meeting_id = %meeting_id, "Skipping summary: empty transcript");
             return;
         }
+        let user_prompt = format_user_prompt(record.meeting.context.as_deref(), &transcript);
 
         if crate::transcription::xai::resolve_api_key().is_none() {
-            self.fail(&meeting_id, generation, &emit, MISSING_KEY_MESSAGE.to_string());
+            self.fail(
+                &meeting_id,
+                generation,
+                &emit,
+                MISSING_KEY_MESSAGE.to_string(),
+            );
             return;
         }
 
@@ -202,7 +206,7 @@ impl SummaryService {
         };
 
         let result = client
-            .stream_text(MEETING_SUMMARY_PROMPT, &transcript, &on_delta)
+            .stream_text(MEETING_SUMMARY_PROMPT, &user_prompt, &on_delta)
             .await;
 
         if !self.is_current(&meeting_id, generation) {
@@ -239,7 +243,12 @@ impl SummaryService {
                         return;
                     }
                 }
-                self.set_done(&meeting_id, generation, parsed.summary.clone(), parsed.title);
+                self.set_done(
+                    &meeting_id,
+                    generation,
+                    parsed.summary.clone(),
+                    parsed.title,
+                );
                 emit(SummaryEvent::Status(SummaryStatus {
                     meeting_id: meeting_id.clone(),
                     state: SummaryJobState::Done,
@@ -247,7 +256,12 @@ impl SummaryService {
                 }));
             }
             Err(LlmError::MissingApiKey) => {
-                self.fail(&meeting_id, generation, &emit, MISSING_KEY_MESSAGE.to_string());
+                self.fail(
+                    &meeting_id,
+                    generation,
+                    &emit,
+                    MISSING_KEY_MESSAGE.to_string(),
+                );
             }
             Err(e) => {
                 self.fail(&meeting_id, generation, &emit, e.to_string());
@@ -331,6 +345,13 @@ fn format_transcript(segments: &[crate::ipc::meetings::MeetingSegment]) -> Strin
         .filter(|text| !text.is_empty())
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+fn format_user_prompt(context: Option<&str>, transcript: &str) -> String {
+    match context.map(str::trim).filter(|value| !value.is_empty()) {
+        Some(context) => format!("Meeting context:\n\n{context}\n\nTranscript:\n\n{transcript}"),
+        None => transcript.to_string(),
+    }
 }
 
 #[cfg(test)]
@@ -420,9 +441,7 @@ mod tests {
     #[tokio::test]
     async fn empty_transcript_does_not_call_http() {
         let store = temp_store();
-        store
-            .insert_live_meeting("m1", 1_000, "Empty")
-            .unwrap();
+        store.insert_live_meeting("m1", 1_000, "Empty").unwrap();
         store.finish_meeting("m1", 2_000).unwrap();
 
         let called = Arc::new(AtomicBool::new(false));
@@ -492,5 +511,79 @@ mod tests {
             },
         ];
         assert_eq!(format_transcript(&segments), "hello\nworld");
+    }
+
+    #[test]
+    fn format_user_prompt_is_transcript_when_context_missing() {
+        assert_eq!(format_user_prompt(None, "hello\nworld"), "hello\nworld");
+        assert_eq!(format_user_prompt(Some("   "), "hello"), "hello");
+        assert_eq!(format_user_prompt(Some(""), "hello"), "hello");
+    }
+
+    #[test]
+    fn format_user_prompt_prefixes_context() {
+        let prompt = format_user_prompt(Some("  Participants: Pavel, Igor  "), "hello\nworld");
+        assert_eq!(
+            prompt,
+            "Meeting context:\n\nParticipants: Pavel, Igor\n\nTranscript:\n\nhello\nworld"
+        );
+    }
+
+    #[tokio::test]
+    async fn run_job_sends_meeting_context_with_transcript() {
+        let store = temp_store();
+        store
+            .insert_live_meeting("m1", 1_000, "Untitled meeting")
+            .unwrap();
+        store
+            .insert_segment("m1:s1", "m1", 0, 10, "Switzerland POC scope")
+            .unwrap();
+        store
+            .update_context("m1", "Participants: Pavel, Igor")
+            .unwrap();
+        store.finish_meeting("m1", 2_000).unwrap();
+
+        std::env::set_var("XAI_API_KEY", "test-key");
+        let captured = Arc::new(Mutex::new(None));
+        let factory: ClientFactory = {
+            let captured = captured.clone();
+            Arc::new(move || {
+                Ok(Arc::new(CaptureClient {
+                    user: captured.clone(),
+                    text: "Title: Switzerland POC\n\n- **Pavel Svitek** outlined scope\n".into(),
+                }) as Arc<dyn LlmClient>)
+            })
+        };
+        let service = SummaryService::with_factory(store, factory);
+        service.prime_job("m1", 1);
+        let emit: SummaryEmitter = Arc::new(|_| {});
+        service.run_job("m1".into(), 1, emit).await;
+
+        let user = captured.lock().unwrap().clone().expect("user prompt");
+        assert!(
+            user.starts_with("Meeting context:\n\nParticipants: Pavel, Igor\n\nTranscript:\n\n")
+        );
+        assert!(user.contains("Switzerland POC scope"));
+    }
+
+    struct CaptureClient {
+        user: Arc<Mutex<Option<String>>>,
+        text: String,
+    }
+
+    impl LlmClient for CaptureClient {
+        fn stream_text<'a>(
+            &'a self,
+            _system: &'a str,
+            user: &'a str,
+            on_delta: &'a (dyn Fn(&str) + Send + Sync),
+        ) -> Pin<Box<dyn Future<Output = Result<String, LlmError>> + Send + 'a>> {
+            *self.user.lock().unwrap() = Some(user.to_string());
+            let text = self.text.clone();
+            Box::pin(async move {
+                on_delta(&text);
+                Ok(text)
+            })
+        }
     }
 }

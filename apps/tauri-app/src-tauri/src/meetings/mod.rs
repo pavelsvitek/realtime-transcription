@@ -10,7 +10,7 @@ use crate::ipc::meetings::{MeetingDetail, MeetingListItem, MeetingRecord, Meetin
 
 const APP_SUPPORT_DIR: &str = "com.pavel.tauri-app";
 const DB_FILE: &str = "meetings.db";
-const SCHEMA_VERSION: i64 = 2;
+const SCHEMA_VERSION: i64 = 3;
 const DEVICE_ID_KEY: &str = "device_id";
 
 const MIGRATION_V1: &str = r#"
@@ -74,6 +74,10 @@ ALTER TABLE meetings ADD COLUMN archived_at INTEGER;
 
 CREATE INDEX IF NOT EXISTS meetings_list_archived_idx
     ON meetings (status, deleted_at, archived_at, started_at);
+"#;
+
+const MIGRATION_V3: &str = r#"
+ALTER TABLE meetings ADD COLUMN context TEXT;
 "#;
 
 #[derive(Clone)]
@@ -250,6 +254,49 @@ impl MeetingStore {
         Ok(title)
     }
 
+    pub fn update_context(&self, id: &str, context: &str) -> Result<Option<String>, AppError> {
+        let context = {
+            let trimmed = context.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed.to_string())
+            }
+        };
+        let now = now_ms();
+        let conn = self.conn.lock().unwrap();
+        let changed = conn
+            .execute(
+                "UPDATE meetings
+                 SET context = ?1,
+                     updated_at = ?2,
+                     revision = revision + 1,
+                     last_writer_device_id = ?3
+                 WHERE id = ?4 AND deleted_at IS NULL",
+                params![context, now, self.device_id, id],
+            )
+            .map_err(store_err)?;
+        if changed == 0 {
+            return Err(AppError::Store("Meeting not found".into()));
+        }
+        Ok(context)
+    }
+
+    pub fn get_live_meeting(&self) -> Result<Option<MeetingDetail>, AppError> {
+        let conn = self.conn.lock().unwrap();
+        conn.query_row(
+            "SELECT id, started_at, finished_at, title, teaser, summary, status, context
+             FROM meetings
+             WHERE status = 'live' AND deleted_at IS NULL
+             ORDER BY started_at DESC
+             LIMIT 1",
+            [],
+            meeting_from_row,
+        )
+        .optional()
+        .map_err(store_err)
+    }
+
     pub fn update_summary(&self, id: &str, summary: &str) -> Result<(), AppError> {
         let teaser = teaser_from_summary(summary);
         let now = now_ms();
@@ -344,21 +391,11 @@ impl MeetingStore {
         let conn = self.conn.lock().unwrap();
         let meeting = conn
             .query_row(
-                "SELECT id, started_at, finished_at, title, teaser, summary, status
+                "SELECT id, started_at, finished_at, title, teaser, summary, status, context
                  FROM meetings
                  WHERE id = ?1 AND deleted_at IS NULL",
                 params![id],
-                |row| {
-                    Ok(MeetingDetail {
-                        id: row.get(0)?,
-                        started_at: row.get(1)?,
-                        finished_at: row.get(2)?,
-                        title: row.get(3)?,
-                        teaser: row.get(4)?,
-                        summary: row.get(5)?,
-                        status: row.get(6)?,
-                    })
-                },
+                meeting_from_row,
             )
             .optional()
             .map_err(store_err)?
@@ -422,13 +459,33 @@ fn migrate(conn: &Connection) -> Result<(), AppError> {
     }
 
     // Add archived_at even if version 2 was stamped without the column.
-    if current < SCHEMA_VERSION || !column_exists(conn, "meetings", "archived_at")? {
+    if current < 2 || !column_exists(conn, "meetings", "archived_at")? {
         if !column_exists(conn, "meetings", "archived_at")? {
             conn.execute_batch(MIGRATION_V2).map_err(store_err)?;
         }
         record_migration(conn, 2)?;
     }
+
+    if current < SCHEMA_VERSION || !column_exists(conn, "meetings", "context")? {
+        if !column_exists(conn, "meetings", "context")? {
+            conn.execute_batch(MIGRATION_V3).map_err(store_err)?;
+        }
+        record_migration(conn, 3)?;
+    }
     Ok(())
+}
+
+fn meeting_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<MeetingDetail> {
+    Ok(MeetingDetail {
+        id: row.get(0)?,
+        started_at: row.get(1)?,
+        finished_at: row.get(2)?,
+        title: row.get(3)?,
+        teaser: row.get(4)?,
+        summary: row.get(5)?,
+        status: row.get(6)?,
+        context: row.get(7)?,
+    })
 }
 
 fn column_exists(conn: &Connection, table: &str, column: &str) -> Result<bool, AppError> {
@@ -809,5 +866,80 @@ mod tests {
         assert_eq!(list[0].id, "m1");
         store.archive_meeting("m1").unwrap();
         assert!(store.list_finished().unwrap().is_empty());
+    }
+
+    #[test]
+    fn update_context_saves_trimmed_text_and_clears_blank() {
+        let store = temp_db();
+        store
+            .insert_live_meeting("m1", 1_000, "Untitled meeting")
+            .unwrap();
+
+        let saved = store
+            .update_context("m1", "  Participants: Pavel, Igor\nProject: Halifax  ")
+            .unwrap();
+        assert_eq!(
+            saved.as_deref(),
+            Some("Participants: Pavel, Igor\nProject: Halifax")
+        );
+        assert_eq!(
+            store.get_record("m1").unwrap().meeting.context.as_deref(),
+            Some("Participants: Pavel, Igor\nProject: Halifax")
+        );
+
+        let live = store.get_live_meeting().unwrap().unwrap();
+        assert_eq!(live.id, "m1");
+        assert_eq!(
+            live.context.as_deref(),
+            Some("Participants: Pavel, Igor\nProject: Halifax")
+        );
+
+        store.finish_meeting("m1", 2_000).unwrap();
+        assert!(store.get_live_meeting().unwrap().is_none());
+
+        let cleared = store.update_context("m1", "   \n  ").unwrap();
+        assert!(cleared.is_none());
+        assert!(store.get_record("m1").unwrap().meeting.context.is_none());
+        assert!(store.update_context("missing", "Nope").is_err());
+    }
+
+    #[test]
+    fn new_meeting_has_null_context() {
+        let store = temp_db();
+        store.insert_live_meeting("m1", 1_000, "Call").unwrap();
+        assert!(store.get_record("m1").unwrap().meeting.context.is_none());
+    }
+
+    #[test]
+    fn migrates_v2_database_and_adds_context() {
+        let dir = std::env::temp_dir().join(format!("meetings-v2-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("meetings.db");
+        {
+            let conn = Connection::open(&path).unwrap();
+            conn.execute_batch(MIGRATION_V1).unwrap();
+            conn.execute_batch(MIGRATION_V2).unwrap();
+            conn.execute(
+                "INSERT INTO schema_migrations (version, applied_at) VALUES (1, 1), (2, 2)",
+                [],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO meetings (
+                    id, started_at, finished_at, title, teaser, summary, status,
+                    updated_at, deleted_at, revision, last_writer_device_id, archived_at
+                ) VALUES ('m1', 1000, 2000, 'Old', NULL, NULL, 'finished', 2000, NULL, 1, 'dev', NULL)",
+                [],
+            )
+            .unwrap();
+        }
+
+        let store = MeetingStore::open(&path).unwrap();
+        assert!(store.get_record("m1").unwrap().meeting.context.is_none());
+        store.update_context("m1", "Participants: Pavel").unwrap();
+        assert_eq!(
+            store.get_record("m1").unwrap().meeting.context.as_deref(),
+            Some("Participants: Pavel")
+        );
     }
 }
