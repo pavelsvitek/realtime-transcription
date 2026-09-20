@@ -28,6 +28,13 @@ export type MeetingRecord = {
   segments: MeetingSegment[];
 };
 
+/** Optional Meeting fields. Only include keys that should change. */
+export type MeetingPatch = {
+  title?: string;
+  context?: string | null;
+  archivedAt?: number;
+};
+
 export type SummaryJobState = "idle" | "running" | "done" | "error";
 
 export type SummaryJobSnapshot = {

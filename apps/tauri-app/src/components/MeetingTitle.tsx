@@ -1,25 +1,24 @@
 import { useEffect, useRef, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { commitMeetingTitle } from "../lib/meetings";
+import { usePatchMeetingMutation } from "../models/Meeting";
 
 type MeetingTitleProps = {
   meetingId: string;
   title: string;
-  onTitleChange: (title: string) => void;
   onError: (message: string | null) => void;
 };
 
 export function MeetingTitle({
   meetingId,
   title,
-  onTitleChange,
   onError,
 }: MeetingTitleProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(title);
   const skipBlurCommit = useRef(false);
   const saving = useRef(false);
+  const patchMeeting = usePatchMeetingMutation();
 
   useEffect(() => {
     if (!editing) {
@@ -36,19 +35,16 @@ export function MeetingTitle({
     if (next === title) return;
 
     saving.current = true;
-    onTitleChange(next);
     try {
-      const saved = await invoke<string>("update_meeting_title", {
+      const saved = await patchMeeting.mutateAsync({
         id: meetingId,
-        title: next,
+        payload: { title: next },
       });
       onError(null);
-      if (saved !== next) {
-        onTitleChange(saved);
-        setDraft(saved);
+      if (saved.meeting.title !== next) {
+        setDraft(saved.meeting.title);
       }
     } catch (e) {
-      onTitleChange(title);
       setDraft(title);
       onError(String(e));
     } finally {

@@ -76,15 +76,13 @@ pub fn run() {
             commands::transcription::get_asr_settings,
             commands::transcription::set_xai_api_key,
             commands::transcription::clear_xai_api_key,
-            commands::meetings::list_meetings,
+            commands::meetings::get_all_meetings,
             commands::meetings::get_meeting,
             commands::meetings::get_live_meeting,
-            commands::meetings::update_meeting_title,
-            commands::meetings::update_meeting_context,
+            commands::meetings::patch_meeting,
             commands::meetings::generate_meeting_summary,
             commands::meetings::get_summary_job,
             commands::meetings::generate_all_meeting_summaries,
-            commands::meetings::archive_meeting,
             commands::meetings::delete_meeting,
         ])
         .run(tauri::generate_context!())

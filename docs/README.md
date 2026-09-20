@@ -8,6 +8,7 @@ This is not a passive transcript viewer or generic chat assistant. The product h
 
 - [Product Overview](./product-overview.md) — purpose, user jobs, high-level flow, domain concepts, and product principles
 - [Developer Instructions](./instructions.md) — rebuild steps for Swift helper, tests, golden eval
+- [Entity API naming](./technical/entity-api-naming.md) — React/Rust CRUD verbs (`getAll` / `get` / `patch` / `delete`)
 - [xAI Transcribe 2.0](./technical/xai-speech-to-text.md) — dual-backend WebSocket STT alongside local Nemotron
 - [NOTSOFAR eval-small](./eval/dataset-notsofar.md) — local ASR WER on 10 far-field meetings
 - [Feature Specs](./features/README.md) — detailed UX and behavior specs
