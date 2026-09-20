@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useHotkey } from "@tanstack/react-hotkeys";
+import { useStartMeetingConfirmOpen } from "./StartMeetingConfirm";
 
 type MeetingOverflowMenuProps = {
   disabled?: boolean;
@@ -16,6 +17,7 @@ export function MeetingOverflowMenu({
 }: MeetingOverflowMenuProps) {
   const [open, setOpen] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const startConfirmOpen = useStartMeetingConfirmOpen();
   const rootRef = useRef<HTMLDivElement>(null);
 
   const close = () => {
@@ -34,7 +36,7 @@ export function MeetingOverflowMenu({
       close();
     },
     {
-      enabled: open,
+      enabled: open && !startConfirmOpen,
       conflictBehavior: "allow",
       meta: { name: "Close meeting menu" },
     },

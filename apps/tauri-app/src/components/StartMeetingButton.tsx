@@ -1,3 +1,4 @@
+import { forwardRef } from "react";
 import { TranscriptionIcon } from "./sidebar-icons";
 
 type StartMeetingButtonProps = {
@@ -7,14 +8,16 @@ type StartMeetingButtonProps = {
   children?: string;
 };
 
-export function StartMeetingButton({
-  onClick,
-  disabled,
-  className,
-  children = "Start a meeting",
-}: StartMeetingButtonProps) {
+export const StartMeetingButton = forwardRef<
+  HTMLButtonElement,
+  StartMeetingButtonProps
+>(function StartMeetingButton(
+  { onClick, disabled, className, children = "Start a meeting" },
+  ref,
+) {
   return (
     <button
+      ref={ref}
       type="button"
       className={["start-meeting-button", className].filter(Boolean).join(" ")}
       onClick={onClick}
@@ -24,4 +27,4 @@ export function StartMeetingButton({
       <span className="start-meeting-button-label">{children}</span>
     </button>
   );
-}
+});

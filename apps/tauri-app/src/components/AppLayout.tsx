@@ -1,6 +1,9 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { useHotkey } from "@tanstack/react-hotkeys";
 import { useNavHotkeys } from "../hooks/useNavHotkeys";
+import { START_MEETING_HOTKEY } from "../lib/nav-hotkeys";
 import { Sidebar, type AppPage } from "./Sidebar";
+import { StartMeetingConfirmLayer } from "./StartMeetingConfirm";
 import { TitleBar } from "./TitleBar";
 
 interface AppLayoutProps {
@@ -16,21 +19,36 @@ export function AppLayout({
   onStartMeeting,
   children,
 }: AppLayoutProps) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
   useNavHotkeys(onNavigate);
+  useHotkey(START_MEETING_HOTKEY, () => setConfirmOpen(true), {
+    enabled: !confirmOpen,
+    meta: {
+      name: "Start a meeting",
+      description: "Confirm starting a new meeting",
+    },
+  });
 
   return (
-    <div className="app-shell">
-      <Sidebar
-        currentPage={currentPage}
-        onNavigate={onNavigate}
-        onStartMeeting={onStartMeeting}
-      />
-      <div className="app-main">
-        <TitleBar>
-
-        </TitleBar>
-        <div className="app-content">{children}</div>
+    <StartMeetingConfirmLayer
+      open={confirmOpen}
+      onConfirm={() => {
+        setConfirmOpen(false);
+        onStartMeeting();
+      }}
+      onDismiss={() => setConfirmOpen(false)}
+    >
+      <div className="app-shell">
+        <Sidebar
+          currentPage={currentPage}
+          onNavigate={onNavigate}
+          onStartMeeting={onStartMeeting}
+        />
+        <div className="app-main">
+          <TitleBar></TitleBar>
+          <div className="app-content">{children}</div>
+        </div>
       </div>
-    </div>
+    </StartMeetingConfirmLayer>
   );
 }
