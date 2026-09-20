@@ -6,11 +6,11 @@ import { Spinner } from "../components/Spinner";
 import { MeetingTitle } from "../components/MeetingTitle";
 import { MeetingOverflowMenu } from "../components/MeetingOverflowMenu";
 import { formatTime } from "../lib/format";
+import { SummaryMarkdown } from "../components/SummaryMarkdown";
 import {
   formatMeetingClock,
   formatMeetingDetailWhen,
   groupMeetingsByDay,
-  parseMeetingLlmOutput,
   type MeetingListItem,
   type MeetingRecord,
   type SummaryDeltaPayload,
@@ -44,29 +44,6 @@ function applyGeneratedTitle(
       meeting.id === meetingId ? { ...meeting, title } : meeting
     )
   );
-}
-
-function renderSummary(markdown: string) {
-  return parseMeetingLlmOutput(markdown)
-    .summary
-    .split(/\n+/)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line, index) => {
-      const bullet = line.replace(/^[-•]\s+/, "");
-      const parts = bullet.split(/(\*\*[^*]+\*\*)/g);
-      return (
-        <li key={index}>
-          {parts.map((part, partIndex) => {
-            const bold = part.match(/^\*\*(.+)\*\*$/);
-            if (bold) {
-              return <strong key={partIndex}>{bold[1]}</strong>;
-            }
-            return <span key={partIndex}>{part}</span>;
-          })}
-        </li>
-      );
-    });
 }
 
 export function MeetingsPage() {
@@ -409,19 +386,13 @@ export function MeetingsPage() {
                   summaryText ? (
                     <>
                       <p className="meeting-summary-generating">Generating summary…</p>
-                      <h2 className="meeting-summary-heading">Executive Summary</h2>
-                      <ul className="meeting-summary-list">
-                        {renderSummary(summaryText)}
-                      </ul>
+                      <SummaryMarkdown markdown={summaryText} />
                     </>
                   ) : (
                     <p className="meeting-summary-generating">Generating summary…</p>
                   )
                 ) : summaryText ? (
-                  <>
-                    <h2 className="meeting-summary-heading">Executive Summary</h2>
-                    <ul className="meeting-summary-list">{renderSummary(summaryText)}</ul>
-                  </>
+                  <SummaryMarkdown markdown={summaryText} />
                 ) : (
                   <p className="meetings-empty-copy">
                     No summary yet. The transcript is saved; a summary will show up here

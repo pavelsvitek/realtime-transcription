@@ -10,7 +10,14 @@ pub struct ParsedMeetingOutput {
 /// ```text
 /// Title: Short meeting name
 ///
+/// ## Executive Summary
+///
 /// - bullet
+///
+/// ## Full Summary
+///
+/// ### Theme
+///
 /// - bullet
 /// ```
 ///
@@ -59,8 +66,9 @@ fn raw_title_from_line(line: &str) -> Option<String> {
     if let Some(rest) = strip_prefix_ci(stripped, "title:") {
         return Some(rest.to_string());
     }
+    // Only a single ATX `# ` heading is a title. `##` / `###` are summary sections.
     if let Some(rest) = stripped.strip_prefix('#') {
-        if !rest.trim_start().starts_with('-') {
+        if !rest.starts_with('#') && !rest.trim_start().starts_with('-') {
             return Some(rest.to_string());
         }
     }
@@ -141,5 +149,14 @@ mod tests {
         let parsed = parse_meeting_output("Title: UBS FA");
         assert_eq!(parsed.title.as_deref(), Some("UBS FA"));
         assert_eq!(parsed.summary, "");
+    }
+
+    #[test]
+    fn section_headings_are_not_titles() {
+        let parsed = parse_meeting_output(
+            "## Executive Summary\n\n- **Ship** the API\n\n## Full Summary\n",
+        );
+        assert_eq!(parsed.title, None);
+        assert!(parsed.summary.starts_with("## Executive Summary"));
     }
 }

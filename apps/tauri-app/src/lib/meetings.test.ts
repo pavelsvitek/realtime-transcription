@@ -60,4 +60,12 @@ describe("parseMeetingLlmOutput", () => {
       summary: "- **Ship** the API\n- Next steps",
     });
   });
+
+  it("does not treat ## section headings as a title", () => {
+    const markdown = "## Executive Summary\n\n- **Ship** the API";
+    expect(parseMeetingLlmOutput(markdown)).toEqual({
+      title: null,
+      summary: markdown,
+    });
+  });
 });
