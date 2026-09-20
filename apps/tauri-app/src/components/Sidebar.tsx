@@ -29,7 +29,6 @@ export function Sidebar({ currentPage, onNavigate, onStartMeeting }: SidebarProp
   return (
     <nav className="sidebar" aria-label="Main navigation">
       <div className="sidebar-chrome" data-tauri-drag-region aria-hidden="true" />
-      <div className="sidebar-brand">tauri-app</div>
       <ul className="sidebar-nav">
         <li className="sidebar-start-item">
           <button
