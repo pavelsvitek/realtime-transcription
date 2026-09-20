@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Cargo target runner: receives the built binary path as $1.
 # Launches via `open` from a dev .app bundle so LaunchServices attributes
-# system-audio TCC to com.pavel.tauri-app (exec from a terminal does not).
+# system-audio TCC to com.pavel.amie (exec from a terminal does not).
 #
 # Do not `exec open -n`: LaunchServices then owns the window, Cargo's SIGTERM
 # only kills this launcher, and `-n` stacks another instance on every rebuild.
@@ -84,7 +84,7 @@ EOF
 chmod +x "$WRAPPER"
 
 if command -v codesign >/dev/null 2>&1; then
-  codesign -s - --force --deep --identifier com.pavel.tauri-app \
+  codesign -s - --force --deep --identifier com.pavel.amie \
     --entitlements "$ROOT/src-tauri/Entitlements.plist" \
     "$APP" 2>/dev/null || codesign -s - --force --deep "$APP"
 fi

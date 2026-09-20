@@ -81,7 +81,7 @@ pub fn run_worker<E>(
                         model: None,
                         error: Some(
                             "Microphone is silent. Open System Settings → Privacy & Security → \
-                             Microphone and enable tauri-app, then Stop and Start again. \
+                             Microphone and enable Amie, then Stop and Start again. \
                              The mic icon should turn red when you talk."
                                 .into(),
                         ),
@@ -107,8 +107,8 @@ pub fn run_worker<E>(
                         model: None,
                         error: Some(
                             "System audio capture is silent. Open System Settings → Privacy & Security \
-                             and allow system audio recording for tauri-app, then restart. \
-                             Reset: tccutil reset AudioCapture com.pavel.tauri-app"
+                             and allow system audio recording for Amie, then restart. \
+                             Reset: tccutil reset AudioCapture com.pavel.amie"
                                 .into(),
                         ),
                     }));

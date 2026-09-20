@@ -12,7 +12,7 @@ export function HomePage() {
 
   return (
     <main className="home-page">
-      <h1>Welcome to Tauri + React</h1>
+      <h1>Welcome to Amie</h1>
 
       <div className="home-logos">
         <a href="https://vite.dev" target="_blank" rel="noreferrer">

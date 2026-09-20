@@ -5,13 +5,13 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>tauri-app</string>
+	<string>Amie</string>
 	<key>CFBundleExecutable</key>
 	<string>tauri-app</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.pavel.tauri-app</string>
+	<string>com.pavel.amie</string>
 	<key>CFBundleName</key>
-	<string>tauri-app</string>
+	<string>Amie</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

@@ -1,4 +1,8 @@
-# Tauri Transcription App
+# Tauri Transcription App (Amie)
+
+Real-time English speech-to-text using NVIDIA Nemotron 3.5 ASR Streaming 0.6B on macOS, with optional xAI Transcribe 2.0 as a cloud backend.
+
+The desktop app is named **Amie** (`com.pavel.amie`). Meetings, models, and the xAI key stay in `~/Library/Application Support/com.pavel.tauri-app/` so existing data still loads.
 
 Real-time English speech-to-text using NVIDIA Nemotron 3.5 ASR Streaming 0.6B on macOS, with optional xAI Transcribe 2.0 as a cloud backend.
 
@@ -50,25 +54,40 @@ pnpm tauri dev
 
 On first launch, grant permissions when prompted by macOS:
 - **Microphone** — when using the Mic input source
-- **System Audio Recording** — when using Chrome / system audio. macOS may prompt the first time you start system-audio capture. If capture is silent, open **System Settings → Privacy & Security → System Audio Recording Only** (or **Screen & System Audio Recording** on some macOS versions) and enable **tauri-app**, then quit and restart the app.
+- **System Audio Recording** — when using Chrome / system audio. macOS may prompt the first time you start system-audio capture. If capture is silent, open **System Settings → Privacy & Security → System Audio Recording Only** (or **Screen & System Audio Recording** on some macOS versions) and enable **Amie**, then quit and restart the app.
 
-`pnpm tauri dev` launches via a dev `.app` bundle (`src-tauri/target/debug/tauri-app-dev.app`) using `open`, so macOS can attribute system-audio permission to `com.pavel.tauri-app`. Running the raw `target/debug/tauri-app` binary from a terminal will not trigger the permission prompt and loopback will be silent.
+`pnpm tauri dev` launches via a dev `.app` bundle (`src-tauri/target/debug/tauri-app-dev.app`) using `open`, so macOS can attribute system-audio permission to `com.pavel.amie`. Running the raw `target/debug/tauri-app` binary from a terminal will not trigger the permission prompt and loopback will be silent.
 
 Stopping `pnpm tauri dev` (or a Cargo rebuild) quits that window. The runner kills the previous `tauri-app-dev.app` process before launching so you do not stack extra instances.
 
 The **ASR** dropdown on New chat selects **Local (Nemotron)** or **xAI Transcribe 2.0** (persisted in `localStorage`). For xAI, save an API key on **Settings** (stored under Application Support) or set `XAI_API_KEY`. Details: [docs/technical/xai-speech-to-text.md](../../docs/technical/xai-speech-to-text.md).
 
+## Production build
+
+From the repo root on macOS (Apple Silicon), with the Nemotron helper already built (`./apps/tauri-app/scripts/setup-nemotron.sh`):
+
+```bash
+pnpm --filter tauri-app tauri build
+```
+
+That writes:
+
+- `apps/tauri-app/src-tauri/target/release/bundle/macos/Amie.app`
+- `apps/tauri-app/src-tauri/target/release/bundle/dmg/Amie_0.1.0_aarch64.dmg`
+
+Drag **Amie.app** into `/Applications`. First launch may need **Right-click → Open** because the build is ad-hoc signed.
+
 To reset system-audio permission during development:
 
 ```bash
 # Correct TCC service name for Core Audio loopback (not SystemAudioCapture):
-tccutil reset AudioCapture com.pavel.tauri-app
+tccutil reset AudioCapture com.pavel.amie
 
 # Or reset all apps' audio-capture grants:
 tccutil reset AudioCapture
 ```
 
-If `tccutil reset AudioCapture com.pavel.tauri-app` fails, the app has not registered with TCC yet — start `pnpm tauri dev`, click **Start** with system audio, then check System Settings manually.
+If `tccutil reset AudioCapture com.pavel.amie` fails, the app has not registered with TCC yet — start `pnpm tauri dev`, click **Start** with system audio, then check System Settings manually.
 
 ### Rust logging
 
