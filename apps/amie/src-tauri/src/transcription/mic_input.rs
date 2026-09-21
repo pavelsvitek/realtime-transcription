@@ -11,7 +11,9 @@ pub struct OpenedMic {
     pub counters: super::cpal_capture::CaptureCounters,
 }
 
-pub fn open_mic_stream(sender: mpsc::SyncSender<Vec<f32>>) -> anyhow::Result<OpenedMic> {
+pub fn open_mic_stream(
+    sender: mpsc::SyncSender<super::cpal_capture::AudioBlock>,
+) -> anyhow::Result<OpenedMic> {
     let host = cpal::default_host();
     let device = host
         .default_input_device()

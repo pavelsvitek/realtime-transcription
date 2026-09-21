@@ -5,6 +5,7 @@ pub mod backend;
 pub mod capture;
 pub mod cpal_capture;
 pub mod debug_dump;
+pub mod echo_cancel;
 pub mod flac_convert;
 pub mod labels;
 pub mod mic_input;

@@ -18,7 +18,7 @@ pub struct SystemAudioCapture {
 
 /// Captures system output audio (loopback) and forwards mono f32 chunks to `sender`.
 pub fn open_system_audio_stream(
-    sender: mpsc::SyncSender<Vec<f32>>,
+    sender: mpsc::SyncSender<super::cpal_capture::AudioBlock>,
 ) -> anyhow::Result<SystemAudioCapture> {
     let host = cpal::default_host();
     let device = host
