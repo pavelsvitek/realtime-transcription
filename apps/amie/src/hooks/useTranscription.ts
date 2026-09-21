@@ -13,6 +13,7 @@ import {
   EVENT_TRANSCRIPT_PARTIAL,
   EVENT_TRANSCRIPTION_STATUS,
 } from "../lib/tauri-events";
+import { restoreLiveTranscription } from "../lib/restore-live-transcription";
 import { applyTranscriptEvent, finalizePartials } from "../lib/transcript-timeline";
 
 export function useTranscription() {
@@ -22,6 +23,8 @@ export function useTranscription() {
   const [isStopping, setIsStopping] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [model, setModel] = useState<string | null>(null);
+  const [sessionSource, setSessionSource] = useState<AudioSource | null>(null);
+  const [sessionBackend, setSessionBackend] = useState<AsrBackend | null>(null);
   const unlistenRefs = useRef<UnlistenFn[]>([]);
 
   useEffect(() => {
@@ -29,6 +32,25 @@ export function useTranscription() {
     const unlisteners: UnlistenFn[] = [];
 
     const setup = async () => {
+      try {
+        const restored = await restoreLiveTranscription();
+        if (cancelled) {
+          return;
+        }
+        setIsActive(restored.active);
+        setIsLoading(restored.loading);
+        setModel(restored.model);
+        setSessionSource(restored.source);
+        setSessionBackend(restored.backend);
+        if (restored.segments.length > 0) {
+          setSegments(restored.segments);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          console.warn("Failed to restore live transcription", e);
+        }
+      }
+
       const unlistenPartial = await listen<TranscriptPayload>(
         EVENT_TRANSCRIPT_PARTIAL,
         (event) => {
@@ -65,6 +87,8 @@ export function useTranscription() {
           setIsLoading(payload.loading ?? false);
           if (!payload.active) {
             setIsStopping(false);
+            setSessionSource(null);
+            setSessionBackend(null);
             setSegments((prev) => finalizePartials(prev));
           }
           setError(payload.error ?? null);
@@ -95,6 +119,8 @@ export function useTranscription() {
     setError(null);
     setIsLoading(true);
     setSegments([]);
+    setSessionSource(source);
+    setSessionBackend(backend);
     try {
       await invoke("start_transcription", {
         source,
@@ -102,6 +128,8 @@ export function useTranscription() {
       });
     } catch (e) {
       setIsLoading(false);
+      setSessionSource(null);
+      setSessionBackend(null);
       setError(String(e));
     }
   }, []);
@@ -127,6 +155,8 @@ export function useTranscription() {
     isStopping,
     error,
     model,
+    sessionSource,
+    sessionBackend,
     start,
     stop,
     clear,

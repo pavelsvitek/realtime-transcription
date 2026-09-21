@@ -9,6 +9,7 @@ type TranscriptFeedProps = {
   deviceName: string | null;
   deviceKind: DeviceKind | null;
   active?: boolean;
+  capturing?: boolean;
 };
 
 function lineClassName(segment: TranscriptSegment): string {
@@ -25,6 +26,7 @@ export function TranscriptFeed({
   deviceName,
   deviceKind,
   active = true,
+  capturing = false,
 }: TranscriptFeedProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const showMicHint = usesMicrophoneInput(audioSource);
@@ -42,7 +44,9 @@ export function TranscriptFeed({
       {segments.length === 0 ? (
         <div className="transcript-empty">
           <p className="transcript-empty-title">
-            Press Start to begin transcribing...
+            {capturing
+              ? "Listening…"
+              : "Press Start to begin transcribing..."}
           </p>
           {showMicHint && (
             <p className="transcript-empty-hint">

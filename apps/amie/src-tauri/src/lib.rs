@@ -72,6 +72,7 @@ pub fn run() {
             commands::audio_device::get_default_input_device_command,
             commands::transcription::start_transcription,
             commands::transcription::stop_transcription,
+            commands::transcription::get_transcription_status,
             commands::transcription::export_transcript,
             commands::transcription::get_asr_settings,
             commands::transcription::set_xai_api_key,

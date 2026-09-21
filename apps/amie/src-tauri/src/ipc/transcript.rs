@@ -34,6 +34,26 @@ pub struct TranscriptionStatus {
     pub error: Option<String>,
 }
 
+/// Point-in-time capture of the in-process session, used to restore the live
+/// UI after navigating away from Transcription.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TranscriptionSnapshot {
+    pub active: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub loading: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub backend: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub meeting_id: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct MicLevel {
     pub rms: f32,
@@ -148,6 +168,27 @@ mod tests {
         assert_eq!(json["loading"], true);
         assert_eq!(json["model"], "Nemotron 3.5 ASR Streaming 0.6B CoreML INT8");
         assert!(json.get("error").is_none());
+    }
+
+    #[test]
+    fn snapshot_serializes_camel_case_session_fields() {
+        let snapshot = TranscriptionSnapshot {
+            active: true,
+            loading: None,
+            model: Some("xAI Transcribe 2.0".into()),
+            error: None,
+            source: Some("both".into()),
+            backend: Some("xai".into()),
+            meeting_id: Some("m1".into()),
+        };
+        let json = serde_json::to_value(&snapshot).unwrap();
+        assert_eq!(json["active"], true);
+        assert_eq!(json["model"], "xAI Transcribe 2.0");
+        assert_eq!(json["source"], "both");
+        assert_eq!(json["backend"], "xai");
+        assert_eq!(json["meetingId"], "m1");
+        assert!(json.get("meeting_id").is_none());
+        assert!(json.get("loading").is_none());
     }
 
     #[test]
