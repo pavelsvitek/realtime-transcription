@@ -130,16 +130,34 @@ export function liveSegmentId(storedId: string): string {
   return idx === -1 ? storedId : storedId.slice(idx + 1);
 }
 
+function storedStream(stream: string): TranscriptStream {
+  return stream === "mic" ? "mic" : "system";
+}
+
 export function meetingSegmentsToTranscript(
   segments: MeetingSegment[],
 ): TranscriptSegment[] {
   return segments.map((segment) => ({
     id: liveSegmentId(segment.id),
-    speaker: "",
-    stream: "system",
+    speaker: segment.speaker,
+    stream: storedStream(segment.stream),
     text: segment.text,
     isPartial: false,
     startMs: segment.startMs,
     endMs: segment.endMs,
   }));
+}
+
+/** Keep a live User/Remote label when an older row was saved without one. */
+export function mergeRestoredTranscript(
+  previous: TranscriptSegment[],
+  restored: TranscriptSegment[],
+): TranscriptSegment[] {
+  const previousById = new Map(previous.map((segment) => [segment.id, segment]));
+  return restored.map((segment) => {
+    if (segment.speaker) return segment;
+    const prior = previousById.get(segment.id);
+    if (!prior?.speaker) return segment;
+    return { ...segment, speaker: prior.speaker, stream: prior.stream };
+  });
 }

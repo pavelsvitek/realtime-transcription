@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { TranscriptPayload } from "./transcript-types";
-import { applyCommit, applyTranscriptEvent, meetingSegmentsToTranscript } from "./transcript-timeline";
+import {
+  applyCommit,
+  applyTranscriptEvent,
+  meetingSegmentsToTranscript,
+  mergeRestoredTranscript,
+} from "./transcript-timeline";
 
 function commit(
   id: string,
@@ -222,15 +227,96 @@ describe("applyTranscriptEvent", () => {
 describe("meetingSegmentsToTranscript", () => {
   it("strips the meeting-id prefix so live event ids still match", () => {
     const segments = meetingSegmentsToTranscript([
-      { id: "abc-uuid:seg-0", startMs: 0, endMs: 1000, text: "hello" },
-      { id: "abc-uuid:seg-1", startMs: 1200, endMs: 2000, text: "world" },
+      {
+        id: "abc-uuid:seg-0",
+        startMs: 0,
+        endMs: 1000,
+        text: "hello",
+        speaker: "User",
+        stream: "mic",
+      },
+      {
+        id: "abc-uuid:seg-1",
+        startMs: 1200,
+        endMs: 2000,
+        text: "world",
+        speaker: "Remote",
+        stream: "system",
+      },
     ]);
     expect(segments.map((s) => s.id)).toEqual(["seg-0", "seg-1"]);
     expect(segments[0]).toMatchObject({
       text: "hello",
+      speaker: "User",
+      stream: "mic",
       isPartial: false,
       startMs: 0,
       endMs: 1000,
+    });
+    expect(segments[1]).toMatchObject({
+      speaker: "Remote",
+      stream: "system",
+    });
+  });
+});
+
+describe("mergeRestoredTranscript", () => {
+  it("keeps the live Remote label when the saved row has none", () => {
+    const previous = [
+      {
+        id: "seg-1",
+        speaker: "Remote",
+        stream: "system" as const,
+        text: "from the call",
+        isPartial: false,
+        startMs: 0,
+        endMs: 500,
+      },
+    ];
+    const restored = meetingSegmentsToTranscript([
+      {
+        id: "m1:seg-1",
+        startMs: 0,
+        endMs: 500,
+        text: "from the call",
+        speaker: "",
+        stream: "",
+      },
+    ]);
+
+    expect(mergeRestoredTranscript(previous, restored)[0]).toMatchObject({
+      id: "seg-1",
+      speaker: "Remote",
+      stream: "system",
+    });
+  });
+
+  it("prefers the speaker stored with the segment", () => {
+    const previous = [
+      {
+        id: "seg-1",
+        speaker: "User",
+        stream: "mic" as const,
+        text: "old",
+        isPartial: false,
+        startMs: 0,
+        endMs: 500,
+      },
+    ];
+    const restored = meetingSegmentsToTranscript([
+      {
+        id: "m1:seg-1",
+        startMs: 0,
+        endMs: 500,
+        text: "old",
+        speaker: "Remote",
+        stream: "system",
+      },
+    ]);
+
+    expect(mergeRestoredTranscript(previous, restored)[0]).toMatchObject({
+      speaker: "Remote",
+      stream: "system",
     });
   });
 });

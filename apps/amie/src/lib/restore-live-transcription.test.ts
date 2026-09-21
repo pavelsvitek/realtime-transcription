@@ -43,8 +43,22 @@ describe("restoreLiveTranscription", () => {
         return {
           meeting: { id: "m1" },
           segments: [
-            { id: "m1:seg-0", startMs: 0, endMs: 800, text: "hello" },
-            { id: "m1:seg-1", startMs: 900, endMs: 1500, text: "there" },
+            {
+              id: "m1:seg-0",
+              startMs: 0,
+              endMs: 800,
+              text: "hello",
+              speaker: "User",
+              stream: "mic",
+            },
+            {
+              id: "m1:seg-1",
+              startMs: 900,
+              endMs: 1500,
+              text: "there",
+              speaker: "Remote",
+              stream: "system",
+            },
           ],
         };
       }
@@ -58,5 +72,7 @@ describe("restoreLiveTranscription", () => {
     expect(restored.backend).toBe("xai");
     expect(restored.segments.map((s) => s.id)).toEqual(["seg-0", "seg-1"]);
     expect(restored.segments.map((s) => s.text)).toEqual(["hello", "there"]);
+    expect(restored.segments.map((s) => s.speaker)).toEqual(["User", "Remote"]);
+    expect(restored.segments.map((s) => s.stream)).toEqual(["mic", "system"]);
   });
 });

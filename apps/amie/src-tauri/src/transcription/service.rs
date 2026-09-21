@@ -354,9 +354,15 @@ impl TranscriptionService {
                         chars = committed.len(),
                         "No segments persisted during capture; saving in-memory transcript"
                     );
-                    if let Err(e) =
-                        store.insert_segment(&format!("{id}:fallback"), id, 0, 0, &committed)
-                    {
+                    if let Err(e) = store.insert_segment(
+                        &format!("{id}:fallback"),
+                        id,
+                        0,
+                        0,
+                        &committed,
+                        "",
+                        "",
+                    ) {
                         tracing::error!(
                             error = %e,
                             meeting_id = id,
@@ -524,6 +530,8 @@ fn spawn_stream_worker(
                             c.start_ms as i64,
                             c.end_ms as i64,
                             &c.text,
+                            &c.speaker,
+                            &c.stream,
                         ) {
                             tracing::error!(
                                 error = %e,

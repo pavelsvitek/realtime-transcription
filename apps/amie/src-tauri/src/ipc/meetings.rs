@@ -29,6 +29,10 @@ pub struct MeetingSegment {
     pub start_ms: i64,
     pub end_ms: i64,
     pub text: String,
+    /// "User" or "Remote". Empty on rows saved before this column existed.
+    pub speaker: String,
+    /// "mic" or "system". Empty on rows saved before this column existed.
+    pub stream: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
