@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   MeetingContextEditor,
@@ -35,14 +35,13 @@ function loadBackend(): AsrBackend {
 }
 
 type TranscribePageProps = {
-  startRequestId?: number;
-  onStartRequestHandled?: () => void;
+  /** Sidebar and Mod+N call this. Starting here, not in an effect, stays single under Strict Mode. */
+  startMeetingRef?: RefObject<(() => void) | null>;
   onMeetingFinished?: (meetingId: string | null) => void;
 };
 
 export function TranscribePage({
-  startRequestId = 0,
-  onStartRequestHandled,
+  startMeetingRef,
   onMeetingFinished,
 }: TranscribePageProps) {
   const [audioSource, setAudioSource] = useState<AudioSource>("both");
@@ -86,25 +85,18 @@ export function TranscribePage({
     }
   }, [sessionBackend]);
 
-  useEffect(() => {
-    if (startRequestId === 0) {
-      return;
-    }
-    onStartRequestHandled?.();
-    if (isActive || isLoading || isStopping || isFinishing) {
-      return;
-    }
-    setTab("transcript");
-    void start(audioSource, backend).then(() =>
-      queryClient.invalidateQueries({ queryKey: meetingKeys.live() }),
-    );
-  }, [startRequestId]);
-
   const handleStart = async () => {
+    if (isActive || isLoading || stopping) return;
     setTab("transcript");
     await start(audioSource, backend);
     await queryClient.invalidateQueries({ queryKey: meetingKeys.live() });
   };
+
+  if (startMeetingRef) {
+    startMeetingRef.current = () => {
+      void handleStart();
+    };
+  }
 
   const handleStop = async () => {
     setIsFinishing(true);
