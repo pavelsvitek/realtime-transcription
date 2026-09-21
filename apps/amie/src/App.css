@@ -883,6 +883,16 @@ body,
   cursor: pointer;
   font-family: inherit;
   color: inherit;
+  scroll-margin-block: 8px;
+}
+
+.meetings-row--selected {
+  background: var(--surface-hover);
+  border-radius: 10px;
+}
+
+.meetings-row--selected .meetings-row-bar {
+  background: var(--brand-primary);
 }
 
 .meetings-row-bar {

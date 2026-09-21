@@ -15,6 +15,10 @@ import { MeetingTabs, meetingTabDomIds, type MeetingDetailTab } from "../compone
 import { formatTime } from "../lib/format";
 import { SummaryMarkdown } from "../components/SummaryMarkdown";
 import {
+  moveMeetingSelection,
+  retainMeetingSelection,
+} from "../lib/meeting-list-selection";
+import {
   formatMeetingClock,
   formatMeetingDetailWhen,
   groupMeetingsByDay,
@@ -76,7 +80,12 @@ export function MeetingsPage() {
     () => new Set()
   );
   const [menuOpen, setMenuOpen] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const startConfirmOpen = useStartMeetingConfirmOpen();
+  const orderedIdsRef = useRef<string[]>([]);
+  const selectedIdRef = useRef<string | null>(null);
+  const previousIdsRef = useRef<string[] | null>(null);
+  const rowRefs = useRef(new Map<string, HTMLButtonElement>());
 
   const listQuery = useGetAllMeetingsQuery();
   const detailId = view.kind === "detail" ? view.id : undefined;
@@ -98,6 +107,68 @@ export function MeetingsPage() {
     setMenuOpen(false);
     setView({ kind: "list" });
   }, []);
+
+  // Click and Enter both open a meeting. Neither moves the keyboard cursor.
+  const openMeeting = useCallback((id: string) => {
+    setTab("summary");
+    setError(null);
+    setView({ kind: "detail", id });
+  }, []);
+
+  const listKeysEnabled = view.kind === "list" && !startConfirmOpen;
+
+  useHotkey(
+    "ArrowDown",
+    (event) => {
+      if (event.isComposing) return;
+      event.preventDefault();
+      setSelectedId((current) =>
+        moveMeetingSelection(orderedIdsRef.current, current, "down"),
+      );
+    },
+    {
+      enabled: listKeysEnabled,
+      ignoreInputs: true,
+      conflictBehavior: "allow",
+      meta: { name: "Select next meeting" },
+    },
+  );
+
+  useHotkey(
+    "ArrowUp",
+    (event) => {
+      if (event.isComposing) return;
+      event.preventDefault();
+      setSelectedId((current) =>
+        moveMeetingSelection(orderedIdsRef.current, current, "up"),
+      );
+    },
+    {
+      enabled: listKeysEnabled,
+      ignoreInputs: true,
+      conflictBehavior: "allow",
+      meta: { name: "Select previous meeting" },
+    },
+  );
+
+  useHotkey(
+    "Enter",
+    (event) => {
+      if (event.isComposing) return;
+      const id = selectedIdRef.current;
+      if (!id || !orderedIdsRef.current.includes(id)) return;
+      event.preventDefault();
+      openMeeting(id);
+    },
+    {
+      enabled: listKeysEnabled,
+      ignoreInputs: true,
+      preventDefault: false,
+      stopPropagation: false,
+      conflictBehavior: "allow",
+      meta: { name: "Open selected meeting" },
+    },
+  );
 
   useHotkey(
     "Escape",
@@ -237,6 +308,28 @@ export function MeetingsPage() {
   }, [queryClient]);
 
   const groups = groupMeetingsByDay(meetings);
+  const orderedIds = groups.flatMap((group) =>
+    group.meetings.map((meeting) => meeting.id),
+  );
+  const orderedKey = orderedIds.join("\n");
+  orderedIdsRef.current = orderedIds;
+  selectedIdRef.current = selectedId;
+
+  useEffect(() => {
+    const nextIds = orderedIdsRef.current;
+    const previousIds = previousIdsRef.current;
+    previousIdsRef.current = nextIds;
+    if (previousIds == null) return;
+    setSelectedId((current) =>
+      retainMeetingSelection(previousIds, nextIds, current),
+    );
+  }, [orderedKey]);
+
+  useEffect(() => {
+    if (view.kind !== "list" || !selectedId) return;
+    rowRefs.current.get(selectedId)?.scrollIntoView({ block: "nearest" });
+  }, [view.kind, selectedId]);
+
   const queryError =
     (view.kind === "list" && listQuery.error
       ? String(listQuery.error)
@@ -477,12 +570,17 @@ export function MeetingsPage() {
                   <li key={meeting.id}>
                     <button
                       type="button"
-                      className="meetings-row"
-                      onClick={() => {
-                        setTab("summary");
-                        setError(null);
-                        setView({ kind: "detail", id: meeting.id });
+                      ref={(node) => {
+                        if (node) rowRefs.current.set(meeting.id, node);
+                        else rowRefs.current.delete(meeting.id);
                       }}
+                      className={
+                        meeting.id === selectedId
+                          ? "meetings-row meetings-row--selected"
+                          : "meetings-row"
+                      }
+                      aria-current={meeting.id === selectedId ? "true" : undefined}
+                      onClick={() => openMeeting(meeting.id)}
                     >
                       <span className="meetings-row-bar" aria-hidden="true" />
                       <span className="meetings-row-body">
