@@ -1,14 +1,18 @@
+use std::error::Error as StdError;
 use std::time::Duration;
 
-use futures_util::StreamExt;
 use reqwest::Client;
+use serde_json::Value;
 
 use super::provider::{LlmClient, LlmError};
-use super::sse::{delta_content, SseItem, SseParser};
 
 const CHAT_COMPLETIONS_URL: &str = "https://api.x.ai/v1/chat/completions";
 const MODEL: &str = "grok-4.6";
-const TIMEOUT_SECS: u64 = 180;
+/// grok-4.6 can spend several minutes reasoning before `message.content`
+/// is ready. xAI's own clients use 3600s; a short deadline shows up as
+/// reqwest's "error decoding response body".
+const TIMEOUT_SECS: u64 = 3600;
+const CONNECT_TIMEOUT_SECS: u64 = 30;
 
 pub struct XaiChatClient {
     http: Client,
@@ -17,6 +21,8 @@ pub struct XaiChatClient {
 impl XaiChatClient {
     pub fn new() -> Self {
         let http = Client::builder()
+            .http1_only()
+            .connect_timeout(Duration::from_secs(CONNECT_TIMEOUT_SECS))
             .timeout(Duration::from_secs(TIMEOUT_SECS))
             .build()
             .expect("reqwest client");
@@ -33,12 +39,12 @@ impl LlmClient for XaiChatClient {
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<String, LlmError>> + Send + 'a>>
     {
         Box::pin(async move {
-            let api_key = crate::transcription::xai::resolve_api_key()
-                .ok_or(LlmError::MissingApiKey)?;
+            let api_key =
+                crate::transcription::xai::resolve_api_key().ok_or(LlmError::MissingApiKey)?;
 
             let body = serde_json::json!({
                 "model": MODEL,
-                "stream": true,
+                "stream": false,
                 "messages": [
                     {"role": "system", "content": system},
                     {"role": "user", "content": user},
@@ -52,48 +58,123 @@ impl LlmClient for XaiChatClient {
                 .json(&body)
                 .send()
                 .await
-                .map_err(|e| LlmError::Message(format!("xAI request failed: {e}")))?;
+                .map_err(|e| {
+                    LlmError::Message(format!("xAI request failed: {}", format_error_chain(&e)))
+                })?;
 
-            if !response.status().is_success() {
-                let status = response.status();
-                let text = response.text().await.unwrap_or_default();
+            let status = response.status();
+            let text = response.text().await.map_err(|e| {
+                LlmError::Message(format!("xAI response error: {}", format_error_chain(&e)))
+            })?;
+
+            if !status.is_success() {
                 let snippet: String = text.chars().take(400).collect();
                 return Err(LlmError::Message(format!("xAI HTTP {status}: {snippet}")));
             }
 
-            let mut stream = response.bytes_stream();
-            let mut parser = SseParser::new();
-            let mut accumulated = String::new();
-
-            while let Some(chunk) = stream.next().await {
-                let bytes = chunk
-                    .map_err(|e| LlmError::Message(format!("xAI stream error: {e}")))?;
-                let text = String::from_utf8_lossy(&bytes);
-                if apply_sse_items(&mut accumulated, parser.push(&text), on_delta) {
-                    return Ok(accumulated);
-                }
-            }
-            apply_sse_items(&mut accumulated, parser.finish(), on_delta);
-            Ok(accumulated)
+            let value: Value = serde_json::from_str(&text).map_err(|e| {
+                let snippet: String = text.chars().take(400).collect();
+                LlmError::Message(format!("xAI response JSON error: {e}: {snippet}"))
+            })?;
+            let content = completion_text(&value)?;
+            on_delta(&content);
+            Ok(content)
         })
     }
 }
 
-fn apply_sse_items(
-    accumulated: &mut String,
-    items: Vec<SseItem>,
-    on_delta: &(dyn Fn(&str) + Send + Sync),
-) -> bool {
-    for item in items {
-        match item {
-            SseItem::Done => return true,
-            SseItem::Data(data) => {
-                if let Some(delta) = delta_content(&data) {
-                    accumulated.push_str(&delta);
-                    on_delta(&delta);
-                }
-            }
-        }
+fn completion_text(value: &Value) -> Result<String, LlmError> {
+    if let Some(message) = api_error_message(value) {
+        return Err(LlmError::Message(format!("xAI error: {message}")));
     }
-    false
+    let content = value
+        .get("choices")
+        .and_then(|choices| choices.get(0))
+        .and_then(|choice| choice.get("message"))
+        .and_then(|message| message.get("content"))
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    if content.trim().is_empty() {
+        return Err(LlmError::Message(
+            "xAI returned an empty completion.".into(),
+        ));
+    }
+    Ok(content)
+}
+
+fn api_error_message(value: &Value) -> Option<String> {
+    let err = value.get("error")?;
+    if let Some(msg) = err.as_str() {
+        let msg = msg.trim();
+        return (!msg.is_empty()).then(|| msg.to_string());
+    }
+    let msg = err.get("message")?.as_str()?.trim();
+    (!msg.is_empty()).then(|| msg.to_string())
+}
+
+fn format_error_chain(err: &dyn StdError) -> String {
+    let mut parts = vec![err.to_string()];
+    let mut source = err.source();
+    while let Some(inner) = source {
+        let text = inner.to_string();
+        if !parts.iter().any(|part| part.contains(&text)) {
+            parts.push(text);
+        }
+        source = inner.source();
+    }
+    parts.join(": ")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reads_message_content() {
+        let value = serde_json::json!({
+            "choices": [{
+                "message": {
+                    "role": "assistant",
+                    "content": "Title: Hello\n\n- **Pavel** spoke"
+                }
+            }]
+        });
+        assert_eq!(
+            completion_text(&value).unwrap(),
+            "Title: Hello\n\n- **Pavel** spoke"
+        );
+    }
+
+    #[test]
+    fn ignores_reasoning_only_payloads() {
+        let value = serde_json::json!({
+            "choices": [{
+                "message": {
+                    "role": "assistant",
+                    "reasoning_content": "thinking",
+                    "content": ""
+                }
+            }]
+        });
+        assert_eq!(
+            completion_text(&value).unwrap_err().to_string(),
+            "xAI returned an empty completion."
+        );
+    }
+
+    #[test]
+    fn surfaces_api_error_object() {
+        let value = serde_json::json!({"error": {"message": "model overloaded"}});
+        assert_eq!(
+            completion_text(&value).unwrap_err().to_string(),
+            "xAI error: model overloaded"
+        );
+    }
+
+    #[test]
+    fn reasoning_model_timeout_matches_xai_docs() {
+        assert_eq!(TIMEOUT_SECS, 3600);
+        assert_eq!(CONNECT_TIMEOUT_SECS, 30);
+    }
 }

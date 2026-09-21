@@ -1,7 +1,6 @@
 pub mod output;
 pub mod provider;
 pub mod service;
-pub mod sse;
 pub mod xai;
 
 pub use service::{SummaryEmitter, SummaryEvent, SummaryService};

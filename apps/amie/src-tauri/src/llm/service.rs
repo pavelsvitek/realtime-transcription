@@ -106,7 +106,7 @@ impl SummaryService {
         })
     }
 
-    /// Kick off a summary job. Returns immediately; the HTTP stream lives on
+    /// Kick off a summary job. Returns immediately; the HTTP request lives on
     /// `tauri::async_runtime::spawn`. Regenerating aborts the previous request.
     pub fn start(&self, meeting_id: String, emit: SummaryEmitter) {
         let generation = {
