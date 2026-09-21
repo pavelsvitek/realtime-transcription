@@ -6,7 +6,7 @@ pnpm workspace for a real-time transcription product: a local macOS desktop app,
 
 | Package | Path | Role |
 | --- | --- | --- |
-| `tauri-app` | [`apps/tauri-app`](./apps/tauri-app) | Local macOS transcription app (Tauri + React) |
+| `amie` | [`apps/amie`](./apps/amie) | Local macOS transcription app (Tauri + React) |
 | `web` | [`apps/web`](./apps/web) | Next.js suggestion-card prototype |
 | `server` | [`apps/server`](./apps/server) | Cloudflare Workers API (Hono) — routes not added yet |
 
@@ -28,7 +28,7 @@ pnpm dev:web       # Next.js prototype
 pnpm dev:server    # Cloudflare Worker (wrangler)
 ```
 
-Desktop setup (Nemotron helper, permissions, golden eval) lives in [`apps/tauri-app/README.md`](./apps/tauri-app/README.md).
+Desktop setup (Nemotron helper, permissions, golden eval) lives in [`apps/amie/README.md`](./apps/amie/README.md).
 
 ## Docs
 

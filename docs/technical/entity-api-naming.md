@@ -41,7 +41,7 @@ Same names, `use*` prefix:
 | `usePatchMeetingMutation()` | `patchMeeting` |
 | `useDeleteMeetingMutation()` | `deleteMeeting` |
 
-Hooks live in `apps/tauri-app/src/models/<Entity>/queries.ts` and `mutations.ts`. Query keys live next to the queries.
+Hooks live in `apps/amie/src/models/<Entity>/queries.ts` and `mutations.ts`. Query keys live next to the queries.
 
 ## Meeting specifics
 
