@@ -106,7 +106,7 @@ impl SummaryService {
         })
     }
 
-    /// Kick off a summary job. Returns immediately; the HTTP stream lives on
+    /// Kick off a summary job. Returns immediately; the HTTP request lives on
     /// `tauri::async_runtime::spawn`. Regenerating aborts the previous request.
     pub fn start(&self, meeting_id: String, emit: SummaryEmitter) {
         let generation = {
@@ -174,6 +174,12 @@ impl SummaryService {
         };
 
         self.set_running(&meeting_id, generation);
+        tracing::info!(
+            meeting_id = %meeting_id,
+            transcript_chars = transcript.len(),
+            context_chars = record.meeting.context.as_deref().map(str::len).unwrap_or(0),
+            "Starting meeting summary"
+        );
         emit(SummaryEvent::Status(SummaryStatus {
             meeting_id: meeting_id.clone(),
             state: SummaryJobState::Running,
@@ -243,6 +249,12 @@ impl SummaryService {
                         return;
                     }
                 }
+                tracing::info!(
+                    meeting_id = %meeting_id,
+                    summary_chars = parsed.summary.len(),
+                    title = parsed.title.as_deref().unwrap_or(""),
+                    "Meeting summary saved"
+                );
                 self.set_done(
                     &meeting_id,
                     generation,
@@ -313,6 +325,7 @@ impl SummaryService {
                 slot.snapshot.error = Some(error.clone());
             }
         }
+        tracing::error!(meeting_id = %meeting_id, error = %error, "Meeting summary failed");
         emit(SummaryEvent::Status(SummaryStatus {
             meeting_id: meeting_id.to_string(),
             state: SummaryJobState::Error,
