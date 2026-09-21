@@ -30,8 +30,7 @@ fn greet(name: &str) -> String {
 pub fn run() {
     tracing_subscriber::fmt()
         .with_env_filter(
-            EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| EnvFilter::new("amie_lib=info")),
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("amie_lib=info")),
         )
         .init();
 
@@ -84,6 +83,12 @@ pub fn run() {
             commands::meetings::generate_meeting_summary,
             commands::meetings::get_summary_job,
             commands::meetings::generate_all_meeting_summaries,
+            commands::meetings::get_summary_settings,
+            commands::meetings::set_summary_provider,
+            commands::meetings::set_openai_api_key,
+            commands::meetings::clear_openai_api_key,
+            commands::meetings::set_gemini_api_key,
+            commands::meetings::clear_gemini_api_key,
             commands::meetings::delete_meeting,
         ])
         .run(tauri::generate_context!())

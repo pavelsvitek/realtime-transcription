@@ -1,3 +1,6 @@
+pub mod gemini;
+pub mod keys;
+pub mod openai;
 pub mod output;
 pub mod provider;
 pub mod service;

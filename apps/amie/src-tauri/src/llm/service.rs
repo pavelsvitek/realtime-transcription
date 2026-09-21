@@ -3,16 +3,15 @@ use std::sync::{Arc, Mutex};
 
 use tauri::async_runtime::JoinHandle;
 
+use super::keys::{provider_has_api_key, resolve_provider};
 use super::output::parse_meeting_output;
-use super::provider::{create_client, LlmClient, LlmError, LlmProviderId};
+use super::provider::{create_client, missing_key_message, LlmClient, LlmError};
 use crate::ipc::summary::{
     GenerateAllSummariesResult, SummaryDelta, SummaryJobSnapshot, SummaryJobState, SummaryStatus,
 };
 use crate::meetings::MeetingStore;
 
 const MEETING_SUMMARY_PROMPT: &str = include_str!("../../prompts/meeting-summary.txt");
-
-pub const MISSING_KEY_MESSAGE: &str = "xAI API key is not set. Add one in Settings.";
 
 pub type SummaryEmitter = Arc<dyn Fn(SummaryEvent) + Send + Sync>;
 
@@ -54,7 +53,7 @@ impl SummaryService {
         Self {
             store,
             jobs: Arc::new(Mutex::new(HashMap::new())),
-            factory: Arc::new(|| create_client(LlmProviderId::Xai)),
+            factory: Arc::new(|| create_client(resolve_provider())),
         }
     }
 
@@ -91,8 +90,8 @@ impl SummaryService {
         &self,
         emit: SummaryEmitter,
     ) -> Result<GenerateAllSummariesResult, String> {
-        if crate::transcription::xai::resolve_api_key().is_none() {
-            return Err(MISSING_KEY_MESSAGE.to_string());
+        if let Err(message) = ensure_provider_key() {
+            return Err(message);
         }
 
         let (ids, skipped_empty) =
@@ -155,13 +154,8 @@ impl SummaryService {
         }
         let user_prompt = format_user_prompt(record.meeting.context.as_deref(), &transcript);
 
-        if crate::transcription::xai::resolve_api_key().is_none() {
-            self.fail(
-                &meeting_id,
-                generation,
-                &emit,
-                MISSING_KEY_MESSAGE.to_string(),
-            );
+        if let Err(message) = ensure_provider_key() {
+            self.fail(&meeting_id, generation, &emit, message);
             return;
         }
 
@@ -267,13 +261,8 @@ impl SummaryService {
                     error: None,
                 }));
             }
-            Err(LlmError::MissingApiKey) => {
-                self.fail(
-                    &meeting_id,
-                    generation,
-                    &emit,
-                    MISSING_KEY_MESSAGE.to_string(),
-                );
+            Err(LlmError::MissingApiKey(message)) => {
+                self.fail(&meeting_id, generation, &emit, message.to_string());
             }
             Err(e) => {
                 self.fail(&meeting_id, generation, &emit, e.to_string());
@@ -331,6 +320,15 @@ impl SummaryService {
             state: SummaryJobState::Error,
             error: Some(error),
         }));
+    }
+}
+
+fn ensure_provider_key() -> Result<(), String> {
+    let id = resolve_provider();
+    if provider_has_api_key(id) {
+        Ok(())
+    } else {
+        Err(missing_key_message(id).to_string())
     }
 }
 

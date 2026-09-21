@@ -9,6 +9,19 @@ export type AsrSettings = {
   xaiApiKeyFromEnv: boolean;
 };
 
+export type SummaryProvider = "xai" | "openai" | "gemini";
+
+export type SummarySettings = {
+  provider: SummaryProvider;
+  providerFromEnv: boolean;
+  openaiApiKeySet: boolean;
+  openaiApiKeySaved: boolean;
+  openaiApiKeyFromEnv: boolean;
+  geminiApiKeySet: boolean;
+  geminiApiKeySaved: boolean;
+  geminiApiKeyFromEnv: boolean;
+};
+
 export type TranscriptSegment = {
   id: string;
   speaker: string;
