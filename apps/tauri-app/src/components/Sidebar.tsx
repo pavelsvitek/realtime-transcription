@@ -35,8 +35,8 @@ export function Sidebar({ currentPage, onNavigate, onStartMeeting }: SidebarProp
           src="/amie-icon.png"
           alt=""
           className="sidebar-brand-icon"
-          width={28}
-          height={28}
+          width={32}
+          height={32}
         />
         <span className="sidebar-brand-name">Amie</span>
       </div>
