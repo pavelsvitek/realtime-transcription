@@ -1,3 +1,4 @@
+import type { MeetingSegment } from "./meetings";
 import type { TranscriptPayload, TranscriptSegment } from "./transcript-types";
 
 const COALESCE_GAP_MS = 1500;
@@ -121,4 +122,24 @@ export function finalizePartials(
   return segments.map((segment) =>
     segment.isPartial ? { ...segment, isPartial: false } : segment
   );
+}
+
+/** Strip the `{meetingId}:` prefix stored in SQLite so live events can match. */
+export function liveSegmentId(storedId: string): string {
+  const idx = storedId.indexOf(":");
+  return idx === -1 ? storedId : storedId.slice(idx + 1);
+}
+
+export function meetingSegmentsToTranscript(
+  segments: MeetingSegment[],
+): TranscriptSegment[] {
+  return segments.map((segment) => ({
+    id: liveSegmentId(segment.id),
+    speaker: "",
+    stream: "system",
+    text: segment.text,
+    isPartial: false,
+    startMs: segment.startMs,
+    endMs: segment.endMs,
+  }));
 }

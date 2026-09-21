@@ -35,6 +35,12 @@ export type TranscriptionStatusPayload = {
   error?: string;
 };
 
+export type TranscriptionSnapshot = TranscriptionStatusPayload & {
+  source?: AudioSource;
+  backend?: AsrBackend;
+  meetingId?: string;
+};
+
 export type MicLevelPayload = {
   rms: number;
 };

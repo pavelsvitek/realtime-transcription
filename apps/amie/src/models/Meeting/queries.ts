@@ -36,12 +36,16 @@ export function getMeetingQueryOptions(id: string) {
   });
 }
 
-export function getLiveMeetingQueryOptions(enabled: boolean) {
+export function getLiveMeetingQueryOptions(enabled = true) {
   return queryOptions({
     queryKey: meetingKeys.live(),
     queryFn: getLiveMeeting,
     enabled,
   });
+}
+
+export function useGetLiveMeetingQuery(enabled = true) {
+  return useQuery(getLiveMeetingQueryOptions(enabled));
 }
 
 export function useGetAllMeetingsQuery() {
@@ -50,8 +54,4 @@ export function useGetAllMeetingsQuery() {
 
 export function useGetMeetingQuery(id: string | undefined) {
   return useQuery(getMeetingQueryOptions(id ?? ""));
-}
-
-export function useGetLiveMeetingQuery(enabled: boolean) {
-  return useQuery(getLiveMeetingQueryOptions(enabled));
 }

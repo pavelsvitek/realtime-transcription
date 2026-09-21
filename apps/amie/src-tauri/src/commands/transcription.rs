@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use serde::Serialize;
 use tauri::{AppHandle, State};
 
-use crate::ipc::transcript::TranscriptExport;
+use crate::ipc::transcript::{TranscriptExport, TranscriptionSnapshot};
 use crate::state::TranscriptionHandle;
 use crate::transcription::{xai, AsrBackend, AudioSource};
 
@@ -23,7 +23,11 @@ pub async fn start_transcription(
         .and_then(AsrBackend::parse)
         .unwrap_or_default();
 
-    tracing::info!(?audio_source, ?asr_backend, "start_transcription command invoked");
+    tracing::info!(
+        ?audio_source,
+        ?asr_backend,
+        "start_transcription command invoked"
+    );
 
     state
         .service
@@ -48,6 +52,13 @@ pub async fn stop_transcription(
 
     tracing::info!("stop_transcription command completed");
     Ok(export)
+}
+
+#[tauri::command]
+pub async fn get_transcription_status(
+    state: State<'_, TranscriptionHandle>,
+) -> Result<TranscriptionSnapshot, String> {
+    Ok(state.service.snapshot())
 }
 
 #[tauri::command]

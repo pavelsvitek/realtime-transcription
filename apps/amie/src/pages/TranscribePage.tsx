@@ -46,6 +46,8 @@ export function TranscribePage({
     isStopping,
     error,
     model,
+    sessionSource,
+    sessionBackend,
     start,
     stop,
     clear,
@@ -54,13 +56,25 @@ export function TranscribePage({
   const micActive = useMicLevel(isActive && !isStopping);
   const [tab, setTab] = useState<MeetingDetailTab>("transcript");
   const queryClient = useQueryClient();
-  const liveQuery = useGetLiveMeetingQuery(isActive);
-  const liveMeeting = isActive ? liveQuery.data ?? null : null;
+  const liveQuery = useGetLiveMeetingQuery(true);
+  const liveMeeting = liveQuery.data ?? null;
   const contextEditorRef = useRef<MeetingContextEditorHandle>(null);
 
   useEffect(() => {
     localStorage.setItem(BACKEND_STORAGE_KEY, backend);
   }, [backend]);
+
+  useEffect(() => {
+    if (sessionSource) {
+      setAudioSource(sessionSource);
+    }
+  }, [sessionSource]);
+
+  useEffect(() => {
+    if (sessionBackend) {
+      setBackend(sessionBackend);
+    }
+  }, [sessionBackend]);
 
   useEffect(() => {
     if (startRequestId === 0) {
@@ -71,19 +85,21 @@ export function TranscribePage({
       return;
     }
     setTab("transcript");
-    queryClient.removeQueries({ queryKey: meetingKeys.live() });
-    start(audioSource, backend);
+    void start(audioSource, backend).then(() =>
+      queryClient.invalidateQueries({ queryKey: meetingKeys.live() }),
+    );
   }, [startRequestId]);
 
   const handleStart = async () => {
     setTab("transcript");
-    queryClient.removeQueries({ queryKey: meetingKeys.live() });
     await start(audioSource, backend);
+    await queryClient.invalidateQueries({ queryKey: meetingKeys.live() });
   };
 
   const handleStop = async () => {
     await contextEditorRef.current?.flush();
     await stop();
+    await queryClient.invalidateQueries({ queryKey: meetingKeys.live() });
   };
 
   const summaryIds = meetingTabDomIds(LIVE_TAB_PREFIX, "summary");
@@ -196,6 +212,8 @@ export function TranscribePage({
             initialContext={liveMeeting.context}
             fieldId="live-meeting-context-editor"
           />
+        ) : isActive ? (
+          <p className="meetings-empty-copy">Loading meeting context…</p>
         ) : (
           <p className="meetings-empty-copy">
             Start transcription to add context for this meeting.
@@ -215,6 +233,7 @@ export function TranscribePage({
           audioSource={audioSource}
           deviceName={device?.name ?? null}
           deviceKind={device?.kind ?? null}
+          capturing={isActive}
           active={tab === "transcript"}
         />
       </div>

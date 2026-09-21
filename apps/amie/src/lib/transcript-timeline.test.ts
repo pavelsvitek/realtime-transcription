@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TranscriptPayload } from "./transcript-types";
-import { applyCommit, applyTranscriptEvent } from "./transcript-timeline";
+import { applyCommit, applyTranscriptEvent, meetingSegmentsToTranscript } from "./transcript-timeline";
 
 function commit(
   id: string,
@@ -216,5 +216,21 @@ describe("applyTranscriptEvent", () => {
     expect(segments[0]?.text).toBe("first sentence");
     expect(segments[1]?.text).toBe("It seems that some of the sentences");
     expect(segments[1]?.isPartial).toBe(true);
+  });
+});
+
+describe("meetingSegmentsToTranscript", () => {
+  it("strips the meeting-id prefix so live event ids still match", () => {
+    const segments = meetingSegmentsToTranscript([
+      { id: "abc-uuid:seg-0", startMs: 0, endMs: 1000, text: "hello" },
+      { id: "abc-uuid:seg-1", startMs: 1200, endMs: 2000, text: "world" },
+    ]);
+    expect(segments.map((s) => s.id)).toEqual(["seg-0", "seg-1"]);
+    expect(segments[0]).toMatchObject({
+      text: "hello",
+      isPartial: false,
+      startMs: 0,
+      endMs: 1000,
+    });
   });
 });

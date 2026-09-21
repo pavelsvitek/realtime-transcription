@@ -78,9 +78,31 @@ impl TranscriptionService {
         self
     }
 
-    #[allow(dead_code)]
-    pub fn is_active(&self) -> bool {
-        self.running.lock().unwrap().is_some()
+    pub fn snapshot(&self) -> TranscriptionSnapshot {
+        let running = self.running.lock().unwrap();
+        let models = self.models.lock().unwrap();
+        match running.as_ref() {
+            Some(state) => TranscriptionSnapshot {
+                active: true,
+                loading: None,
+                model: models.as_ref().map(|engine| engine.model_name.clone()),
+                error: None,
+                source: Some(state.source.as_str().to_string()),
+                backend: models
+                    .as_ref()
+                    .map(|engine| engine.backend.as_str().to_string()),
+                meeting_id: state.meeting_id.clone(),
+            },
+            None => TranscriptionSnapshot {
+                active: false,
+                loading: None,
+                model: None,
+                error: None,
+                source: None,
+                backend: None,
+                meeting_id: None,
+            },
+        }
     }
 
     pub fn start(
@@ -332,13 +354,9 @@ impl TranscriptionService {
                         chars = committed.len(),
                         "No segments persisted during capture; saving in-memory transcript"
                     );
-                    if let Err(e) = store.insert_segment(
-                        &format!("{id}:fallback"),
-                        id,
-                        0,
-                        0,
-                        &committed,
-                    ) {
+                    if let Err(e) =
+                        store.insert_segment(&format!("{id}:fallback"), id, 0, 0, &committed)
+                    {
                         tracing::error!(
                             error = %e,
                             meeting_id = id,
@@ -391,7 +409,11 @@ impl TranscriptionService {
             convert_wav_to_flac_background(wav_paths);
         }
 
-        let export = self.build_export(state.source, self.transcript.text(), state.meeting_id.clone());
+        let export = self.build_export(
+            state.source,
+            self.transcript.text(),
+            state.meeting_id.clone(),
+        );
         *self.last_export.lock().unwrap() = Some(export.clone());
 
         if let Some(app) = app_handle {
@@ -546,5 +568,20 @@ fn emit_to_app(app_handle: &AppHandle, event: TranscriptEvent) {
 
     if let Err(e) = result {
         tracing::warn!(error = %e, "Failed to emit event");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn snapshot_is_inactive_when_idle() {
+        let service = TranscriptionService::new();
+        let snapshot = service.snapshot();
+        assert!(!snapshot.active);
+        assert!(snapshot.meeting_id.is_none());
+        assert!(snapshot.source.is_none());
+        assert!(snapshot.backend.is_none());
     }
 }
