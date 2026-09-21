@@ -10,6 +10,7 @@ import "./App.css";
 function App() {
   const [page, setPage] = useState<AppPage>("transcribe");
   const [startRequestId, setStartRequestId] = useState(0);
+  const [arrivedMeetingId, setArrivedMeetingId] = useState<string | null>(null);
 
   return (
     <AppLayout
@@ -25,9 +26,15 @@ function App() {
         <TranscribePage
           startRequestId={startRequestId}
           onStartRequestHandled={() => setStartRequestId(0)}
+          onMeetingFinished={(meetingId) => {
+            setArrivedMeetingId(meetingId);
+            setPage("meetings");
+          }}
         />
       </Activity>
-      {page === "meetings" ? <MeetingsPage /> : null}
+      {page === "meetings" ? (
+        <MeetingsPage arrivedMeetingId={arrivedMeetingId} />
+      ) : null}
       {page === "settings" ? <SettingsPage /> : null}
     </AppLayout>
   );

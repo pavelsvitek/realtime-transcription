@@ -17,8 +17,14 @@ import { TranscriptFeed } from "../components/TranscriptFeed";
 import { useAudioDevice } from "../hooks/useAudioDevice";
 import { useMicLevel } from "../hooks/useMicLevel";
 import { useTranscription } from "../hooks/useTranscription";
+import { finishedMeetingTitle } from "../lib/meetings";
 import type { AsrBackend, AudioSource } from "../lib/transcript-types";
-import { meetingKeys, useGetLiveMeetingQuery } from "../models/Meeting";
+import {
+  getMeeting,
+  meetingKeys,
+  patchMeeting,
+  useGetLiveMeetingQuery,
+} from "../models/Meeting";
 
 const BACKEND_STORAGE_KEY = "asrBackend";
 const LIVE_TAB_PREFIX = "transcribe";
@@ -31,11 +37,13 @@ function loadBackend(): AsrBackend {
 type TranscribePageProps = {
   startRequestId?: number;
   onStartRequestHandled?: () => void;
+  onMeetingFinished?: (meetingId: string | null) => void;
 };
 
 export function TranscribePage({
   startRequestId = 0,
   onStartRequestHandled,
+  onMeetingFinished,
 }: TranscribePageProps) {
   const [audioSource, setAudioSource] = useState<AudioSource>("both");
   const [backend, setBackend] = useState<AsrBackend>(loadBackend);
@@ -53,8 +61,10 @@ export function TranscribePage({
     clear,
   } = useTranscription();
   const { device, error: deviceError } = useAudioDevice();
-  const micActive = useMicLevel(isActive && !isStopping);
   const [tab, setTab] = useState<MeetingDetailTab>("transcript");
+  const [isFinishing, setIsFinishing] = useState(false);
+  const stopping = isStopping || isFinishing;
+  const micActive = useMicLevel(isActive && !stopping);
   const queryClient = useQueryClient();
   const liveQuery = useGetLiveMeetingQuery(true);
   const liveMeeting = liveQuery.data ?? null;
@@ -81,7 +91,7 @@ export function TranscribePage({
       return;
     }
     onStartRequestHandled?.();
-    if (isActive || isLoading || isStopping) {
+    if (isActive || isLoading || isStopping || isFinishing) {
       return;
     }
     setTab("transcript");
@@ -97,9 +107,38 @@ export function TranscribePage({
   };
 
   const handleStop = async () => {
-    await contextEditorRef.current?.flush();
-    await stop();
-    await queryClient.invalidateQueries({ queryKey: meetingKeys.live() });
+    setIsFinishing(true);
+    try {
+      await contextEditorRef.current?.flush();
+      let meetingId: string | null;
+      try {
+        meetingId = await stop();
+      } catch {
+        return;
+      }
+
+      if (meetingId) {
+        try {
+          const record = await getMeeting(meetingId);
+          const startedAt = record?.meeting.startedAt;
+          const finishedAt = record?.meeting.finishedAt;
+          if (startedAt != null && finishedAt != null) {
+            await patchMeeting(meetingId, {
+              title: finishedMeetingTitle(startedAt, finishedAt),
+            });
+          }
+        } catch (e) {
+          console.warn("Failed to name finished meeting", e);
+        }
+      }
+
+      clear();
+      setTab("transcript");
+      await queryClient.invalidateQueries({ queryKey: meetingKeys.all });
+      onMeetingFinished?.(meetingId);
+    } finally {
+      setIsFinishing(false);
+    }
   };
 
   const summaryIds = meetingTabDomIds(LIVE_TAB_PREFIX, "summary");
@@ -119,7 +158,7 @@ export function TranscribePage({
             <select
               value={backend}
               onChange={(e) => setBackend(e.target.value as AsrBackend)}
-              disabled={isActive || isLoading || isStopping}
+              disabled={isActive || isLoading || stopping}
             >
               <option value="local">Local (Nemotron)</option>
               <option value="xai">xAI Transcribe 2.0</option>
@@ -130,7 +169,7 @@ export function TranscribePage({
             <select
               value={audioSource}
               onChange={(e) => setAudioSource(e.target.value as AudioSource)}
-              disabled={isActive || isLoading || isStopping}
+              disabled={isActive || isLoading || stopping}
             >
               <option value="system">Chrome / system audio</option>
               <option value="mic">Microphone</option>
@@ -138,32 +177,32 @@ export function TranscribePage({
             </select>
           </label>
           <MicIndicator
-            isActive={isActive && !isStopping}
+            isActive={isActive && !stopping}
             micActive={micActive}
             error={error}
             deviceName={device?.name ?? null}
             deviceKind={device?.kind ?? null}
             deviceError={deviceError}
           />
-          {!isActive ? (
+          {isActive || stopping ? (
+            <button
+              className="btn btn-stop"
+              onClick={() => void handleStop()}
+              disabled={stopping}
+              aria-busy={stopping}
+              aria-label={stopping ? "Stopping transcription" : "Stop transcription"}
+            >
+              {stopping ? <Spinner className="btn-spinner" /> : "Stop"}
+            </button>
+          ) : (
             <StartMeetingButton
               onClick={() => void handleStart()}
               disabled={isLoading}
             >
               {isLoading ? "Loading model..." : "Start a meeting"}
             </StartMeetingButton>
-          ) : (
-            <button
-              className="btn btn-stop"
-              onClick={() => void handleStop()}
-              disabled={isStopping}
-              aria-busy={isStopping}
-              aria-label={isStopping ? "Stopping transcription" : "Stop transcription"}
-            >
-              {isStopping ? <Spinner className="btn-spinner" /> : "Stop"}
-            </button>
           )}
-          {segments.length > 0 && !isActive && (
+          {segments.length > 0 && !isActive && !stopping && (
             <button className="btn btn-clear" onClick={clear}>
               Clear
             </button>
@@ -240,7 +279,7 @@ export function TranscribePage({
 
       <footer className="page-footer">
         <span className="status-text">
-          {isStopping
+          {stopping
             ? "Stopping..."
             : isActive
             ? audioSource === "both"

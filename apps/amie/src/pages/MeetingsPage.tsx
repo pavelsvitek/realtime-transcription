@@ -42,6 +42,11 @@ type MeetingsView =
   | { kind: "list" }
   | { kind: "detail"; id: string };
 
+type MeetingsPageProps = {
+  /** Meeting that was just finished, so the list can show an in-progress summary. */
+  arrivedMeetingId?: string | null;
+};
+
 function applyGeneratedTitle(
   queryClient: ReturnType<typeof useQueryClient>,
   meetingId: string,
@@ -62,7 +67,7 @@ function applyGeneratedTitle(
   );
 }
 
-export function MeetingsPage() {
+export function MeetingsPage({ arrivedMeetingId = null }: MeetingsPageProps) {
   const queryClient = useQueryClient();
   const [view, setView] = useState<MeetingsView>({ kind: "list" });
   const [tab, setTab] = useState<MeetingDetailTab>("summary");
@@ -226,6 +231,20 @@ export function MeetingsPage() {
         return;
       }
       unlisteners.push(unlistenStatus);
+
+      if (arrivedMeetingId) {
+        const job = await invoke<SummaryJobSnapshot>("get_summary_job", {
+          id: arrivedMeetingId,
+        });
+        if (!cancelled && job.state === "running") {
+          setSummarizingIds((prev) => {
+            const nextIds = new Set(prev);
+            nextIds.add(arrivedMeetingId);
+            return nextIds;
+          });
+          applyGeneratedTitle(queryClient, arrivedMeetingId, job.title);
+        }
+      }
     };
 
     void setup();
@@ -234,7 +253,7 @@ export function MeetingsPage() {
       cancelled = true;
       unlisteners.forEach((fn) => fn());
     };
-  }, [queryClient]);
+  }, [arrivedMeetingId, queryClient]);
 
   const groups = groupMeetingsByDay(meetings);
   const queryError =
