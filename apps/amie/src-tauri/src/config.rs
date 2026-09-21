@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use crate::transcription::nemotron;
 
-const APP_SUPPORT_SUBDIR: &str = "com.pavel.tauri-app/models";
+const APP_SUPPORT_SUBDIR: &str = "com.pavel.amie/models";
 
 #[derive(Debug, Clone)]
 pub struct AppConfig {

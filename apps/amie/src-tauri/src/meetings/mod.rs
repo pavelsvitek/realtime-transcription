@@ -10,7 +10,7 @@ use crate::ipc::meetings::{
     MeetingDetail, MeetingListItem, MeetingRecord, MeetingSegment, PatchMeeting,
 };
 
-const APP_SUPPORT_DIR: &str = "com.pavel.tauri-app";
+const APP_SUPPORT_DIR: &str = "com.pavel.amie";
 const DB_FILE: &str = "meetings.db";
 const SCHEMA_VERSION: i64 = 3;
 const DEVICE_ID_KEY: &str = "device_id";

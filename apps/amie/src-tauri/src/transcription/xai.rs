@@ -573,7 +573,7 @@ fn timing_from_event(
 
 pub fn app_support_root() -> PathBuf {
     let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
-    PathBuf::from(home).join("Library/Application Support/com.pavel.tauri-app")
+    PathBuf::from(home).join("Library/Application Support/com.pavel.amie")
 }
 
 fn api_key_path() -> PathBuf {

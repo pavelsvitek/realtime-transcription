@@ -6,7 +6,7 @@ This document describes the module layout, conventions, and key decisions for th
 
 ```
 src/
-├── main.rs                 # binary entry; calls tauri_app_lib::run()
+├── main.rs                 # binary entry; calls amie_lib::run()
 ├── lib.rs                  # mod declarations + tauri::Builder setup only
 ├── error.rs                # AppError enum (thiserror)
 ├── config.rs               # AppConfig: model paths, env overrides, defaults
@@ -80,7 +80,7 @@ Structured logging via `tracing` + `tracing-subscriber` with `EnvFilter`.
 - `transcription/asr.rs` — model path, load time, pipeline config
 - `commands/transcription.rs` — command invoked, result
 
-Filter at runtime with `RUST_LOG=tauri_app_lib=debug`.
+Filter at runtime with `RUST_LOG=amie_lib=debug`.
 
 ## Threading model
 
@@ -152,7 +152,7 @@ MVP strategy: **load on first use**.
 - Once loaded, models stay in memory for the process lifetime (no per-session reload).
 - If loading fails, emit `transcription.status { error: "..." }` and abort.
 
-Model paths resolve via env vars (`WHISPER_MODEL_PATH`, `VAD_MODEL_PATH`) with a default of `~/Library/Application Support/com.pavel.tauri-app/models/`.
+Model paths resolve via env vars (`WHISPER_MODEL_PATH`, `VAD_MODEL_PATH`) with a default of `~/Library/Application Support/com.pavel.amie/models/`.
 
 ## Testing
 
@@ -195,9 +195,9 @@ In production, `emit` calls `app_handle.emit(...)`. In tests, it pushes into a `
 ### Running tests
 
 ```bash
-cargo test -p tauri-app                              # all tests
-cargo test -p tauri-app transcription::              # transcription module only
-RUST_LOG=debug cargo test -p tauri-app -- --nocapture # with log output
+cargo test -p amie                              # all tests
+cargo test -p amie transcription::              # transcription module only
+RUST_LOG=debug cargo test -p amie -- --nocapture # with log output
 ```
 
 ## Future improvements

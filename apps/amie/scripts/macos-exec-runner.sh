@@ -15,14 +15,14 @@ if [[ "$BINARY" != /* ]]; then
 fi
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-APP="$ROOT/src-tauri/target/debug/tauri-app-dev.app"
+APP="$ROOT/src-tauri/target/debug/amie-dev.app"
 MACOS_DIR="$APP/Contents/MacOS"
 RESOURCES_DIR="$APP/Contents/Resources"
 INFO_PLIST="$APP/Contents/Info.plist"
-WRAPPER="$MACOS_DIR/tauri-app"
-REAL_BINARY="$MACOS_DIR/tauri-app-bin"
+WRAPPER="$MACOS_DIR/amie"
+REAL_BINARY="$MACOS_DIR/amie-bin"
 ENV_FILE="$RESOURCES_DIR/dev-runner.env"
-PIDFILE="$ROOT/src-tauri/target/debug/tauri-app-dev.runner.pid"
+PIDFILE="$ROOT/src-tauri/target/debug/amie-dev.runner.pid"
 
 kill_bundle_bins() {
   local pids
@@ -79,7 +79,7 @@ if [[ -f "$RES/dev-runner.env" ]]; then
   source "$RES/dev-runner.env"
   set +a
 fi
-exec "$HERE/tauri-app-bin" "$@"
+exec "$HERE/amie-bin" "$@"
 EOF
 chmod +x "$WRAPPER"
 

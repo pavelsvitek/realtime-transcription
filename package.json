@@ -3,11 +3,11 @@
   "private": true,
   "packageManager": "pnpm@10.33.0",
   "scripts": {
-    "dev": "pnpm --filter tauri-app tauri",
-    "dev:desktop": "pnpm --filter tauri-app tauri",
+    "dev": "pnpm --filter amie tauri",
+    "dev:desktop": "pnpm --filter amie tauri",
     "dev:web": "pnpm --filter web dev",
     "dev:server": "pnpm --filter server dev",
     "deploy:server": "pnpm --filter server deploy",
-    "test:desktop": "pnpm --filter tauri-app test"
+    "test:desktop": "pnpm --filter amie test"
   }
 }

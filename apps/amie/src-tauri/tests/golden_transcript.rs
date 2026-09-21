@@ -6,9 +6,9 @@ use std::process::Command;
 use std::thread;
 use std::time::{Duration, Instant};
 
-use tauri_app_lib::config::AppConfig;
-use tauri_app_lib::evaluate_wer;
-use tauri_app_lib::transcription::{capture_stats, AsrBackend, AudioSource, TranscriptionService};
+use amie_lib::config::AppConfig;
+use amie_lib::evaluate_wer;
+use amie_lib::transcription::{capture_stats, AsrBackend, AudioSource, TranscriptionService};
 
 /// Default WER gate for headless E2E golden test (fraction, not percent).
 const DEFAULT_GOLDEN_E2E_MAX_WER: f64 = 0.05;
@@ -104,7 +104,7 @@ fn golden_system_audio_e2e() {
     let backend = AsrBackend::from_env();
     if backend == AsrBackend::Local {
         config.validate().unwrap_or_else(|err| {
-            panic!("Nemotron cache incomplete: {err}\nRun: apps/tauri-app/scripts/setup-nemotron.sh");
+            panic!("Nemotron cache incomplete: {err}\nRun: apps/amie/scripts/setup-nemotron.sh");
         });
     } else {
         println!("E2E ASR backend: {}", backend.as_str());

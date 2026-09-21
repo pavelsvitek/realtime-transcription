@@ -3893,7 +3893,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "tauri-app"
+name = "amie"
 version = "0.1.0"
 dependencies = [
  "anyhow",

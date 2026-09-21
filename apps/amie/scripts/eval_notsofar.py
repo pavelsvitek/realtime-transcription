@@ -40,7 +40,7 @@ TRANSCRIPT_NAMES = ("gt_transcription.json", "transcript.json", "gt_transcript.j
 SC_PREFERENCE = ("meetup_0", "plaza_0", "studio_0", "panacast_0")
 XAI_STT_URL = "https://api.x.ai/v1/stt"
 XAI_KEY_FILE = (
-    Path.home() / "Library/Application Support/com.pavel.tauri-app/xai_api_key"
+    Path.home() / "Library/Application Support/com.pavel.amie/xai_api_key"
 )
 TAG_RE = re.compile(r"<[^>]+>")
 BACKENDS = ("local", "xai")

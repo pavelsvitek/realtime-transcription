@@ -7,8 +7,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use tauri_app_lib::transcription::AsrWord;
-use tauri_app_lib::{evaluate_wer, AppConfig, AsrBackend, LoadedEngine};
+use amie_lib::transcription::AsrWord;
+use amie_lib::{evaluate_wer, AppConfig, AsrBackend, LoadedEngine};
 
 fn app_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -124,7 +124,7 @@ fn transcribe_from_pcm(
     }
 }
 
-fn print_wer(label: &str, hypothesis: &str, reference: &str) -> tauri_app_lib::WerReport {
+fn print_wer(label: &str, hypothesis: &str, reference: &str) -> amie_lib::WerReport {
     let report = evaluate_wer(reference, hypothesis);
     println!(
         "  {label:<28} WER {:>5.1}%  words {:>3}  (S={} I={} D={})",

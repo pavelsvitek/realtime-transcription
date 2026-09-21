@@ -13,8 +13,8 @@ use std::process::Command;
 use std::time::Instant;
 
 use serde::Deserialize;
-use tauri_app_lib::transcription::AsrWord;
-use tauri_app_lib::{AppConfig, AsrBackend, LoadedEngine};
+use amie_lib::transcription::AsrWord;
+use amie_lib::{AppConfig, AsrBackend, LoadedEngine};
 
 const SAMPLE_RATE: u32 = 48_000;
 const CHUNK_SAMPLES: usize = 1024;

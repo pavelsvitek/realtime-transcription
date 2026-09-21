@@ -206,7 +206,7 @@ The `audio-recorder` sidecar is Swift (`Audio_Recorder/main.swift`), not Rust �
 
 | Aspect | Jamie | Our project |
 | --- | --- | --- |
-| Desktop shell | **Tauri 2** | Tauri (`apps/tauri-app/`) — same family |
+| Desktop shell | **Tauri 2** | Tauri (`apps/amie/`) — same family |
 | Frontend | Next.js (embedded) | React + Vite (planned in Tauri) |
 | Audio capture | Swift sidecar | TBD |
 | ML / LLM | Cloud (GPT-4, Claude per public docs) | Cloud LLM API (`apps/web/src/lib/llm/`) |
@@ -222,7 +222,7 @@ Strengths to note:
 
 1. **Bot-free positioning** — strong privacy story; no calendar bot awkwardness
 2. **Proven Tauri 2 production app** — validates our desktop direction
-3. **Sidecar pattern for audio** — Swift/Core Audio isolated from Rust shell; good reference for `tauri-app`
+3. **Sidecar pattern for audio** — Swift/Core Audio isolated from Rust shell; good reference for `amie`
 4. **Tray-first UX** — background app with start/stop from menu bar
 5. **Offline route** — separate `meeting-offline` flow for connectivity-limited scenarios
 

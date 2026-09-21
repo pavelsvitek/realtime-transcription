@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Golden transcript evaluation for tauri-app.
+# Golden transcript evaluation for Amie.
 #
 # Usage:
 #   ./scripts/run-golden-test.sh              # eval Phase 1 transcript vs reference
@@ -16,7 +16,7 @@ REF="$ROOT/golden-dataset/transcripts/${GOLDEN_CLIP}.txt"
 VIDEO="$ROOT/golden-dataset/clips/${GOLDEN_CLIP}.mp4"
 HYP="${HYPOTHESIS:-$ROOT/test-output/transcript.txt}"
 BASELINE="$ROOT/test-output/baseline/report.json"
-CACHE_ROOT="$HOME/Library/Application Support/com.pavel.tauri-app/models/nemotron"
+CACHE_ROOT="$HOME/Library/Application Support/com.pavel.amie/models/nemotron"
 MODEL_DIR="$CACHE_ROOT/qwen3-speech/models/aufklarer/Nemotron-3.5-ASR-Streaming-0.6B-CoreML-INT8"
 HELPER_BIN="$ROOT/nemotron-helper/.build/release/nemotron-bridge"
 RUN_E2E=0
@@ -52,11 +52,11 @@ run_eval() {
 
 ensure_nemotron_cache() {
   if [[ ! -x "$HELPER_BIN" ]]; then
-    echo "Nemotron helper not built. Run apps/tauri-app/scripts/setup-nemotron.sh first." >&2
+    echo "Nemotron helper not built. Run apps/amie/scripts/setup-nemotron.sh first." >&2
     exit 1
   fi
   if [[ ! -d "$MODEL_DIR/encoder.mlmodelc" ]]; then
-    echo "Nemotron model is missing. Run apps/tauri-app/scripts/setup-nemotron.sh first." >&2
+    echo "Nemotron model is missing. Run apps/amie/scripts/setup-nemotron.sh first." >&2
     exit 1
   fi
 }

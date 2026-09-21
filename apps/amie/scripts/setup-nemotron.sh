@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 HELPER_DIR="$ROOT/nemotron-helper"
-CACHE_ROOT="$HOME/Library/Application Support/com.pavel.tauri-app/models/nemotron"
+CACHE_ROOT="$HOME/Library/Application Support/com.pavel.amie/models/nemotron"
 
 if [[ "$(uname)" != "Darwin" ]]; then
   echo "Nemotron setup requires macOS." >&2

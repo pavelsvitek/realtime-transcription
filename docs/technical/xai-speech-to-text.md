@@ -38,7 +38,7 @@ flowchart LR
 
 ### Trait (required for dual-backend)
 
-[`apps/tauri-app/src-tauri/src/transcription/pipeline.rs`](../../apps/tauri-app/src-tauri/src/transcription/pipeline.rs):
+[`apps/amie/src-tauri/src/transcription/pipeline.rs`](../../apps/amie/src-tauri/src/transcription/pipeline.rs):
 
 ```rust
 pub trait StreamingAsr: Send {
@@ -55,7 +55,7 @@ pub struct StreamingPipeline {
 
 ### Factory
 
-[`LoadedEngine`](../../apps/tauri-app/src-tauri/src/transcription/asr.rs) loads by `AsrBackend`:
+[`LoadedEngine`](../../apps/amie/src-tauri/src/transcription/asr.rs) loads by `AsrBackend`:
 
 - **Local** — validate Nemotron helper + CoreML bundle; `create_pipeline` → `NemotronPipeline`
 - **Xai** — resolve API key; skip Nemotron validate; `create_pipeline` → `XaiWsPipeline` (`language=en`, `disable_partials=false`, `model=grok-voice-transcribe-2.0`)
@@ -64,7 +64,7 @@ Switching backends mid-process drops the cached engine and reloads.
 
 ### Dual-stream
 
-[`TranscriptionService`](../../apps/tauri-app/src-tauri/src/transcription/service.rs) still spawns **two** `StreamPair`s for `AudioSource::Both`. Each pair gets its own `create_pipeline(sample_rate, stream="mic"|"system")`. For xAI that means two sockets and two API streams — intentional.
+[`TranscriptionService`](../../apps/amie/src-tauri/src/transcription/service.rs) still spawns **two** `StreamPair`s for `AudioSource::Both`. Each pair gets its own `create_pipeline(sample_rate, stream="mic"|"system")`. For xAI that means two sockets and two API streams — intentional.
 
 ---
 
@@ -74,8 +74,8 @@ Switching backends mid-process drops the cached engine and reloads.
 
 | Path | Role |
 | --- | --- |
-| `apps/tauri-app/src-tauri/src/transcription/xai.rs` | WebSocket client, resample, pacing, event→`AsrOutput`, API key IO |
-| `apps/tauri-app/src-tauri/src/transcription/backend.rs` | `AsrBackend { Local, Xai }` + `parse` / `from_env` (`nemotron` / `parakeet` aliases map to Local) |
+| `apps/amie/src-tauri/src/transcription/xai.rs` | WebSocket client, resample, pacing, event→`AsrOutput`, API key IO |
+| `apps/amie/src-tauri/src/transcription/backend.rs` | `AsrBackend { Local, Xai }` + `parse` / `from_env` (`nemotron` / `parakeet` aliases map to Local) |
 
 ### Rust
 
@@ -155,7 +155,7 @@ Authorization: Bearer <api_key>
 | Source | Priority |
 | --- | --- |
 | Env `XAI_API_KEY` | Highest if non-empty |
-| File `~/Library/Application Support/com.pavel.tauri-app/xai_api_key` | Fallback |
+| File `~/Library/Application Support/com.pavel.amie/xai_api_key` | Fallback |
 
 Settings UI never returns the raw key to the frontend — only booleans (`xaiApiKeySet`, `xaiApiKeySaved`, `xaiApiKeyFromEnv`). When set, the input shows a fake mask and is disabled.
 
@@ -181,7 +181,7 @@ Settings UI never returns the raw key to the frontend — only booleans (`xaiApi
 
 ## Dependencies
 
-In `apps/tauri-app/src-tauri/Cargo.toml`:
+In `apps/amie/src-tauri/Cargo.toml`:
 
 ```toml
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "net"] }
@@ -196,7 +196,7 @@ futures-util = "0.3"
 ### Local golden (unchanged)
 
 ```bash
-cd apps/tauri-app && pnpm test:golden
+cd apps/amie && pnpm test:golden
 ```
 
 Phase-1 eval vs baseline; headless E2E still defaults to Nemotron unless overridden.
@@ -206,7 +206,7 @@ Phase-1 eval vs baseline; headless E2E still defaults to Nemotron unless overrid
 Requires saved key or `XAI_API_KEY`. Takes ~realtime length of the clip (~80s for `test-youtube-video`).
 
 ```bash
-cd apps/tauri-app
+cd apps/amie
 ASR_BACKEND=xai cargo test diagnose_model_vs_commit_strategy \
   --manifest-path src-tauri/Cargo.toml -- --ignored --nocapture
 ```
