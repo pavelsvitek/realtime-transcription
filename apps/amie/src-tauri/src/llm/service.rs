@@ -424,7 +424,7 @@ mod tests {
             .insert_live_meeting("m1", 1_000, "Untitled meeting")
             .unwrap();
         store
-            .insert_segment("m1:s1", "m1", 0, 10, "Switzerland POC scope")
+            .insert_segment("m1:s1", "m1", 0, 10, "Switzerland POC scope", "User", "mic")
             .unwrap();
         store.finish_meeting("m1", 2_000).unwrap();
 
@@ -492,7 +492,7 @@ mod tests {
         store.finish_meeting("empty", 2_000).unwrap();
         store.insert_live_meeting("full", 3_000, "Full").unwrap();
         store
-            .insert_segment("full:s1", "full", 0, 10, "hello")
+            .insert_segment("full:s1", "full", 0, 10, "hello", "Remote", "system")
             .unwrap();
         store.finish_meeting("full", 4_000).unwrap();
 
@@ -509,18 +509,24 @@ mod tests {
                 start_ms: 0,
                 end_ms: 10,
                 text: " hello ".into(),
+                speaker: "User".into(),
+                stream: "mic".into(),
             },
             MeetingSegment {
                 id: "s2".into(),
                 start_ms: 10,
                 end_ms: 20,
                 text: String::new(),
+                speaker: String::new(),
+                stream: String::new(),
             },
             MeetingSegment {
                 id: "s3".into(),
                 start_ms: 20,
                 end_ms: 30,
                 text: "world".into(),
+                speaker: "Remote".into(),
+                stream: "system".into(),
             },
         ];
         assert_eq!(format_transcript(&segments), "hello\nworld");
@@ -549,7 +555,7 @@ mod tests {
             .insert_live_meeting("m1", 1_000, "Untitled meeting")
             .unwrap();
         store
-            .insert_segment("m1:s1", "m1", 0, 10, "Switzerland POC scope")
+            .insert_segment("m1:s1", "m1", 0, 10, "Switzerland POC scope", "User", "mic")
             .unwrap();
         store
             .update_context("m1", "Participants: Pavel, Igor")

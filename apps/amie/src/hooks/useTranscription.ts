@@ -14,7 +14,11 @@ import {
   EVENT_TRANSCRIPTION_STATUS,
 } from "../lib/tauri-events";
 import { restoreLiveTranscription } from "../lib/restore-live-transcription";
-import { applyTranscriptEvent, finalizePartials } from "../lib/transcript-timeline";
+import {
+  applyTranscriptEvent,
+  finalizePartials,
+  mergeRestoredTranscript,
+} from "../lib/transcript-timeline";
 
 export function useTranscription() {
   const [segments, setSegments] = useState<TranscriptSegment[]>([]);
@@ -43,7 +47,7 @@ export function useTranscription() {
         setSessionSource(restored.source);
         setSessionBackend(restored.backend);
         if (restored.segments.length > 0) {
-          setSegments(restored.segments);
+          setSegments((prev) => mergeRestoredTranscript(prev, restored.segments));
         }
       } catch (e) {
         if (!cancelled) {

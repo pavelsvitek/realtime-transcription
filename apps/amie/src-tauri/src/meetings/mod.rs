@@ -12,7 +12,7 @@ use crate::ipc::meetings::{
 
 const APP_SUPPORT_DIR: &str = "com.pavel.amie";
 const DB_FILE: &str = "meetings.db";
-const SCHEMA_VERSION: i64 = 3;
+const SCHEMA_VERSION: i64 = 4;
 const DEVICE_ID_KEY: &str = "device_id";
 
 const MIGRATION_V1: &str = r#"
@@ -80,6 +80,14 @@ CREATE INDEX IF NOT EXISTS meetings_list_archived_idx
 
 const MIGRATION_V3: &str = r#"
 ALTER TABLE meetings ADD COLUMN context TEXT;
+"#;
+
+const MIGRATION_V4_SPEAKER: &str = r#"
+ALTER TABLE transcript_segments ADD COLUMN speaker TEXT NOT NULL DEFAULT '';
+"#;
+
+const MIGRATION_V4_STREAM: &str = r#"
+ALTER TABLE transcript_segments ADD COLUMN stream TEXT NOT NULL DEFAULT '';
 "#;
 
 #[derive(Clone)]
@@ -171,6 +179,8 @@ impl MeetingStore {
         start_ms: i64,
         end_ms: i64,
         text: &str,
+        speaker: &str,
+        stream: &str,
     ) -> Result<(), AppError> {
         if text.is_empty() {
             return Ok(());
@@ -179,19 +189,31 @@ impl MeetingStore {
         let conn = self.conn.lock().unwrap();
         conn.execute(
             "INSERT INTO transcript_segments (
-                id, meeting_id, start_ms, end_ms, text,
+                id, meeting_id, start_ms, end_ms, text, speaker, stream,
                 updated_at, deleted_at, revision, last_writer_device_id
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, NULL, 1, ?7)
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, NULL, 1, ?9)
              ON CONFLICT(id) DO UPDATE SET
                 meeting_id = excluded.meeting_id,
                 start_ms = excluded.start_ms,
                 end_ms = excluded.end_ms,
                 text = excluded.text,
+                speaker = excluded.speaker,
+                stream = excluded.stream,
                 updated_at = excluded.updated_at,
                 deleted_at = NULL,
                 revision = revision + 1,
                 last_writer_device_id = excluded.last_writer_device_id",
-            params![id, meeting_id, start_ms, end_ms, text, now, self.device_id],
+            params![
+                id,
+                meeting_id,
+                start_ms,
+                end_ms,
+                text,
+                speaker,
+                stream,
+                now,
+                self.device_id
+            ],
         )
         .map_err(store_err)?;
         Ok(())
@@ -437,7 +459,7 @@ impl MeetingStore {
 
         let mut stmt = conn
             .prepare(
-                "SELECT id, start_ms, end_ms, text
+                "SELECT id, start_ms, end_ms, text, speaker, stream
                  FROM transcript_segments
                  WHERE meeting_id = ?1 AND deleted_at IS NULL
                  ORDER BY start_ms ASC, id ASC",
@@ -450,6 +472,8 @@ impl MeetingStore {
                     start_ms: row.get(1)?,
                     end_ms: row.get(2)?,
                     text: row.get(3)?,
+                    speaker: row.get(4)?,
+                    stream: row.get(5)?,
                 })
             })
             .map_err(store_err)?;
@@ -505,11 +529,22 @@ fn migrate(conn: &Connection) -> Result<(), AppError> {
         record_migration(conn, 2)?;
     }
 
-    if current < SCHEMA_VERSION || !column_exists(conn, "meetings", "context")? {
+    if current < 3 || !column_exists(conn, "meetings", "context")? {
         if !column_exists(conn, "meetings", "context")? {
             conn.execute_batch(MIGRATION_V3).map_err(store_err)?;
         }
         record_migration(conn, 3)?;
+    }
+
+    if current < SCHEMA_VERSION || !column_exists(conn, "transcript_segments", "speaker")? {
+        if !column_exists(conn, "transcript_segments", "speaker")? {
+            conn.execute_batch(MIGRATION_V4_SPEAKER)
+                .map_err(store_err)?;
+        }
+        if !column_exists(conn, "transcript_segments", "stream")? {
+            conn.execute_batch(MIGRATION_V4_STREAM).map_err(store_err)?;
+        }
+        record_migration(conn, 4)?;
     }
     Ok(())
 }
@@ -650,15 +685,23 @@ mod tests {
         let store = temp_db();
         store.insert_live_meeting("m1", 1_000, "Call").unwrap();
         store
-            .insert_segment("s2", "m1", 400, 800, "second")
+            .insert_segment("s2", "m1", 400, 800, "second", "Remote", "system")
             .unwrap();
-        store.insert_segment("s1", "m1", 0, 300, "first").unwrap();
-        store.insert_segment("s0", "m1", 10, 20, "").unwrap();
+        store
+            .insert_segment("s1", "m1", 0, 300, "first", "User", "mic")
+            .unwrap();
+        store
+            .insert_segment("s0", "m1", 10, 20, "", "User", "mic")
+            .unwrap();
         store.finish_meeting("m1", 2_000).unwrap();
 
         let record = store.get_record("m1").unwrap();
         let texts: Vec<_> = record.segments.iter().map(|s| s.text.as_str()).collect();
         assert_eq!(texts, vec!["first", "second"]);
+        assert_eq!(record.segments[0].speaker, "User");
+        assert_eq!(record.segments[0].stream, "mic");
+        assert_eq!(record.segments[1].speaker, "Remote");
+        assert_eq!(record.segments[1].stream, "system");
     }
 
     #[test]
@@ -667,10 +710,10 @@ mod tests {
         store.insert_live_meeting("m1", 1_000, "First").unwrap();
         store.insert_live_meeting("m2", 2_000, "Second").unwrap();
         store
-            .insert_segment("m1:seg-0", "m1", 0, 100, "hello")
+            .insert_segment("m1:seg-0", "m1", 0, 100, "hello", "User", "mic")
             .unwrap();
         store
-            .insert_segment("m2:seg-0", "m2", 0, 100, "world")
+            .insert_segment("m2:seg-0", "m2", 0, 100, "world", "Remote", "system")
             .unwrap();
         store.finish_meeting("m1", 1_500).unwrap();
         store.finish_meeting("m2", 2_500).unwrap();
@@ -700,7 +743,7 @@ mod tests {
             let store = MeetingStore::open(&path).unwrap();
             store.insert_live_meeting("m1", 1_000, "Stuck").unwrap();
             store
-                .insert_segment("m1:seg-0", "m1", 0, 100, "hello")
+                .insert_segment("m1:seg-0", "m1", 0, 100, "hello", "User", "mic")
                 .unwrap();
         }
         let store = MeetingStore::open(&path).unwrap();
@@ -717,14 +760,16 @@ mod tests {
         let store = temp_db();
         store.insert_live_meeting("m1", 1_000, "Call").unwrap();
         store
-            .insert_segment("m1:seg-0", "m1", 0, 100, "hello")
+            .insert_segment("m1:seg-0", "m1", 0, 100, "hello", "User", "mic")
             .unwrap();
         store
-            .insert_segment("m1:seg-0", "m1", 0, 150, "hello world")
+            .insert_segment("m1:seg-0", "m1", 0, 150, "hello world", "Remote", "system")
             .unwrap();
         let row = store.get_record("m1").unwrap();
         assert_eq!(row.segments.len(), 1);
         assert_eq!(row.segments[0].text, "hello world");
+        assert_eq!(row.segments[0].speaker, "Remote");
+        assert_eq!(row.segments[0].stream, "system");
         assert_eq!(store.segment_count("m1").unwrap(), 1);
     }
 
@@ -835,7 +880,7 @@ mod tests {
         store.finish_meeting("m1", 1_500).unwrap();
         store.finish_meeting("m2", 2_500).unwrap();
         store
-            .insert_segment("m2:seg-0", "m2", 0, 100, "hello")
+            .insert_segment("m2:seg-0", "m2", 0, 100, "hello", "User", "mic")
             .unwrap();
 
         store.delete_meeting("m2").unwrap();
@@ -955,7 +1000,7 @@ mod tests {
             .insert_live_meeting("m1", 1_000, "Untitled meeting")
             .unwrap();
         store
-            .insert_segment("m1:seg-0", "m1", 0, 100, "hello")
+            .insert_segment("m1:seg-0", "m1", 0, 100, "hello", "User", "mic")
             .unwrap();
 
         let titled = store
@@ -1051,5 +1096,52 @@ mod tests {
             store.get_record("m1").unwrap().meeting.context.as_deref(),
             Some("Participants: Pavel")
         );
+    }
+
+    #[test]
+    fn migrates_v3_database_and_keeps_segments_without_speaker() {
+        let dir = std::env::temp_dir().join(format!("meetings-v3-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("meetings.db");
+        {
+            let conn = Connection::open(&path).unwrap();
+            conn.execute_batch(MIGRATION_V1).unwrap();
+            conn.execute_batch(MIGRATION_V2).unwrap();
+            conn.execute_batch(MIGRATION_V3).unwrap();
+            conn.execute(
+                "INSERT INTO schema_migrations (version, applied_at) VALUES (1, 1), (2, 2), (3, 3)",
+                [],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO meetings (
+                    id, started_at, finished_at, title, teaser, summary, status,
+                    updated_at, deleted_at, revision, last_writer_device_id, archived_at, context
+                ) VALUES ('m1', 1000, 2000, 'Old', NULL, NULL, 'finished', 2000, NULL, 1, 'dev', NULL, NULL)",
+                [],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO transcript_segments (
+                    id, meeting_id, start_ms, end_ms, text,
+                    updated_at, deleted_at, revision, last_writer_device_id
+                ) VALUES ('m1:seg-0', 'm1', 0, 100, 'hello', 2000, NULL, 1, 'dev')",
+                [],
+            )
+            .unwrap();
+        }
+
+        let store = MeetingStore::open(&path).unwrap();
+        let segment = &store.get_record("m1").unwrap().segments[0];
+        assert_eq!(segment.text, "hello");
+        assert_eq!(segment.speaker, "");
+        assert_eq!(segment.stream, "");
+
+        store
+            .insert_segment("m1:seg-1", "m1", 100, 200, "there", "Remote", "system")
+            .unwrap();
+        let saved = &store.get_record("m1").unwrap().segments[1];
+        assert_eq!(saved.speaker, "Remote");
+        assert_eq!(saved.stream, "system");
     }
 }
