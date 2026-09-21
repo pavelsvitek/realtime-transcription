@@ -306,17 +306,6 @@ body,
   color: var(--text-primary);
 }
 
-.app-page-slot {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.app-page-slot[hidden] {
-  display: none;
-}
-
 /* Home page */
 .home-page {
   flex: 1;

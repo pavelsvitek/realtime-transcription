@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Activity, useState } from "react";
 import { AppLayout } from "./components/AppLayout";
 import type { AppPage } from "./components/Sidebar";
 import { HomePage } from "./pages/HomePage";
@@ -21,12 +21,12 @@ function App() {
       }}
     >
       {page === "home" ? <HomePage /> : null}
-      <div className="app-page-slot" hidden={page !== "transcribe"}>
+      <Activity mode={page === "transcribe" ? "visible" : "hidden"}>
         <TranscribePage
           startRequestId={startRequestId}
           onStartRequestHandled={() => setStartRequestId(0)}
         />
-      </div>
+      </Activity>
       {page === "meetings" ? <MeetingsPage /> : null}
       {page === "settings" ? <SettingsPage /> : null}
     </AppLayout>
