@@ -30,6 +30,16 @@ export function Sidebar({ currentPage, onNavigate, onStartMeeting }: SidebarProp
   return (
     <nav className="sidebar" aria-label="Main navigation">
       <div className="sidebar-chrome" data-tauri-drag-region aria-hidden="true" />
+      <div className="sidebar-brand" data-tauri-drag-region>
+        <img
+          src="/amie-icon.png"
+          alt=""
+          className="sidebar-brand-icon"
+          width={28}
+          height={28}
+        />
+        <span className="sidebar-brand-name">Amie</span>
+      </div>
       <ul className="sidebar-nav">
         <li className="sidebar-start-item">
           <StartMeetingButton
