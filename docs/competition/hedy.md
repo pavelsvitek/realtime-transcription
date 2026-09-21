@@ -307,7 +307,7 @@ Fonts: Inter, Playfair Display, Onest, Material Icons, Lucide.
 
 | Aspect | Hedy | Our project (direction) |
 | --- | --- | --- |
-| Desktop shell | Flutter macOS | Tauri (in `apps/tauri-app/`) |
+| Desktop shell | Flutter macOS | Tauri (in `apps/amie/`) |
 | UI | Dart / Flutter widgets | Web (React) in Tauri webview |
 | Transcription | Whisper.cpp (default) or Parakeet TDT v3 CoreML (optional); Cloud STT / Deepgram | Nemotron 3.5 ASR Streaming 0.6B CoreML INT8, one helper per stream |
 | Live LLM suggestions | Llama (on-device) + cloud | Cloud LLM API (`apps/web/`) |

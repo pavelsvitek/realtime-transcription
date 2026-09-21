@@ -84,11 +84,11 @@ The bounded Rust channels provide backpressure protection. Debug captures record
 
 ## Verification
 
-- `cd apps/tauri-app/nemotron-helper && swift test`
-- `cd apps/tauri-app/src-tauri && cargo test`
-- `cd apps/tauri-app && pnpm test`
-- `cd apps/tauri-app/src-tauri && cargo test diagnose_model_vs_commit_strategy -- --ignored --nocapture`
-- `cd apps/tauri-app && pnpm test:golden:e2e`
+- `cd apps/amie/nemotron-helper && swift test`
+- `cd apps/amie/src-tauri && cargo test`
+- `cd apps/amie && pnpm test`
+- `cd apps/amie/src-tauri && cargo test diagnose_model_vs_commit_strategy -- --ignored --nocapture`
+- `cd apps/amie && pnpm test:golden:e2e`
 
 Production acceptance additionally requires a 30-minute dual-stream soak, repeated start/stop testing, latency percentiles, memory measurement, and timestamp drift checks.
 
