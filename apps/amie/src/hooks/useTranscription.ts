@@ -134,13 +134,18 @@ export function useTranscription() {
     }
   }, []);
 
-  const stop = useCallback(async () => {
+  const stop = useCallback(async (): Promise<string | null> => {
     setIsStopping(true);
     try {
-      await invoke("stop_transcription");
+      const exported = await invoke<{ meetingId?: string }>("stop_transcription");
+      setIsStopping(false);
+      setIsActive(false);
+      setIsLoading(false);
+      return exported.meetingId ?? null;
     } catch (e) {
       setIsStopping(false);
       setError(String(e));
+      throw e;
     }
   }, []);
 

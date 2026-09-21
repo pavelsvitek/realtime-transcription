@@ -126,6 +126,35 @@ function sanitizeGeneratedTitle(raw: string): string | null {
   return collapsed.slice(0, 80);
 }
 
+/** "45-mins meeting at 2pm" — start time rounded to the nearest 15 minutes. */
+export function finishedMeetingTitle(startedAt: number, finishedAt: number): string {
+  const elapsedMs = Math.max(0, finishedAt - startedAt);
+  const minutes = Math.max(1, Math.round(elapsedMs / 60_000));
+  return `${minutes}-mins meeting at ${formatQuarterHour(startedAt)}`;
+}
+
+function formatQuarterHour(timestamp: number): string {
+  const rounded = roundToQuarterHour(new Date(timestamp));
+  const hours24 = rounded.getHours();
+  const minute = rounded.getMinutes();
+  const suffix = hours24 >= 12 ? "pm" : "am";
+  const hours12 = hours24 % 12 || 12;
+  if (minute === 0) {
+    return `${hours12}${suffix}`;
+  }
+  return `${hours12}:${String(minute).padStart(2, "0")}${suffix}`;
+}
+
+function roundToQuarterHour(date: Date): Date {
+  const rounded = new Date(date);
+  const fraction =
+    date.getMinutes() + date.getSeconds() / 60 + date.getMilliseconds() / 60_000;
+  const nearest = Math.round(fraction / 15) * 15;
+  rounded.setSeconds(0, 0);
+  rounded.setMinutes(nearest);
+  return rounded;
+}
+
 export function formatMeetingClock(startedAt: number): string {
   return new Date(startedAt).toLocaleTimeString("en-GB", {
     hour: "2-digit",

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   commitMeetingTitle,
+  finishedMeetingTitle,
   formatMeetingDayLabel,
   groupMeetingsByDay,
   parseMeetingLlmOutput,
@@ -31,6 +32,50 @@ describe("groupMeetingsByDay", () => {
   it("formats list headers like the mock", () => {
     const local = new Date(2026, 8, 4, 15, 33);
     expect(formatMeetingDayLabel(local.getTime())).toBe("Sep 4 / Friday");
+  });
+});
+
+describe("finishedMeetingTitle", () => {
+  const at = (hours: number, minutes: number, seconds = 0) =>
+    new Date(2026, 8, 21, hours, minutes, seconds).getTime();
+
+  it("rounds the start time to 15-minute marks and counts minutes", () => {
+    const start = at(14, 7);
+    const end = start + 45 * 60_000;
+    expect(finishedMeetingTitle(start, end)).toBe("45-mins meeting at 2pm");
+  });
+
+  it("uses :15 and :30 when the start is closer to those marks", () => {
+    expect(finishedMeetingTitle(at(14, 8), at(14, 20))).toBe(
+      "12-mins meeting at 2:15pm",
+    );
+    expect(finishedMeetingTitle(at(14, 22), at(14, 52))).toBe(
+      "30-mins meeting at 2:15pm",
+    );
+    expect(finishedMeetingTitle(at(14, 23), at(15, 8))).toBe(
+      "45-mins meeting at 2:30pm",
+    );
+  });
+
+  it("rolls an hour and uses 12-hour am/pm", () => {
+    expect(finishedMeetingTitle(at(14, 53), at(15, 10))).toBe(
+      "17-mins meeting at 3pm",
+    );
+    expect(finishedMeetingTitle(at(0, 7), at(0, 20))).toBe(
+      "13-mins meeting at 12am",
+    );
+    expect(finishedMeetingTitle(at(12, 8), at(12, 20))).toBe(
+      "12-mins meeting at 12:15pm",
+    );
+    expect(finishedMeetingTitle(at(23, 53), at(23, 58))).toBe(
+      "5-mins meeting at 12am",
+    );
+  });
+
+  it("rounds a short meeting up to 1 minute", () => {
+    expect(finishedMeetingTitle(at(9, 0), at(9, 0, 20))).toBe(
+      "1-mins meeting at 9am",
+    );
   });
 });
 
