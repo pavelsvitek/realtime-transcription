@@ -34,6 +34,17 @@
   /* Borders */
   --border-default: #e5e5e5;
   --border-input: #d4d4d4;
+
+  /* Brand — Amie logo peach → coral → magenta */
+  --brand-peach: #fbad7d;
+  --brand-coral: #e47a7a;
+  --brand-primary: #b13f72;
+  --brand-primary-hover: #8f2b69;
+  --brand-primary-focus: #f9a67a;
+  --brand-primary-ring: rgba(177, 63, 114, 0.22);
+  --brand-on-primary: #ffffff;
+  --brand-speaker-user: #b13f72;
+  --brand-speaker-remote: #c45d4a;
 }
 
 *,
@@ -119,8 +130,8 @@ body,
   font-size: 13px;
   font-weight: 600;
   font-family: inherit;
-  color: #ffffff;
-  background: #2563eb;
+  color: var(--brand-on-primary);
+  background: var(--brand-primary);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -129,11 +140,11 @@ body,
 }
 
 .start-meeting-button:hover:not(:disabled) {
-  background: #1d4ed8;
+  background: var(--brand-primary-hover);
 }
 
 .start-meeting-button:focus-visible {
-  outline: 2px solid #93c5fd;
+  outline: 2px solid var(--brand-primary-focus);
   outline-offset: 2px;
 }
 
@@ -143,7 +154,7 @@ body,
 }
 
 .start-meeting-button .sidebar-link-icon {
-  color: #ffffff;
+  color: var(--brand-on-primary);
 }
 
 .sidebar-start-meeting {
@@ -362,19 +373,19 @@ body,
 }
 
 .home-greet-form button {
-  border: 1px solid #2563eb;
+  border: 1px solid var(--brand-primary);
   border-radius: 6px;
   padding: 8px 16px;
   font-size: 13px;
   font-weight: 500;
   font-family: inherit;
-  color: white;
-  background: #2563eb;
+  color: var(--brand-on-primary);
+  background: var(--brand-primary);
   cursor: pointer;
 }
 
 .home-greet-form button:hover {
-  background: #1d4ed8;
+  background: var(--brand-primary-hover);
 }
 
 .home-greet-msg {
@@ -510,12 +521,12 @@ body,
 }
 
 .btn-start {
-  background: #2563eb;
-  color: white;
+  background: var(--brand-primary);
+  color: var(--brand-on-primary);
 }
 
 .btn-start:hover:not(:disabled) {
-  background: #1d4ed8;
+  background: var(--brand-primary-hover);
 }
 
 .btn-stop {
@@ -629,11 +640,11 @@ body,
 }
 
 .transcript-line--user .transcript-speaker {
-  color: #2563eb;
+  color: var(--brand-speaker-user);
 }
 
 .transcript-line--remote .transcript-speaker {
-  color: #7c3aed;
+  color: var(--brand-speaker-remote);
 }
 
 .transcript-text {
@@ -720,6 +731,13 @@ body,
 
   --border-default: #333333;
   --border-input: #444444;
+
+  --brand-primary: #d45a8c;
+  --brand-primary-hover: #e879a8;
+  --brand-primary-focus: #fbad7d;
+  --brand-primary-ring: rgba(212, 90, 140, 0.28);
+  --brand-speaker-user: #e879a8;
+  --brand-speaker-remote: #f0a090;
 }
 
 [data-theme="light"] {
@@ -746,6 +764,13 @@ body,
 
     --border-default: #333333;
     --border-input: #444444;
+
+    --brand-primary: #d45a8c;
+    --brand-primary-hover: #e879a8;
+    --brand-primary-focus: #fbad7d;
+    --brand-primary-ring: rgba(212, 90, 140, 0.28);
+    --brand-speaker-user: #e879a8;
+    --brand-speaker-remote: #f0a090;
   }
 }
 
@@ -764,14 +789,14 @@ body,
 }
 
 [data-theme="dark"] .titlebar-search:focus {
-  border-color: #60a5fa;
-  box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.2);
+  border-color: var(--brand-primary-focus);
+  box-shadow: 0 0 0 2px var(--brand-primary-ring);
 }
 
 @media (prefers-color-scheme: dark) {
   :root[data-theme="system"] .titlebar-search:focus {
-    border-color: #60a5fa;
-    box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.2);
+    border-color: var(--brand-primary-focus);
+    box-shadow: 0 0 0 2px var(--brand-primary-ring);
   }
 }
 
@@ -798,20 +823,20 @@ body,
 }
 
 [data-theme="dark"] .transcript-line--user .transcript-speaker {
-  color: #60a5fa;
+  color: var(--brand-speaker-user);
 }
 
 [data-theme="dark"] .transcript-line--remote .transcript-speaker {
-  color: #a78bfa;
+  color: var(--brand-speaker-remote);
 }
 
 @media (prefers-color-scheme: dark) {
   :root[data-theme="system"] .transcript-line--user .transcript-speaker {
-    color: #60a5fa;
+    color: var(--brand-speaker-user);
   }
 
   :root[data-theme="system"] .transcript-line--remote .transcript-speaker {
-    color: #a78bfa;
+    color: var(--brand-speaker-remote);
   }
 }
 
@@ -1115,7 +1140,7 @@ body,
 .meeting-tab.active {
   color: var(--text-primary);
   font-weight: 600;
-  box-shadow: inset 0 -2px 0 #2563eb;
+  box-shadow: inset 0 -2px 0 var(--brand-primary);
 }
 
 .meeting-panel {
@@ -1152,8 +1177,8 @@ body,
 }
 
 .meeting-context-textarea:focus {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 2px var(--brand-primary-ring);
 }
 
 .meeting-context-error,
