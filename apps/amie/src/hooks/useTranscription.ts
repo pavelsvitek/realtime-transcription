@@ -30,6 +30,7 @@ export function useTranscription() {
   const [sessionSource, setSessionSource] = useState<AudioSource | null>(null);
   const [sessionBackend, setSessionBackend] = useState<AsrBackend | null>(null);
   const unlistenRefs = useRef<UnlistenFn[]>([]);
+  const startInFlight = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -120,6 +121,8 @@ export function useTranscription() {
   }, []);
 
   const start = useCallback(async (source: AudioSource, backend: AsrBackend = "local") => {
+    if (startInFlight.current) return;
+    startInFlight.current = true;
     setError(null);
     setIsLoading(true);
     setSegments([]);
@@ -135,6 +138,8 @@ export function useTranscription() {
       setSessionSource(null);
       setSessionBackend(null);
       setError(String(e));
+    } finally {
+      startInFlight.current = false;
     }
   }, []);
 

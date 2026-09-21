@@ -1,4 +1,4 @@
-import { Activity, useState } from "react";
+import { Activity, useRef, useState } from "react";
 import { AppLayout } from "./components/AppLayout";
 import type { AppPage } from "./components/Sidebar";
 import { HomePage } from "./pages/HomePage";
@@ -9,8 +9,8 @@ import "./App.css";
 
 function App() {
   const [page, setPage] = useState<AppPage>("transcribe");
-  const [startRequestId, setStartRequestId] = useState(0);
   const [arrivedMeetingId, setArrivedMeetingId] = useState<string | null>(null);
+  const startMeetingRef = useRef<(() => void) | null>(null);
 
   return (
     <AppLayout
@@ -18,14 +18,13 @@ function App() {
       onNavigate={setPage}
       onStartMeeting={() => {
         setPage("transcribe");
-        setStartRequestId((id) => id + 1);
+        startMeetingRef.current?.();
       }}
     >
       {page === "home" ? <HomePage /> : null}
       <Activity mode={page === "transcribe" ? "visible" : "hidden"}>
         <TranscribePage
-          startRequestId={startRequestId}
-          onStartRequestHandled={() => setStartRequestId(0)}
+          startMeetingRef={startMeetingRef}
           onMeetingFinished={(meetingId) => {
             setArrivedMeetingId(meetingId);
             setPage("meetings");
