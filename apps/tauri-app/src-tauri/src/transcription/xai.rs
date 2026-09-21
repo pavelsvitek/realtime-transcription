@@ -2,11 +2,12 @@
 //!
 //! Pins Grok Voice Transcribe 2.0. Omitting `model` would keep the API default of 1.0.
 
-use std::fs;
+use std::fs::{self, OpenOptions};
+use std::io::Write;
 use std::path::PathBuf;
 use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
 use std::thread::{self, JoinHandle};
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, Context, Result};
 use futures_util::{SinkExt, StreamExt};
@@ -31,22 +32,72 @@ struct ServerEvent {
     #[serde(rename = "type")]
     kind: String,
     text: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "flexible_bool")]
     is_final: bool,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "flexible_bool")]
     speech_final: bool,
     start: Option<f64>,
     duration: Option<f64>,
     message: Option<String>,
+    #[serde(default)]
+    error: Option<serde_json::Value>,
     words: Option<Vec<ServerWord>>,
 }
 
 #[derive(Debug, Deserialize)]
 struct ServerWord {
-    #[allow(dead_code)]
+    #[serde(default, alias = "word")]
     text: String,
+    #[serde(default)]
     start: f64,
+    #[serde(default)]
     end: f64,
+}
+
+fn flexible_bool<'de, D>(deserializer: D) -> Result<bool, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::de::{self, Visitor};
+
+    struct BoolVisitor;
+    impl<'de> Visitor<'de> for BoolVisitor {
+        type Value = bool;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            formatter.write_str("a boolean, 0/1, or true/false string")
+        }
+
+        fn visit_bool<E: de::Error>(self, value: bool) -> Result<bool, E> {
+            Ok(value)
+        }
+
+        fn visit_i64<E: de::Error>(self, value: i64) -> Result<bool, E> {
+            Ok(value != 0)
+        }
+
+        fn visit_u64<E: de::Error>(self, value: u64) -> Result<bool, E> {
+            Ok(value != 0)
+        }
+
+        fn visit_str<E: de::Error>(self, value: &str) -> Result<bool, E> {
+            match value {
+                "true" | "1" => Ok(true),
+                "false" | "0" | "" => Ok(false),
+                other => Err(E::custom(format!("invalid bool {other}"))),
+            }
+        }
+
+        fn visit_unit<E: de::Error>(self) -> Result<bool, E> {
+            Ok(false)
+        }
+
+        fn visit_none<E: de::Error>(self) -> Result<bool, E> {
+            Ok(false)
+        }
+    }
+
+    deserializer.deserialize_any(BoolVisitor)
 }
 
 enum Cmd {
@@ -98,7 +149,8 @@ impl XaiWsPipeline {
                 {
                     Ok(rt) => rt,
                     Err(err) => {
-                        let _ = evt_tx.send(Evt::Error(format!("Failed to start xAI runtime: {err}")));
+                        let _ =
+                            evt_tx.send(Evt::Error(format!("Failed to start xAI runtime: {err}")));
                         return;
                     }
                 };
@@ -335,8 +387,18 @@ async fn run_session_inner(
             msg = read.next() => {
                 match msg {
                     Some(Ok(Message::Text(text))) => {
-                        let event: ServerEvent = serde_json::from_str(&text)
-                            .with_context(|| format!("Bad xAI event JSON: {text}"))?;
+                        let event = match serde_json::from_str::<ServerEvent>(&text) {
+                            Ok(event) => event,
+                            Err(err) => {
+                                tracing::warn!(
+                                    error = %err,
+                                    payload = %truncate_chars(&text, 400),
+                                    "Skipping unparseable xAI event"
+                                );
+                                log_xai_debug("parse_error", &format!("{err}; {text}"));
+                                continue;
+                            }
+                        };
                         match event.kind.as_str() {
                             "transcript.created" => {
                                 if !ready {
@@ -369,10 +431,12 @@ async fn run_session_inner(
                                 return Ok(());
                             }
                             "error" => {
-                                let message = event
-                                    .message
-                                    .unwrap_or_else(|| "Unknown xAI STT error".into());
-                                return Err(anyhow!(message));
+                                let message = error_message_from_event(&event);
+                                tracing::warn!(
+                                    %message,
+                                    "xAI STT error event; keeping session open"
+                                );
+                                log_xai_debug("stt_error", &message);
                             }
                             _ => {}
                         }
@@ -627,6 +691,53 @@ pub fn streaming_url(language: &str, disable_partials: bool) -> String {
     )
 }
 
+fn error_message_from_event(event: &ServerEvent) -> String {
+    if let Some(message) = event
+        .message
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
+        return message.to_string();
+    }
+    match &event.error {
+        Some(serde_json::Value::String(s)) if !s.trim().is_empty() => s.clone(),
+        Some(serde_json::Value::Object(map)) => map
+            .get("message")
+            .and_then(|v| v.as_str())
+            .map(str::to_string)
+            .unwrap_or_else(|| "Unknown xAI STT error".into()),
+        _ => "Unknown xAI STT error".into(),
+    }
+}
+
+fn truncate_chars(value: &str, max_chars: usize) -> String {
+    let mut chars = value.chars();
+    let head: String = chars.by_ref().take(max_chars).collect();
+    if chars.next().is_some() {
+        format!("{head}…")
+    } else {
+        head
+    }
+}
+
+fn log_xai_debug(kind: &str, detail: &str) {
+    let root = app_support_root();
+    if fs::create_dir_all(&root).is_err() {
+        return;
+    }
+    let path = root.join("xai-debug.log");
+    let Ok(mut file) = OpenOptions::new().create(true).append(true).open(path) else {
+        return;
+    };
+    let ts = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis();
+    let snippet = truncate_chars(detail, 1500);
+    let _ = writeln!(file, "{ts} {kind} {snippet}");
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -768,5 +879,41 @@ mod tests {
             &mut state,
         );
         assert!(flush_in_flight(&mut state, Some("Already saved plus more")).is_none());
+    }
+
+    #[test]
+    fn parses_words_with_word_alias_and_missing_timestamps() {
+        let event = ev(
+            r#"{"type":"transcript.partial","text":"Hello there","is_final":false,"words":[{"word":"Hello"},{"text":"there","start":0.2,"end":0.5}]}"#,
+        );
+        assert_eq!(event.words.as_ref().unwrap()[0].text, "Hello");
+        assert_eq!(event.words.as_ref().unwrap()[0].start, 0.0);
+        assert_eq!(event.words.as_ref().unwrap()[1].text, "there");
+    }
+
+    #[test]
+    fn parses_is_final_from_integer_and_null_defaults() {
+        let event =
+            ev(r#"{"type":"transcript.partial","text":"Hi","is_final":1,"speech_final":0}"#);
+        assert!(event.is_final);
+        assert!(!event.speech_final);
+
+        let event = ev(r#"{"type":"transcript.partial","text":"Hi","is_final":null}"#);
+        assert!(!event.is_final);
+    }
+
+    #[test]
+    fn extracts_nested_error_message() {
+        let event = ev(r#"{"type":"error","error":{"message":"response parsing error"}}"#);
+        assert_eq!(error_message_from_event(&event), "response parsing error");
+
+        let event = ev(r#"{"type":"error","message":"response parsing error"}"#);
+        assert_eq!(error_message_from_event(&event), "response parsing error");
+    }
+
+    #[test]
+    fn rejects_truly_invalid_json() {
+        assert!(serde_json::from_str::<ServerEvent>("not json").is_err());
+        assert!(serde_json::from_str::<ServerEvent>(r#"{"text":"no type"}"#).is_err());
     }
 }
