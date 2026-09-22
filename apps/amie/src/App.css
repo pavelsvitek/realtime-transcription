@@ -1368,6 +1368,12 @@ body,
   align-items: baseline;
 }
 
+.settings-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 .settings-section {
   max-width: 560px;
   padding: 8px 24px 32px;
