@@ -35,15 +35,15 @@
   --border-default: #e5e5e5;
   --border-input: #d4d4d4;
 
-  /* Brand — Amie logo peach → coral → magenta */
+  /* Brand — sampled from the Amie logo (peach → rose → magenta) */
   --brand-peach: #fbad7d;
   --brand-coral: #e47a7a;
-  --brand-primary: #b13f72;
-  --brand-primary-hover: #8f2b69;
-  --brand-primary-focus: #f9a67a;
-  --brand-primary-ring: rgba(177, 63, 114, 0.22);
+  --brand-primary: #ce5b78;
+  --brand-primary-hover: #b44864;
+  --brand-primary-focus: #fbad7d;
+  --brand-primary-ring: rgba(206, 91, 120, 0.26);
   --brand-on-primary: #ffffff;
-  --brand-speaker-user: #b13f72;
+  --brand-speaker-user: #ce5b78;
   --brand-speaker-remote: #c45d4a;
 }
 
@@ -153,8 +153,52 @@ body,
   cursor: not-allowed;
 }
 
+.start-meeting-button--listening:disabled {
+  opacity: 1;
+  cursor: default;
+}
+
 .start-meeting-button .sidebar-link-icon {
   color: var(--brand-on-primary);
+}
+
+.listening-eq {
+  display: block;
+  width: 22px;
+  height: 16px;
+  flex-shrink: 0;
+  overflow: visible;
+  color: var(--brand-on-primary);
+}
+
+.listening-eq-bar {
+  fill: currentColor;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: listening-eq 1.05s ease-in-out infinite;
+}
+
+@keyframes listening-eq {
+  0%,
+  100% {
+    transform: scaleY(0.72);
+  }
+  28% {
+    transform: scaleY(1.12);
+  }
+  52% {
+    transform: scaleY(0.48);
+  }
+  76% {
+    transform: scaleY(0.94);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .listening-eq-bar {
+    animation: none;
+    transform: none;
+  }
 }
 
 .sidebar-start-meeting {
@@ -192,6 +236,31 @@ body,
 
 .start-meeting-dialog .start-meeting-button {
   width: 100%;
+}
+
+.start-meeting-dialog-stop {
+  width: 100%;
+  padding: 10px 12px;
+  font-weight: 600;
+  border-radius: 10px;
+}
+
+.short-meeting-dialog {
+  max-width: 380px;
+}
+
+.short-meeting-dialog-copy {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.short-meeting-dialog-ok {
+  width: 100%;
+  padding: 10px 12px;
+  font-weight: 600;
+  border-radius: 10px;
 }
 
 .sidebar-footer {
@@ -732,11 +801,11 @@ body,
   --border-default: #333333;
   --border-input: #444444;
 
-  --brand-primary: #d45a8c;
-  --brand-primary-hover: #e879a8;
+  --brand-primary: #e27888;
+  --brand-primary-hover: #ee99a4;
   --brand-primary-focus: #fbad7d;
-  --brand-primary-ring: rgba(212, 90, 140, 0.28);
-  --brand-speaker-user: #e879a8;
+  --brand-primary-ring: rgba(226, 120, 136, 0.32);
+  --brand-speaker-user: #ee99a4;
   --brand-speaker-remote: #f0a090;
 }
 
@@ -765,11 +834,11 @@ body,
     --border-default: #333333;
     --border-input: #444444;
 
-    --brand-primary: #d45a8c;
-    --brand-primary-hover: #e879a8;
+    --brand-primary: #e27888;
+    --brand-primary-hover: #ee99a4;
     --brand-primary-focus: #fbad7d;
-    --brand-primary-ring: rgba(212, 90, 140, 0.28);
-    --brand-speaker-user: #e879a8;
+    --brand-primary-ring: rgba(226, 120, 136, 0.32);
+    --brand-speaker-user: #ee99a4;
     --brand-speaker-remote: #f0a090;
   }
 }

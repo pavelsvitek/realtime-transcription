@@ -130,6 +130,14 @@ function sanitizeGeneratedTitle(raw: string): string | null {
   return collapsed.slice(0, 80);
 }
 
+/** Automatic summaries wait until the meeting has lasted this long. */
+export const AUTO_SUMMARY_MIN_MS = 5 * 60 * 1000;
+
+/** Meetings shorter than 5 minutes are not summarized until the user asks. */
+export function meetingSkipsAutoSummary(startedAt: number, finishedAt: number): boolean {
+  return finishedAt - startedAt < AUTO_SUMMARY_MIN_MS;
+}
+
 /** "45-mins meeting at 2pm" — start time rounded to the nearest 15 minutes. */
 export function finishedMeetingTitle(startedAt: number, finishedAt: number): string {
   const elapsedMs = Math.max(0, finishedAt - startedAt);

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   commitMeetingTitle,
   finishedMeetingTitle,
+  meetingSkipsAutoSummary,
   formatMeetingDayLabel,
   groupMeetingsByDay,
   parseMeetingLlmOutput,
@@ -32,6 +33,15 @@ describe("groupMeetingsByDay", () => {
   it("formats list headers like the mock", () => {
     const local = new Date(2026, 8, 4, 15, 33);
     expect(formatMeetingDayLabel(local.getTime())).toBe("Sep 4 / Friday");
+  });
+});
+
+describe("meetingSkipsAutoSummary", () => {
+  it("skips automatic summary only when the meeting is shorter than 5 minutes", () => {
+    const start = 1_000;
+    expect(meetingSkipsAutoSummary(start, start + 5 * 60_000 - 1)).toBe(true);
+    expect(meetingSkipsAutoSummary(start, start + 5 * 60_000)).toBe(false);
+    expect(meetingSkipsAutoSummary(start, start + 12 * 60_000)).toBe(false);
   });
 });
 
