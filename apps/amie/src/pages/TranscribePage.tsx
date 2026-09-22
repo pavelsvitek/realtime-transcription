@@ -10,9 +10,9 @@ import {
   LIVE_TRANSCRIPT_TAB_LABEL,
   type MeetingDetailTab,
 } from "../components/MeetingTabs";
+import { LiveMeetingButton } from "../components/LiveMeetingButton";
 import { MicIndicator } from "../components/MicIndicator";
 import { Spinner } from "../components/Spinner";
-import { StartMeetingButton } from "../components/StartMeetingButton";
 import { TranscriptFeed } from "../components/TranscriptFeed";
 import { useAudioDevice } from "../hooks/useAudioDevice";
 import { useMicLevel } from "../hooks/useMicLevel";
@@ -37,11 +37,13 @@ function loadBackend(): AsrBackend {
 type TranscribePageProps = {
   /** Sidebar and Mod+N call this. Starting here, not in an effect, stays single under Strict Mode. */
   startMeetingRef?: RefObject<(() => void) | null>;
+  onLiveSessionChange?: (session: { listening: boolean; loading: boolean }) => void;
   onMeetingFinished?: (meetingId: string | null) => void;
 };
 
 export function TranscribePage({
   startMeetingRef,
+  onLiveSessionChange,
   onMeetingFinished,
 }: TranscribePageProps) {
   const [audioSource, setAudioSource] = useState<AudioSource>("both");
@@ -84,6 +86,13 @@ export function TranscribePage({
       setBackend(sessionBackend);
     }
   }, [sessionBackend]);
+
+  useEffect(() => {
+    onLiveSessionChange?.({
+      listening: isActive || stopping,
+      loading: isLoading && !isActive,
+    });
+  }, [isActive, isLoading, stopping, onLiveSessionChange]);
 
   const handleStart = async () => {
     if (isActive || isLoading || stopping) return;
@@ -176,6 +185,12 @@ export function TranscribePage({
             deviceKind={device?.kind ?? null}
             deviceError={deviceError}
           />
+          <LiveMeetingButton
+            listening={isActive || stopping}
+            loading={isLoading}
+            disabled={isLoading || isActive || stopping}
+            onClick={() => void handleStart()}
+          />
           {isActive || stopping ? (
             <button
               className="btn btn-stop"
@@ -186,14 +201,7 @@ export function TranscribePage({
             >
               {stopping ? <Spinner className="btn-spinner" /> : "Stop"}
             </button>
-          ) : (
-            <StartMeetingButton
-              onClick={() => void handleStart()}
-              disabled={isLoading}
-            >
-              {isLoading ? "Loading model..." : "Start a meeting"}
-            </StartMeetingButton>
-          )}
+          ) : null}
           {segments.length > 0 && !isActive && !stopping && (
             <button className="btn btn-clear" onClick={clear}>
               Clear
