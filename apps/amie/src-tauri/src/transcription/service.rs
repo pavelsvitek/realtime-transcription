@@ -11,6 +11,7 @@ use tauri::{AppHandle, Emitter};
 use crate::config::AppConfig;
 use crate::error::AppError;
 use crate::ipc::transcript::*;
+use crate::llm::service::meeting_skips_auto_summary;
 use crate::llm::{emitter_from_app, SummaryService};
 use crate::meetings::{now_ms, MeetingStore};
 use crate::transcription::asr::LoadedEngine;
@@ -81,6 +82,25 @@ impl TranscriptionService {
     pub fn with_summaries(mut self, summaries: SummaryService) -> Self {
         self.summaries = Some(summaries);
         self
+    }
+
+    fn skips_automatic_summary(&self, id: &str) -> bool {
+        let Some(store) = &self.meetings else {
+            return false;
+        };
+        match store.get_record(id) {
+            Ok(record) => record.meeting.finished_at.is_some_and(|finished_at| {
+                meeting_skips_auto_summary(record.meeting.started_at, finished_at)
+            }),
+            Err(e) => {
+                tracing::error!(
+                    error = %e,
+                    meeting_id = id,
+                    "Failed to read meeting duration; starting summary"
+                );
+                false
+            }
+        }
     }
 
     pub fn snapshot(&self) -> TranscriptionSnapshot {
@@ -400,12 +420,20 @@ impl TranscriptionService {
         }
 
         // Summary HTTP lives in a spawned task — do not await it on this stop path.
+        // Meetings under 5 minutes wait until the user generates a summary.
         if let (Some(summaries), Some(id)) = (self.summaries.as_ref(), state.meeting_id.clone()) {
-            let emit = match app_handle {
-                Some(app) => emitter_from_app(app.clone()),
-                None => std::sync::Arc::new(|_| {}),
-            };
-            summaries.start(id, emit);
+            if self.skips_automatic_summary(&id) {
+                tracing::info!(
+                    meeting_id = %id,
+                    "Skipping automatic summary: meeting shorter than 5 minutes"
+                );
+            } else {
+                let emit = match app_handle {
+                    Some(app) => emitter_from_app(app.clone()),
+                    None => std::sync::Arc::new(|_| {}),
+                };
+                summaries.start(id, emit);
+            }
         }
 
         if let Some(session) = state.debug.as_ref() {

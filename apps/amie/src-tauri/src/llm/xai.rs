@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 use reqwest::Client;
 use serde_json::Value;
 
-use super::provider::{LlmClient, LlmError};
+use super::provider::{missing_key_message, LlmClient, LlmError, LlmProviderId};
 
 const CHAT_COMPLETIONS_URL: &str = "https://api.x.ai/v1/chat/completions";
 const MODEL: &str = "grok-4.6";
@@ -41,8 +41,9 @@ impl LlmClient for XaiChatClient {
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<String, LlmError>> + Send + 'a>>
     {
         Box::pin(async move {
-            let api_key =
-                crate::transcription::xai::resolve_api_key().ok_or(LlmError::MissingApiKey)?;
+            let api_key = crate::transcription::xai::resolve_api_key().ok_or(
+                LlmError::MissingApiKey(missing_key_message(LlmProviderId::Xai)),
+            )?;
 
             let started = Instant::now();
             tracing::info!(

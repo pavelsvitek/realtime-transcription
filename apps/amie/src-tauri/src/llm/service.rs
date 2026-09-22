@@ -3,8 +3,9 @@ use std::sync::{Arc, Mutex};
 
 use tauri::async_runtime::JoinHandle;
 
+use super::keys::{provider_has_api_key, resolve_provider};
 use super::output::parse_meeting_output;
-use super::provider::{create_client, LlmClient, LlmError, LlmProviderId};
+use super::provider::{create_client, missing_key_message, LlmClient, LlmError};
 use crate::ipc::summary::{
     GenerateAllSummariesResult, SummaryDelta, SummaryJobSnapshot, SummaryJobState, SummaryStatus,
 };
@@ -12,7 +13,13 @@ use crate::meetings::MeetingStore;
 
 const MEETING_SUMMARY_PROMPT: &str = include_str!("../../prompts/meeting-summary.txt");
 
-pub const MISSING_KEY_MESSAGE: &str = "xAI API key is not set. Add one in Settings.";
+/// Automatic summaries wait until the meeting has lasted this long.
+pub const AUTO_SUMMARY_MIN_MS: i64 = 5 * 60 * 1000;
+
+/// Meetings shorter than 5 minutes stay unsummarized until the user asks.
+pub fn meeting_skips_auto_summary(started_at: i64, finished_at: i64) -> bool {
+    finished_at.saturating_sub(started_at) < AUTO_SUMMARY_MIN_MS
+}
 
 pub type SummaryEmitter = Arc<dyn Fn(SummaryEvent) + Send + Sync>;
 
@@ -54,7 +61,7 @@ impl SummaryService {
         Self {
             store,
             jobs: Arc::new(Mutex::new(HashMap::new())),
-            factory: Arc::new(|| create_client(LlmProviderId::Xai)),
+            factory: Arc::new(|| create_client(resolve_provider())),
         }
     }
 
@@ -91,8 +98,8 @@ impl SummaryService {
         &self,
         emit: SummaryEmitter,
     ) -> Result<GenerateAllSummariesResult, String> {
-        if crate::transcription::xai::resolve_api_key().is_none() {
-            return Err(MISSING_KEY_MESSAGE.to_string());
+        if let Err(message) = ensure_provider_key() {
+            return Err(message);
         }
 
         let (ids, skipped_empty) =
@@ -155,13 +162,8 @@ impl SummaryService {
         }
         let user_prompt = format_user_prompt(record.meeting.context.as_deref(), &transcript);
 
-        if crate::transcription::xai::resolve_api_key().is_none() {
-            self.fail(
-                &meeting_id,
-                generation,
-                &emit,
-                MISSING_KEY_MESSAGE.to_string(),
-            );
+        if let Err(message) = ensure_provider_key() {
+            self.fail(&meeting_id, generation, &emit, message);
             return;
         }
 
@@ -267,13 +269,8 @@ impl SummaryService {
                     error: None,
                 }));
             }
-            Err(LlmError::MissingApiKey) => {
-                self.fail(
-                    &meeting_id,
-                    generation,
-                    &emit,
-                    MISSING_KEY_MESSAGE.to_string(),
-                );
+            Err(LlmError::MissingApiKey(message)) => {
+                self.fail(&meeting_id, generation, &emit, message.to_string());
             }
             Err(e) => {
                 self.fail(&meeting_id, generation, &emit, e.to_string());
@@ -334,6 +331,15 @@ impl SummaryService {
     }
 }
 
+fn ensure_provider_key() -> Result<(), String> {
+    let id = resolve_provider();
+    if provider_has_api_key(id) {
+        Ok(())
+    } else {
+        Err(missing_key_message(id).to_string())
+    }
+}
+
 fn collect_summary_targets(
     store: &MeetingStore,
 ) -> Result<(Vec<String>, u32), crate::error::AppError> {
@@ -345,6 +351,15 @@ fn collect_summary_targets(
         if format_transcript(&record.segments).trim().is_empty() {
             skipped_empty += 1;
             continue;
+        }
+        if let Some(finished_at) = record.meeting.finished_at {
+            if meeting_skips_auto_summary(record.meeting.started_at, finished_at) {
+                tracing::info!(
+                    meeting_id = %item.id,
+                    "Skipping automatic summary: meeting shorter than 5 minutes"
+                );
+                continue;
+            }
         }
         ids.push(item.id);
     }
@@ -489,16 +504,45 @@ mod tests {
     fn collect_summary_targets_skips_empty_transcripts() {
         let store = temp_store();
         store.insert_live_meeting("empty", 1_000, "Empty").unwrap();
-        store.finish_meeting("empty", 2_000).unwrap();
+        store
+            .finish_meeting("empty", 1_000 + AUTO_SUMMARY_MIN_MS)
+            .unwrap();
         store.insert_live_meeting("full", 3_000, "Full").unwrap();
         store
             .insert_segment("full:s1", "full", 0, 10, "hello", "Remote", "system")
             .unwrap();
-        store.finish_meeting("full", 4_000).unwrap();
+        store
+            .finish_meeting("full", 3_000 + AUTO_SUMMARY_MIN_MS)
+            .unwrap();
 
         let (ids, skipped) = collect_summary_targets(&store).unwrap();
         assert_eq!(ids, vec!["full".to_string()]);
         assert_eq!(skipped, 1);
+    }
+
+    #[test]
+    fn collect_summary_targets_skips_meetings_shorter_than_five_minutes() {
+        let store = temp_store();
+        let start = 1_000_000;
+        store.insert_live_meeting("short", start, "Short").unwrap();
+        store
+            .insert_segment("short:s1", "short", 0, 10, "hello", "User", "mic")
+            .unwrap();
+        store
+            .finish_meeting("short", start + AUTO_SUMMARY_MIN_MS - 1)
+            .unwrap();
+
+        store.insert_live_meeting("long", start, "Long").unwrap();
+        store
+            .insert_segment("long:s1", "long", 0, 10, "hello", "User", "mic")
+            .unwrap();
+        store
+            .finish_meeting("long", start + AUTO_SUMMARY_MIN_MS)
+            .unwrap();
+
+        let (ids, skipped) = collect_summary_targets(&store).unwrap();
+        assert_eq!(ids, vec!["long".to_string()]);
+        assert_eq!(skipped, 0);
     }
 
     #[test]
