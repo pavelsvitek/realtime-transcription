@@ -39,6 +39,8 @@ function App() {
           startMeetingRef={startMeetingRef}
           onLiveSessionChange={handleLiveSessionChange}
           onMeetingFinished={(meetingId) => {
+            setListening(false);
+            setStarting(false);
             setArrivedMeetingId(meetingId);
             setPage("meetings");
           }}

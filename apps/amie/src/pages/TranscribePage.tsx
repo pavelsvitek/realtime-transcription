@@ -89,10 +89,10 @@ export function TranscribePage({
 
   useEffect(() => {
     onLiveSessionChange?.({
-      listening: isActive || stopping,
+      listening: isActive,
       loading: isLoading && !isActive,
     });
-  }, [isActive, isLoading, stopping, onLiveSessionChange]);
+  }, [isActive, isLoading, onLiveSessionChange]);
 
   const handleStart = async () => {
     if (isActive || isLoading || stopping) return;
@@ -136,6 +136,7 @@ export function TranscribePage({
       clear();
       setTab("transcript");
       await queryClient.invalidateQueries({ queryKey: meetingKeys.all });
+      onLiveSessionChange?.({ listening: false, loading: false });
       onMeetingFinished?.(meetingId);
     } finally {
       setIsFinishing(false);
