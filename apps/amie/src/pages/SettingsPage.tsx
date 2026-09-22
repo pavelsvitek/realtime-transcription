@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { AsrSettings, SummaryProvider, SummarySettings } from "../lib/transcript-types";
+import { summaryProviderHasKey } from "../lib/summary-providers";
 
 const KEY_MASK = "•".repeat(24);
 
@@ -87,179 +88,186 @@ export function SettingsPage() {
         <h1 className="page-title">Settings</h1>
       </header>
 
-      <section className="settings-section">
-        <h2 className="settings-heading">xAI Transcribe 2.0</h2>
-        <p className="settings-copy">
-          Used when ASR is set to <strong>xAI Transcribe 2.0</strong> on the New chat page.
-          Live sessions pin <code>grok-voice-transcribe-2.0</code>. The key is stored under
-          Application Support (or taken from <code>XAI_API_KEY</code>). Meeting summaries use
-          this same key when the summary provider is xAI.
-        </p>
-
-        <div className="settings-row">
-          <span className="settings-label">Status</span>
-          <span className="settings-value">{keyState}</span>
-        </div>
-
-        <label className="settings-field">
-          <span className="settings-label">API key</span>
-          <input
-            type="password"
-            className="settings-input"
-            value={fieldLocked ? KEY_MASK : apiKey}
-            onChange={(e) => {
-              if (!fieldLocked) setApiKey(e.target.value);
-            }}
-            placeholder="xai-…"
-            disabled={fieldLocked || saving}
-            readOnly={fieldLocked}
-            autoComplete="off"
-            spellCheck={false}
-            data-1p-ignore
-            data-lpignore="true"
-          />
-        </label>
-
-        <div className="settings-actions">
-          <button
-            className="btn btn-start"
-            onClick={() => void saveKey()}
-            disabled={saving || fieldLocked || apiKey.trim().length === 0}
-          >
-            {saving ? "Saving…" : "Save key"}
-          </button>
-          <button
-            className="btn btn-clear"
-            onClick={() => void clearKey()}
-            disabled={saving || !settings?.xaiApiKeySaved}
-          >
-            Clear saved key
-          </button>
-        </div>
-
-        {fieldLocked && settings?.xaiApiKeySaved && (
-          <p className="settings-copy">
-            Clear the saved key to enter a new one. The real key is never shown.
-          </p>
-        )}
-        {fieldLocked && settings?.xaiApiKeyFromEnv && !settings.xaiApiKeySaved && (
-          <p className="settings-copy">
-            Key is provided by <code>XAI_API_KEY</code> and cannot be edited here.
-          </p>
-        )}
-      </section>
-
-      <section className="settings-section">
-        <h2 className="settings-heading">Meeting summaries</h2>
-        <p className="settings-copy">
-          Choose which model writes the meeting title and summary. xAI stays the default.
-          <code>SUMMARY_LLM_PROVIDER</code> overrides this choice.
-        </p>
-        <label className="settings-field">
-          <span className="settings-label">Provider</span>
-          <select
-            className="settings-input"
-            value={summarySettings?.provider ?? "xai"}
-            disabled={saving || !summarySettings || summarySettings.providerFromEnv}
-            onChange={(e) => {
-              const provider = e.target.value;
-              void run(async () => {
-                await invoke("set_summary_provider", { provider });
-                setStatus(`Summary provider set to ${providerLabel(provider)}.`);
-              });
-            }}
-          >
-            {PROVIDERS.map((provider) => (
-              <option key={provider.id} value={provider.id}>
-                {provider.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        {summarySettings?.providerFromEnv && (
-          <p className="settings-copy">
-            Provider is set by <code>SUMMARY_LLM_PROVIDER</code> and cannot be edited here.
-          </p>
-        )}
-      </section>
-
-      <SummaryKeySection
-        title="OpenAI"
-        copy={
-          <>
-            Used for meeting summaries when the provider is <strong>OpenAI</strong>. The key is
-            stored under Application Support (or taken from <code>OPENAI_API_KEY</code>).
-          </>
-        }
-        placeholder="sk-…"
-        envName="OPENAI_API_KEY"
-        value={openaiKey}
-        onChange={setOpenaiKey}
-        loaded={summarySettings !== null}
-        keyIsSet={Boolean(summarySettings?.openaiApiKeySet)}
-        keySaved={Boolean(summarySettings?.openaiApiKeySaved)}
-        keyFromEnv={Boolean(summarySettings?.openaiApiKeyFromEnv)}
-        saving={saving}
-        onSave={() =>
-          void run(async () => {
-            await invoke("set_openai_api_key", { key: openaiKey });
-            setOpenaiKey("");
-            setStatus("OpenAI API key saved.");
-          })
-        }
-        onClear={() =>
-          void run(async () => {
-            await invoke("clear_openai_api_key");
-            setOpenaiKey("");
-            setStatus("Saved OpenAI API key cleared.");
-          })
-        }
-      />
-
-      <SummaryKeySection
-        title="Gemini"
-        copy={
-          <>
-            Used for meeting summaries when the provider is <strong>Gemini</strong>. The key is
-            stored under Application Support (or taken from <code>GEMINI_API_KEY</code> or{" "}
-            <code>GOOGLE_API_KEY</code>).
-          </>
-        }
-        placeholder="AIza…"
-        envName="GEMINI_API_KEY"
-        value={geminiKey}
-        onChange={setGeminiKey}
-        loaded={summarySettings !== null}
-        keyIsSet={Boolean(summarySettings?.geminiApiKeySet)}
-        keySaved={Boolean(summarySettings?.geminiApiKeySaved)}
-        keyFromEnv={Boolean(summarySettings?.geminiApiKeyFromEnv)}
-        saving={saving}
-        onSave={() =>
-          void run(async () => {
-            await invoke("set_gemini_api_key", { key: geminiKey });
-            setGeminiKey("");
-            setStatus("Gemini API key saved.");
-          })
-        }
-        onClear={() =>
-          void run(async () => {
-            await invoke("clear_gemini_api_key");
-            setGeminiKey("");
-            setStatus("Saved Gemini API key cleared.");
-          })
-        }
-      />
-
-      {status && (
+      <div className="settings-scroll">
         <section className="settings-section">
-          <div className="settings-status">{status}</div>
+          <h2 className="settings-heading">Meeting summaries</h2>
+          <p className="settings-copy">
+            Choose which model writes the meeting title and summary. xAI stays the default.
+            <code>SUMMARY_LLM_PROVIDER</code> overrides this choice.
+          </p>
+          <label className="settings-field">
+            <span className="settings-label">Provider</span>
+            <select
+              className="settings-input"
+              value={summarySettings?.provider ?? "xai"}
+              disabled={saving || !summarySettings || summarySettings.providerFromEnv}
+              onChange={(e) => {
+                const provider = e.target.value;
+                if (!summaryProviderHasKey(provider, settings, summarySettings)) return;
+                void run(async () => {
+                  await invoke("set_summary_provider", { provider });
+                  setStatus(`Summary provider set to ${providerLabel(provider)}.`);
+                });
+              }}
+            >
+              {PROVIDERS.map((provider) => {
+                const hasKey = summaryProviderHasKey(provider.id, settings, summarySettings);
+                return (
+                  <option key={provider.id} value={provider.id} disabled={!hasKey}>
+                    {provider.label}
+                    {settings && summarySettings && !hasKey ? " (no API key)" : ""}
+                  </option>
+                );
+              })}
+            </select>
+          </label>
+          {summarySettings?.providerFromEnv && (
+            <p className="settings-copy">
+              Provider is set by <code>SUMMARY_LLM_PROVIDER</code> and cannot be edited here.
+            </p>
+          )}
         </section>
-      )}
-      {error && (
+
         <section className="settings-section">
-          <div className="error-banner">{error}</div>
+          <h2 className="settings-heading">xAI Transcribe 2.0</h2>
+          <p className="settings-copy">
+            Used when ASR is set to <strong>xAI Transcribe 2.0</strong> on the New chat page.
+            Live sessions pin <code>grok-voice-transcribe-2.0</code>. The key is stored under
+            Application Support (or taken from <code>XAI_API_KEY</code>). Meeting summaries use
+            this same key when the summary provider is xAI.
+          </p>
+
+          <div className="settings-row">
+            <span className="settings-label">Status</span>
+            <span className="settings-value">{keyState}</span>
+          </div>
+
+          <label className="settings-field">
+            <span className="settings-label">API key</span>
+            <input
+              type="password"
+              className="settings-input"
+              value={fieldLocked ? KEY_MASK : apiKey}
+              onChange={(e) => {
+                if (!fieldLocked) setApiKey(e.target.value);
+              }}
+              placeholder="xai-…"
+              disabled={fieldLocked || saving}
+              readOnly={fieldLocked}
+              autoComplete="off"
+              spellCheck={false}
+              data-1p-ignore
+              data-lpignore="true"
+            />
+          </label>
+
+          <div className="settings-actions">
+            <button
+              className="btn btn-start"
+              onClick={() => void saveKey()}
+              disabled={saving || fieldLocked || apiKey.trim().length === 0}
+            >
+              {saving ? "Saving…" : "Save key"}
+            </button>
+            <button
+              className="btn btn-clear"
+              onClick={() => void clearKey()}
+              disabled={saving || !settings?.xaiApiKeySaved}
+            >
+              Clear saved key
+            </button>
+          </div>
+
+          {fieldLocked && settings?.xaiApiKeySaved && (
+            <p className="settings-copy">
+              Clear the saved key to enter a new one. The real key is never shown.
+            </p>
+          )}
+          {fieldLocked && settings?.xaiApiKeyFromEnv && !settings.xaiApiKeySaved && (
+            <p className="settings-copy">
+              Key is provided by <code>XAI_API_KEY</code> and cannot be edited here.
+            </p>
+          )}
         </section>
-      )}
+
+        <SummaryKeySection
+          title="OpenAI"
+          copy={
+            <>
+              Used for meeting summaries when the provider is <strong>OpenAI</strong>. The key is
+              stored under Application Support (or taken from <code>OPENAI_API_KEY</code>).
+            </>
+          }
+          placeholder="sk-…"
+          envName="OPENAI_API_KEY"
+          value={openaiKey}
+          onChange={setOpenaiKey}
+          loaded={summarySettings !== null}
+          keyIsSet={Boolean(summarySettings?.openaiApiKeySet)}
+          keySaved={Boolean(summarySettings?.openaiApiKeySaved)}
+          keyFromEnv={Boolean(summarySettings?.openaiApiKeyFromEnv)}
+          saving={saving}
+          onSave={() =>
+            void run(async () => {
+              await invoke("set_openai_api_key", { key: openaiKey });
+              setOpenaiKey("");
+              setStatus("OpenAI API key saved.");
+            })
+          }
+          onClear={() =>
+            void run(async () => {
+              await invoke("clear_openai_api_key");
+              setOpenaiKey("");
+              setStatus("Saved OpenAI API key cleared.");
+            })
+          }
+        />
+
+        <SummaryKeySection
+          title="Gemini"
+          copy={
+            <>
+              Used for meeting summaries when the provider is <strong>Gemini</strong>. The key is
+              stored under Application Support (or taken from <code>GEMINI_API_KEY</code> or{" "}
+              <code>GOOGLE_API_KEY</code>).
+            </>
+          }
+          placeholder="AIza…"
+          envName="GEMINI_API_KEY"
+          value={geminiKey}
+          onChange={setGeminiKey}
+          loaded={summarySettings !== null}
+          keyIsSet={Boolean(summarySettings?.geminiApiKeySet)}
+          keySaved={Boolean(summarySettings?.geminiApiKeySaved)}
+          keyFromEnv={Boolean(summarySettings?.geminiApiKeyFromEnv)}
+          saving={saving}
+          onSave={() =>
+            void run(async () => {
+              await invoke("set_gemini_api_key", { key: geminiKey });
+              setGeminiKey("");
+              setStatus("Gemini API key saved.");
+            })
+          }
+          onClear={() =>
+            void run(async () => {
+              await invoke("clear_gemini_api_key");
+              setGeminiKey("");
+              setStatus("Saved Gemini API key cleared.");
+            })
+          }
+        />
+
+        {status && (
+          <section className="settings-section">
+            <div className="settings-status">{status}</div>
+          </section>
+        )}
+        {error && (
+          <section className="settings-section">
+            <div className="error-banner">{error}</div>
+          </section>
+        )}
+      </div>
     </main>
   );
 }
