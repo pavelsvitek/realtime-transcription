@@ -1,4 +1,4 @@
-import type { AsrSettings, SummaryProvider, SummarySettings } from "./transcript-types";
+import type { AsrSettings, SummarySettings } from "./transcript-types";
 
 export function summaryProviderHasKey(
   id: string,
