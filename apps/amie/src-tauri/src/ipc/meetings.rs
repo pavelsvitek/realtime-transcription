@@ -48,6 +48,7 @@ pub struct MeetingRecord {
 pub struct PatchMeeting {
     pub title: Option<String>,
     pub context: Option<String>,
+    pub summary: Option<String>,
     pub archived_at: Option<i64>,
 }
 
@@ -91,6 +92,7 @@ mod tests {
             serde_json::from_value(serde_json::json!({ "title": "Weekly sync" })).unwrap();
         assert_eq!(title_only.title.as_deref(), Some("Weekly sync"));
         assert!(title_only.context.is_none());
+        assert!(title_only.summary.is_none());
         assert!(title_only.archived_at.is_none());
 
         let context_and_archive: PatchMeeting = serde_json::from_value(serde_json::json!({
@@ -101,5 +103,11 @@ mod tests {
         assert_eq!(context_and_archive.context.as_deref(), Some(""));
         assert_eq!(context_and_archive.archived_at, Some(1_700_000_000_000));
         assert!(context_and_archive.title.is_none());
+        assert!(context_and_archive.summary.is_none());
+
+        let summary_only: PatchMeeting =
+            serde_json::from_value(serde_json::json!({ "summary": "Prev notes" })).unwrap();
+        assert_eq!(summary_only.summary.as_deref(), Some("Prev notes"));
+        assert!(summary_only.context.is_none());
     }
 }

@@ -13,7 +13,7 @@
     "windows": [
       {
         "title": "Amie",
-        "width": 800,
+        "width": 960,
         "height": 600,
         "hiddenTitle": true,
         "titleBarStyle": "Overlay"

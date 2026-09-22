@@ -4,6 +4,17 @@ import { usePatchMeetingMutation } from "../models/Meeting";
 
 export const MEETING_CONTEXT_SAVE_DEBOUNCE_MS = 250;
 
+/** Adopt a remote context only when the textarea has no unsaved edits. */
+export function adoptRemoteContext(
+  current: string,
+  lastSaved: string,
+  incoming: string,
+): string | null {
+  if (incoming === lastSaved) return null;
+  if (current !== lastSaved) return null;
+  return incoming;
+}
+
 export type MeetingContextEditorHandle = {
   flush: () => Promise<void>;
 };
@@ -77,6 +88,12 @@ export const MeetingContextEditor = forwardRef<
     setError(null);
     setStatus(null);
   }, [meetingId]);
+
+  useEffect(() => {
+    const incoming = initialContext ?? "";
+    const adopted = adoptRemoteContext(value, lastSavedRef.current, incoming);
+    if (adopted === null) return;
+  }, [initialContext, meetingId]);
 
   useImperativeHandle(ref, () => ({
     flush: async () => {

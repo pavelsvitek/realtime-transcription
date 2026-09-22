@@ -1100,8 +1100,13 @@ body,
   padding: 10px 12px;
 }
 
-.meeting-menu-item:hover {
+.meeting-menu-item:hover:not(:disabled) {
   background: var(--surface-hover);
+}
+
+.meeting-menu-item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .meeting-menu-item-danger {

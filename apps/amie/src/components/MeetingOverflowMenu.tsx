@@ -4,14 +4,18 @@ import { useStartMeetingConfirmOpen } from "./StartMeetingConfirm";
 
 type MeetingOverflowMenuProps = {
   disabled?: boolean;
+  followUpDisabled?: boolean;
   onOpenChange?: (open: boolean) => void;
+  onFollowUp: () => void;
   onArchive: () => void;
   onDelete: () => void;
 };
 
 export function MeetingOverflowMenu({
   disabled,
+  followUpDisabled,
   onOpenChange,
+  onFollowUp,
   onArchive,
   onDelete,
 }: MeetingOverflowMenuProps) {
@@ -117,6 +121,20 @@ export function MeetingOverflowMenu({
                 type="button"
                 className="meeting-menu-item"
                 role="menuitem"
+                disabled={followUpDisabled}
+                onClick={() => {
+                  close();
+                  onFollowUp();
+                }}
+              >
+                <FollowUpIcon />
+                Follow-up meeting…
+              </button>
+              <div className="meeting-menu-divider" />
+              <button
+                type="button"
+                className="meeting-menu-item"
+                role="menuitem"
                 onClick={() => {
                   close();
                   onArchive();
@@ -155,6 +173,26 @@ function MenuDotsIcon() {
       <circle cx="6" cy="12" r="1.7" />
       <circle cx="12" cy="12" r="1.7" />
       <circle cx="18" cy="12" r="1.7" />
+    </svg>
+  );
+}
+
+function FollowUpIcon() {
+  return (
+    <svg
+      className="meeting-menu-icon"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="8" y="8" width="12" height="12" rx="2" />
+      <path d="M4 16V6a2 2 0 0 1 2-2h10" />
     </svg>
   );
 }

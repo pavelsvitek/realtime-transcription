@@ -120,28 +120,38 @@ export function useTranscription() {
     };
   }, []);
 
-  const start = useCallback(async (source: AudioSource, backend: AsrBackend = "local") => {
-    if (startInFlight.current) return;
-    startInFlight.current = true;
-    setError(null);
-    setIsLoading(true);
-    setSegments([]);
-    setSessionSource(source);
-    setSessionBackend(backend);
-    try {
-      await invoke("start_transcription", {
-        source,
-        backend,
-      });
-    } catch (e) {
-      setIsLoading(false);
-      setSessionSource(null);
-      setSessionBackend(null);
-      setError(String(e));
-    } finally {
-      startInFlight.current = false;
-    }
-  }, []);
+  const start = useCallback(
+    async (
+      source: AudioSource,
+      backend: AsrBackend = "local",
+      context?: string | null,
+    ) => {
+      if (startInFlight.current) return false;
+      startInFlight.current = true;
+      setError(null);
+      setIsLoading(true);
+      setSegments([]);
+      setSessionSource(source);
+      setSessionBackend(backend);
+      try {
+        await invoke("start_transcription", {
+          source,
+          backend,
+          ...(context ? { context } : {}),
+        });
+        return true;
+      } catch (e) {
+        setIsLoading(false);
+        setSessionSource(null);
+        setSessionBackend(null);
+        setError(String(e));
+        return false;
+      } finally {
+        startInFlight.current = false;
+      }
+    },
+    [],
+  );
 
   const stop = useCallback(async (): Promise<string | null> => {
     setIsStopping(true);

@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { useQueryClient } from "@tanstack/react-query";
 import { useHotkey } from "@tanstack/react-hotkeys";
+import { FollowUpMeetingConfirm } from "../components/FollowUpMeetingConfirm";
 import { useStartMeetingConfirmOpen } from "../components/StartMeetingConfirm";
 import { Spinner } from "../components/Spinner";
 import { MeetingTitle } from "../components/MeetingTitle";
@@ -19,10 +20,13 @@ import {
   moveMeetingSelection,
   retainMeetingSelection,
 } from "../lib/meeting-list-selection";
+import { FOLLOW_UP_MEETING_HOTKEY } from "../lib/nav-hotkeys";
 import {
+  followUpSeedFromMeeting,
   formatMeetingClock,
   formatMeetingDetailWhen,
   groupMeetingsByDay,
+  type FollowUpSeed,
   type MeetingListItem,
   type MeetingRecord,
   type SummaryDeltaPayload,
@@ -53,6 +57,9 @@ type MeetingsPageProps = {
   /** Shown after a meeting under 5 minutes is saved without an automatic summary. */
   skipAutoSummaryNotice?: boolean;
   onDismissSkipAutoSummaryNotice?: () => void;
+  /** True while a live meeting is starting or already listening. */
+  meetingInProgress?: boolean;
+  onFollowUpMeeting?: (seed: FollowUpSeed) => void;
 };
 
 function applyGeneratedTitle(
@@ -79,6 +86,8 @@ export function MeetingsPage({
   arrivedMeetingId = null,
   skipAutoSummaryNotice = false,
   onDismissSkipAutoSummaryNotice,
+  meetingInProgress = false,
+  onFollowUpMeeting,
 }: MeetingsPageProps) {
   const queryClient = useQueryClient();
   const [view, setView] = useState<MeetingsView>({ kind: "list" });
@@ -93,6 +102,7 @@ export function MeetingsPage({
     () => new Set()
   );
   const [menuOpen, setMenuOpen] = useState(false);
+  const [followUpConfirm, setFollowUpConfirm] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const startConfirmOpen = useStartMeetingConfirmOpen();
   const orderedIdsRef = useRef<string[]>([]);
@@ -118,6 +128,7 @@ export function MeetingsPage({
     void contextEditorRef.current?.flush();
     setTab("summary");
     setMenuOpen(false);
+    setFollowUpConfirm(false);
     setView({ kind: "list" });
   }, []);
 
@@ -194,11 +205,37 @@ export function MeetingsPage({
       enabled:
         view.kind === "detail" &&
         !menuOpen &&
+        !followUpConfirm &&
         !startConfirmOpen &&
         !skipAutoSummaryNotice,
       ignoreInputs: true,
       conflictBehavior: "allow",
       meta: { name: "Back to meetings" },
+    },
+  );
+
+  useHotkey(
+    FOLLOW_UP_MEETING_HOTKEY,
+    (event) => {
+      if (event.isComposing) return;
+      event.preventDefault();
+      setFollowUpConfirm(true);
+    },
+    {
+      enabled:
+        view.kind === "detail" &&
+        Boolean(record) &&
+        !followUpConfirm &&
+        !startConfirmOpen &&
+        !skipAutoSummaryNotice &&
+        !meetingInProgress &&
+        !mutating,
+      preventDefault: true,
+      conflictBehavior: "allow",
+      meta: {
+        name: "Follow-up meeting",
+        description: "Confirm creating a follow-up from this meeting",
+      },
     },
   );
 
@@ -399,6 +436,18 @@ export function MeetingsPage({
     }
   };
 
+  const confirmFollowUp = async () => {
+    if (view.kind !== "detail") return;
+    setFollowUpConfirm(false);
+    await contextEditorRef.current?.flush();
+    const latest =
+      queryClient.getQueryData<MeetingRecord | null>(
+        meetingKeys.detail(view.id),
+      ) ?? record;
+    if (!latest) return;
+    onFollowUpMeeting?.(followUpSeedFromMeeting(latest.meeting, draft));
+  };
+
   const archiveMeeting = async () => {
     if (view.kind !== "detail" || mutating) return;
     setError(null);
@@ -459,7 +508,9 @@ export function MeetingsPage({
           </button>
           <MeetingOverflowMenu
             disabled={mutating}
+            followUpDisabled={meetingInProgress}
             onOpenChange={setMenuOpen}
+            onFollowUp={() => setFollowUpConfirm(true)}
             onArchive={() => void archiveMeeting()}
             onDelete={() => void deleteMeeting()}
           />
@@ -577,6 +628,12 @@ export function MeetingsPage({
         ) : null}
       </main>
       {shortMeetingNotice}
+      {followUpConfirm && (
+        <FollowUpMeetingConfirm
+          onConfirm={() => void confirmFollowUp()}
+          onDismiss={() => setFollowUpConfirm(false)}
+        />
+      )}
       </>
     );
   }

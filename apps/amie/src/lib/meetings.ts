@@ -36,8 +36,45 @@ export type MeetingRecord = {
 export type MeetingPatch = {
   title?: string;
   context?: string | null;
+  summary?: string | null;
   archivedAt?: number;
 };
+
+/** Context and summary taken from a finished meeting to start a follow-up. */
+export type FollowUpSeed = {
+  context: string | null;
+  summary: string | null;
+};
+
+export function followUpSeedFromMeeting(
+  meeting: { context: string | null; summary: string | null },
+  draft = "",
+): FollowUpSeed {
+  const summary = meeting.summary?.trim()
+    ? meeting.summary
+    : draft.trim()
+      ? draft
+      : null;
+  const context = meeting.context?.trim() ? meeting.context : null;
+  return { context, summary };
+}
+
+export function followUpContextFromSeed(seed: FollowUpSeed): string | null {
+  const summary = seed.summary?.trim() ?? "";
+  const context = seed.context?.trim() ?? "";
+  const summarySection = summary
+    ? `## Previous meeting summary\n${summary}`
+    : "";
+  if (context && summarySection) return `${context}\n\n${summarySection}`;
+  if (context) return context;
+  if (summarySection) return summarySection;
+  return null;
+}
+
+export function followUpMeetingPatch(seed: FollowUpSeed): MeetingPatch {
+  const context = followUpContextFromSeed(seed);
+  return context ? { context } : {};
+}
 
 export type SummaryJobState = "idle" | "running" | "done" | "error";
 

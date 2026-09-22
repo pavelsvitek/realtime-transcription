@@ -42,6 +42,14 @@ describe("patchMeeting", () => {
     });
   });
 
+  it("sends summary for a follow-up copy", async () => {
+    await patchMeeting("m1", { summary: "Ship it" });
+    expect(mockedInvoke).toHaveBeenCalledWith("patch_meeting", {
+      id: "m1",
+      payload: { summary: "Ship it" },
+    });
+  });
+
   it("sends archivedAt for archive", async () => {
     await patchMeeting("m1", { archivedAt: 1_700 });
     expect(mockedInvoke).toHaveBeenCalledWith("patch_meeting", {
