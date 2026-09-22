@@ -37,12 +37,15 @@ function loadBackend(): AsrBackend {
 type TranscribePageProps = {
   /** Sidebar and Mod+N call this. Starting here, not in an effect, stays single under Strict Mode. */
   startMeetingRef?: RefObject<(() => void) | null>;
+  /** Mod+Backspace confirm calls this. */
+  stopMeetingRef?: RefObject<(() => void) | null>;
   onLiveSessionChange?: (session: { listening: boolean; loading: boolean }) => void;
   onMeetingFinished?: (meetingId: string | null) => void;
 };
 
 export function TranscribePage({
   startMeetingRef,
+  stopMeetingRef,
   onLiveSessionChange,
   onMeetingFinished,
 }: TranscribePageProps) {
@@ -108,6 +111,8 @@ export function TranscribePage({
   }
 
   const handleStop = async () => {
+    if (!isActive && !stopping) return;
+    if (isFinishing) return;
     setIsFinishing(true);
     try {
       await contextEditorRef.current?.flush();
@@ -142,6 +147,12 @@ export function TranscribePage({
       setIsFinishing(false);
     }
   };
+
+  if (stopMeetingRef) {
+    stopMeetingRef.current = () => {
+      void handleStop();
+    };
+  }
 
   const summaryIds = meetingTabDomIds(LIVE_TAB_PREFIX, "summary");
   const contextIds = meetingTabDomIds(LIVE_TAB_PREFIX, "context");
@@ -186,12 +197,6 @@ export function TranscribePage({
             deviceKind={device?.kind ?? null}
             deviceError={deviceError}
           />
-          <LiveMeetingButton
-            listening={isActive || stopping}
-            loading={isLoading}
-            disabled={isLoading || isActive || stopping}
-            onClick={() => void handleStart()}
-          />
           {isActive || stopping ? (
             <button
               className="btn btn-stop"
@@ -202,7 +207,13 @@ export function TranscribePage({
             >
               {stopping ? <Spinner className="btn-spinner" /> : "Stop"}
             </button>
-          ) : null}
+          ) : (
+            <LiveMeetingButton
+              loading={isLoading}
+              disabled={isLoading}
+              onClick={() => void handleStart()}
+            />
+          )}
           {segments.length > 0 && !isActive && !stopping && (
             <button className="btn btn-clear" onClick={clear}>
               Clear

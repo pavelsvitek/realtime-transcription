@@ -13,6 +13,7 @@ function App() {
   const [listening, setListening] = useState(false);
   const [starting, setStarting] = useState(false);
   const startMeetingRef = useRef<(() => void) | null>(null);
+  const stopMeetingRef = useRef<(() => void) | null>(null);
   const handleLiveSessionChange = useCallback(
     (session: { listening: boolean; loading: boolean }) => {
       setListening(session.listening);
@@ -32,11 +33,15 @@ function App() {
         if (listening || starting) return;
         startMeetingRef.current?.();
       }}
+      onStopMeeting={() => {
+        stopMeetingRef.current?.();
+      }}
     >
       {page === "home" ? <HomePage /> : null}
       <Activity mode={page === "transcribe" ? "visible" : "hidden"}>
         <TranscribePage
           startMeetingRef={startMeetingRef}
+          stopMeetingRef={stopMeetingRef}
           onLiveSessionChange={handleLiveSessionChange}
           onMeetingFinished={(meetingId) => {
             setListening(false);

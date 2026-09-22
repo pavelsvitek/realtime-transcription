@@ -8,25 +8,29 @@ export function useStartMeetingConfirmOpen() {
   return useContext(StartMeetingConfirmOpenContext);
 }
 
+export type MeetingConfirmKind = "start" | "stop";
+
 type StartMeetingConfirmLayerProps = {
-  open: boolean;
+  kind: MeetingConfirmKind | null;
   onConfirm: () => void;
   onDismiss: () => void;
   children: ReactNode;
 };
 
 export function StartMeetingConfirmLayer({
-  open,
+  kind,
   onConfirm,
   onDismiss,
   children,
 }: StartMeetingConfirmLayerProps) {
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const open = kind !== null;
+  const stopping = kind === "stop";
 
   useEffect(() => {
     if (!open) return;
     buttonRef.current?.focus();
-  }, [open]);
+  }, [open, kind]);
 
   useHotkey(
     "Escape",
@@ -37,7 +41,7 @@ export function StartMeetingConfirmLayer({
     {
       enabled: open,
       conflictBehavior: "allow",
-      meta: { name: "Dismiss start meeting" },
+      meta: { name: stopping ? "Dismiss stop meeting" : "Dismiss start meeting" },
     },
   );
 
@@ -57,9 +61,20 @@ export function StartMeetingConfirmLayer({
             onPointerDown={(event) => event.stopPropagation()}
           >
             <p id="start-meeting-dialog-title" className="start-meeting-dialog-title">
-              Start a meeting?
+              {stopping ? "Stop the meeting?" : "Start a meeting?"}
             </p>
-            <StartMeetingButton ref={buttonRef} onClick={onConfirm} />
+            {stopping ? (
+              <button
+                ref={buttonRef}
+                type="button"
+                className="btn btn-stop start-meeting-dialog-stop"
+                onClick={onConfirm}
+              >
+                Stop
+              </button>
+            ) : (
+              <StartMeetingButton ref={buttonRef} onClick={onConfirm} />
+            )}
           </div>
         </div>
       )}

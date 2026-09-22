@@ -1,15 +1,19 @@
 import { useState, type ReactNode } from "react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useNavHotkeys } from "../hooks/useNavHotkeys";
-import { START_MEETING_HOTKEY } from "../lib/nav-hotkeys";
+import { START_MEETING_HOTKEY, STOP_MEETING_HOTKEY } from "../lib/nav-hotkeys";
 import { Sidebar, type AppPage } from "./Sidebar";
-import { StartMeetingConfirmLayer } from "./StartMeetingConfirm";
+import {
+  StartMeetingConfirmLayer,
+  type MeetingConfirmKind,
+} from "./StartMeetingConfirm";
 import { TitleBar } from "./TitleBar";
 
 interface AppLayoutProps {
   currentPage: AppPage;
   onNavigate: (page: AppPage) => void;
   onStartMeeting: () => void;
+  onStopMeeting: () => void;
   listening?: boolean;
   loading?: boolean;
   children: ReactNode;
@@ -19,28 +23,52 @@ export function AppLayout({
   currentPage,
   onNavigate,
   onStartMeeting,
+  onStopMeeting,
   listening = false,
   loading = false,
   children,
 }: AppLayoutProps) {
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmKind, setConfirmKind] = useState<MeetingConfirmKind | null>(
+    null,
+  );
+  const confirmOpen = confirmKind !== null;
   useNavHotkeys(onNavigate);
-  useHotkey(START_MEETING_HOTKEY, () => setConfirmOpen(true), {
+  useHotkey(START_MEETING_HOTKEY, () => setConfirmKind("start"), {
     enabled: !confirmOpen && !listening && !loading,
     meta: {
       name: "Start a meeting",
       description: "Confirm starting a new meeting",
     },
   });
+  useHotkey(
+    STOP_MEETING_HOTKEY,
+    (event) => {
+      event.preventDefault();
+      setConfirmKind("stop");
+    },
+    {
+      enabled: !confirmOpen && listening,
+      preventDefault: true,
+      meta: {
+        name: "Stop the meeting",
+        description: "Confirm stopping the current meeting",
+      },
+    },
+  );
 
   return (
     <StartMeetingConfirmLayer
-      open={confirmOpen}
+      kind={confirmKind}
       onConfirm={() => {
-        setConfirmOpen(false);
-        onStartMeeting();
+        const kind = confirmKind;
+        setConfirmKind(null);
+        if (kind === "stop") {
+          onStopMeeting();
+        } else {
+          onStartMeeting();
+        }
       }}
-      onDismiss={() => setConfirmOpen(false)}
+      onDismiss={() => setConfirmKind(null)}
     >
       <div className="app-shell">
         <Sidebar
