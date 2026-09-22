@@ -10,9 +10,9 @@ import {
   LIVE_TRANSCRIPT_TAB_LABEL,
   type MeetingDetailTab,
 } from "../components/MeetingTabs";
+import { LiveMeetingButton } from "../components/LiveMeetingButton";
 import { MicIndicator } from "../components/MicIndicator";
 import { Spinner } from "../components/Spinner";
-import { StartMeetingButton } from "../components/StartMeetingButton";
 import { TranscriptFeed } from "../components/TranscriptFeed";
 import { useAudioDevice } from "../hooks/useAudioDevice";
 import { useMicLevel } from "../hooks/useMicLevel";
@@ -37,11 +37,16 @@ function loadBackend(): AsrBackend {
 type TranscribePageProps = {
   /** Sidebar and Mod+N call this. Starting here, not in an effect, stays single under Strict Mode. */
   startMeetingRef?: RefObject<(() => void) | null>;
+  /** Mod+Backspace confirm calls this. */
+  stopMeetingRef?: RefObject<(() => void) | null>;
+  onLiveSessionChange?: (session: { listening: boolean; loading: boolean }) => void;
   onMeetingFinished?: (meetingId: string | null) => void;
 };
 
 export function TranscribePage({
   startMeetingRef,
+  stopMeetingRef,
+  onLiveSessionChange,
   onMeetingFinished,
 }: TranscribePageProps) {
   const [audioSource, setAudioSource] = useState<AudioSource>("both");
@@ -85,6 +90,13 @@ export function TranscribePage({
     }
   }, [sessionBackend]);
 
+  useEffect(() => {
+    onLiveSessionChange?.({
+      listening: isActive,
+      loading: isLoading && !isActive,
+    });
+  }, [isActive, isLoading, onLiveSessionChange]);
+
   const handleStart = async () => {
     if (isActive || isLoading || stopping) return;
     setTab("transcript");
@@ -99,6 +111,8 @@ export function TranscribePage({
   }
 
   const handleStop = async () => {
+    if (!isActive && !stopping) return;
+    if (isFinishing) return;
     setIsFinishing(true);
     try {
       await contextEditorRef.current?.flush();
@@ -127,11 +141,18 @@ export function TranscribePage({
       clear();
       setTab("transcript");
       await queryClient.invalidateQueries({ queryKey: meetingKeys.all });
+      onLiveSessionChange?.({ listening: false, loading: false });
       onMeetingFinished?.(meetingId);
     } finally {
       setIsFinishing(false);
     }
   };
+
+  if (stopMeetingRef) {
+    stopMeetingRef.current = () => {
+      void handleStop();
+    };
+  }
 
   const summaryIds = meetingTabDomIds(LIVE_TAB_PREFIX, "summary");
   const contextIds = meetingTabDomIds(LIVE_TAB_PREFIX, "context");
@@ -187,12 +208,11 @@ export function TranscribePage({
               {stopping ? <Spinner className="btn-spinner" /> : "Stop"}
             </button>
           ) : (
-            <StartMeetingButton
-              onClick={() => void handleStart()}
+            <LiveMeetingButton
+              loading={isLoading}
               disabled={isLoading}
-            >
-              {isLoading ? "Loading model..." : "Start a meeting"}
-            </StartMeetingButton>
+              onClick={() => void handleStart()}
+            />
           )}
           {segments.length > 0 && !isActive && !stopping && (
             <button className="btn btn-clear" onClick={clear}>

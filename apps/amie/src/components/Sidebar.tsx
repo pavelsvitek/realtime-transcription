@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { ThemeToggle } from "./ThemeToggle";
 import { useColorScheme } from "../hooks/useColorScheme";
-import { StartMeetingButton } from "./StartMeetingButton";
+import { LiveMeetingButton } from "./LiveMeetingButton";
 import {
   HomeIcon,
   MeetingsIcon,
@@ -22,9 +22,17 @@ interface SidebarProps {
   currentPage: AppPage;
   onNavigate: (page: AppPage) => void;
   onStartMeeting: () => void;
+  listening?: boolean;
+  loading?: boolean;
 }
 
-export function Sidebar({ currentPage, onNavigate, onStartMeeting }: SidebarProps) {
+export function Sidebar({
+  currentPage,
+  onNavigate,
+  onStartMeeting,
+  listening = false,
+  loading = false,
+}: SidebarProps) {
   const { scheme, toggleScheme } = useColorScheme();
 
   return (
@@ -42,8 +50,11 @@ export function Sidebar({ currentPage, onNavigate, onStartMeeting }: SidebarProp
       </div>
       <ul className="sidebar-nav">
         <li className="sidebar-start-item">
-          <StartMeetingButton
+          <LiveMeetingButton
             className="sidebar-start-meeting"
+            listening={listening}
+            loading={loading}
+            disabled={loading && !listening}
             onClick={onStartMeeting}
           />
         </li>
