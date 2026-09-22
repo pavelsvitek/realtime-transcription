@@ -245,6 +245,24 @@ body,
   border-radius: 10px;
 }
 
+.short-meeting-dialog {
+  max-width: 380px;
+}
+
+.short-meeting-dialog-copy {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.short-meeting-dialog-ok {
+  width: 100%;
+  padding: 10px 12px;
+  font-weight: 600;
+  border-radius: 10px;
+}
+
 .sidebar-footer {
   flex-shrink: 0;
   padding-top: 8px;

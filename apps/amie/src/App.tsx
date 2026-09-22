@@ -10,6 +10,7 @@ import "./App.css";
 function App() {
   const [page, setPage] = useState<AppPage>("transcribe");
   const [arrivedMeetingId, setArrivedMeetingId] = useState<string | null>(null);
+  const [skipAutoSummaryNotice, setSkipAutoSummaryNotice] = useState(false);
   const [listening, setListening] = useState(false);
   const [starting, setStarting] = useState(false);
   const startMeetingRef = useRef<(() => void) | null>(null);
@@ -43,16 +44,21 @@ function App() {
           startMeetingRef={startMeetingRef}
           stopMeetingRef={stopMeetingRef}
           onLiveSessionChange={handleLiveSessionChange}
-          onMeetingFinished={(meetingId) => {
+          onMeetingFinished={({ meetingId, skipAutoSummary }) => {
             setListening(false);
             setStarting(false);
             setArrivedMeetingId(meetingId);
+            setSkipAutoSummaryNotice(skipAutoSummary);
             setPage("meetings");
           }}
         />
       </Activity>
       {page === "meetings" ? (
-        <MeetingsPage arrivedMeetingId={arrivedMeetingId} />
+        <MeetingsPage
+          arrivedMeetingId={arrivedMeetingId}
+          skipAutoSummaryNotice={skipAutoSummaryNotice}
+          onDismissSkipAutoSummaryNotice={() => setSkipAutoSummaryNotice(false)}
+        />
       ) : null}
       {page === "settings" ? <SettingsPage /> : null}
     </AppLayout>

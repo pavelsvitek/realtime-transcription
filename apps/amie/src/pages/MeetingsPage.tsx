@@ -12,6 +12,7 @@ import {
   type MeetingContextEditorHandle,
 } from "../components/MeetingContextEditor";
 import { MeetingTabs, meetingTabDomIds, type MeetingDetailTab } from "../components/MeetingTabs";
+import { ShortMeetingNotice } from "../components/ShortMeetingNotice";
 import { formatTime } from "../lib/format";
 import { SummaryMarkdown } from "../components/SummaryMarkdown";
 import {
@@ -49,6 +50,9 @@ type MeetingsView =
 type MeetingsPageProps = {
   /** Meeting that was just finished, so the list can show an in-progress summary. */
   arrivedMeetingId?: string | null;
+  /** Shown after a meeting under 5 minutes is saved without an automatic summary. */
+  skipAutoSummaryNotice?: boolean;
+  onDismissSkipAutoSummaryNotice?: () => void;
 };
 
 function applyGeneratedTitle(
@@ -71,7 +75,11 @@ function applyGeneratedTitle(
   );
 }
 
-export function MeetingsPage({ arrivedMeetingId = null }: MeetingsPageProps) {
+export function MeetingsPage({
+  arrivedMeetingId = null,
+  skipAutoSummaryNotice = false,
+  onDismissSkipAutoSummaryNotice,
+}: MeetingsPageProps) {
   const queryClient = useQueryClient();
   const [view, setView] = useState<MeetingsView>({ kind: "list" });
   const [tab, setTab] = useState<MeetingDetailTab>("summary");
@@ -120,7 +128,8 @@ export function MeetingsPage({ arrivedMeetingId = null }: MeetingsPageProps) {
     setView({ kind: "detail", id });
   }, []);
 
-  const listKeysEnabled = view.kind === "list" && !startConfirmOpen;
+  const listKeysEnabled =
+    view.kind === "list" && !startConfirmOpen && !skipAutoSummaryNotice;
 
   useHotkey(
     "ArrowDown",
@@ -182,7 +191,11 @@ export function MeetingsPage({ arrivedMeetingId = null }: MeetingsPageProps) {
       goBackToList();
     },
     {
-      enabled: view.kind === "detail" && !menuOpen && !startConfirmOpen,
+      enabled:
+        view.kind === "detail" &&
+        !menuOpen &&
+        !startConfirmOpen &&
+        !skipAutoSummaryNotice,
       ignoreInputs: true,
       conflictBehavior: "allow",
       meta: { name: "Back to meetings" },
@@ -411,6 +424,12 @@ export function MeetingsPage({ arrivedMeetingId = null }: MeetingsPageProps) {
     }
   };
 
+  const shortMeetingNotice = skipAutoSummaryNotice ? (
+    <ShortMeetingNotice
+      onDismiss={() => onDismissSkipAutoSummaryNotice?.()}
+    />
+  ) : null;
+
   if (view.kind === "detail") {
     const meeting = record?.meeting;
     const running = jobState === "running";
@@ -428,6 +447,7 @@ export function MeetingsPage({ arrivedMeetingId = null }: MeetingsPageProps) {
     const loading = detailQuery.isPending && !record;
 
     return (
+      <>
       <main className="page meetings-page">
         <header className="page-header meetings-detail-header">
           <button
@@ -556,10 +576,13 @@ export function MeetingsPage({ arrivedMeetingId = null }: MeetingsPageProps) {
           </div>
         ) : null}
       </main>
+      {shortMeetingNotice}
+      </>
     );
   }
 
   return (
+    <>
     <main className="page meetings-page">
       <header className="page-header">
         <h1 className="page-title">Meetings</h1>
@@ -624,5 +647,7 @@ export function MeetingsPage({ arrivedMeetingId = null }: MeetingsPageProps) {
         </div>
       )}
     </main>
+    {shortMeetingNotice}
+    </>
   );
 }
