@@ -155,12 +155,11 @@ describe("followUpMeetingPatch", () => {
     expect(followUpMeetingPatch({ context: null, summary: "  " })).toEqual({});
   });
 
-  it("wraps summary and appends previous context", () => {
+  it("writes previous context then a markdown summary section", () => {
     expect(
       followUpMeetingPatch({ context: "Pavel", summary: "Ship it" }),
     ).toEqual({
-      context:
-        "<previous-meeting-summary>\nShip it\n</previous-meeting-summary>\n\nPavel",
+      context: "Pavel\n\n## Previous meeting summary\nShip it",
     });
   });
 
@@ -169,8 +168,7 @@ describe("followUpMeetingPatch", () => {
       context: "Pavel",
     });
     expect(followUpMeetingPatch({ context: null, summary: "Ship it" })).toEqual({
-      context:
-        "<previous-meeting-summary>\nShip it\n</previous-meeting-summary>",
+      context: "## Previous meeting summary\nShip it",
     });
   });
 });

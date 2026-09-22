@@ -7,11 +7,9 @@ describe("adoptRemoteContext", () => {
       adoptRemoteContext(
         "",
         "",
-        "<previous-meeting-summary>\nShip it\n</previous-meeting-summary>\n\nPavel",
+        "Pavel\n\n## Previous meeting summary\nShip it",
       ),
-    ).toBe(
-      "<previous-meeting-summary>\nShip it\n</previous-meeting-summary>\n\nPavel",
-    );
+    ).toBe("Pavel\n\n## Previous meeting summary\nShip it");
   });
 
   it("does not clobber unsaved typing", () => {

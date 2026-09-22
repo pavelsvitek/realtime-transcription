@@ -62,12 +62,12 @@ export function followUpSeedFromMeeting(
 export function followUpContextFromSeed(seed: FollowUpSeed): string | null {
   const summary = seed.summary?.trim() ?? "";
   const context = seed.context?.trim() ?? "";
-  const wrappedSummary = summary
-    ? `<previous-meeting-summary>\n${summary}\n</previous-meeting-summary>`
+  const summarySection = summary
+    ? `## Previous meeting summary\n${summary}`
     : "";
-  if (wrappedSummary && context) return `${wrappedSummary}\n\n${context}`;
-  if (wrappedSummary) return wrappedSummary;
+  if (context && summarySection) return `${context}\n\n${summarySection}`;
   if (context) return context;
+  if (summarySection) return summarySection;
   return null;
 }
 

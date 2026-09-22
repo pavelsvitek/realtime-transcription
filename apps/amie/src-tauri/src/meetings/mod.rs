@@ -1112,16 +1112,12 @@ mod tests {
                 "m1",
                 1_000,
                 "Call",
-                Some(
-                    "  <previous-meeting-summary>\nShip it\n</previous-meeting-summary>\n\nPavel  ",
-                ),
+                Some("  Pavel\n\n## Previous meeting summary\nShip it  "),
             )
             .unwrap();
         assert_eq!(
             store.get_record("m1").unwrap().meeting.context.as_deref(),
-            Some(
-                "<previous-meeting-summary>\nShip it\n</previous-meeting-summary>\n\nPavel",
-            )
+            Some("Pavel\n\n## Previous meeting summary\nShip it")
         );
     }
 
