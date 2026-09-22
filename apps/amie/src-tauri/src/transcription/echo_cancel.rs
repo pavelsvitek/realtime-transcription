@@ -6,7 +6,11 @@
 //! This module lines the two streams up on one clock, estimates the delay, and
 //! subtracts the estimated echo with a partitioned frequency-domain NLMS filter
 //! (the same MDF structure Speex uses) before the mic samples reach the
-//! transcription model.
+//! transcription model. Laptop speakers often reach the microphone as a
+//! distorted copy, and ScreenCaptureKit can deliver the loopback hundreds of
+//! milliseconds late, so a waveform match never appears. In that case the
+//! canceller lines the streams up by their spectra and suppresses the
+//! reference's magnitude in the microphone.
 //!
 //! Mic-only and system-only sessions never construct a canceller. Headphones
 //! and a quiet room produce a weak correlation, and in that case the mic is
@@ -22,6 +26,12 @@ use rustfft::{Fft, FftPlanner};
 const MAX_FAR_END_SAMPLES: usize = 48_000 * 15;
 const PARTITIONS: usize = 12;
 const MIN_CANCEL_NCC: f32 = 0.5;
+/// Log-spectrum cosine above this, and above the median lag, counts as echo.
+const MIN_SPECTRAL_SIM: f32 = 0.90;
+const SPECTRAL_LAG_MARGIN: f32 = 0.08;
+/// Over-subtraction and residual floor tuned on the 2026-09-22 17:05 meeting.
+const SPECTRAL_OVERSUB: f32 = 4.0;
+const SPECTRAL_FLOOR: f32 = 0.02;
 
 struct FarChunk {
     seq: u64,
@@ -375,6 +385,114 @@ impl Mdf {
     }
 }
 
+fn analysis_hop(sample_rate: u32) -> usize {
+    (sample_rate as usize / 100).max(40)
+}
+
+/// Magnitude suppressor for speaker bleed whose waveform does not match the
+/// loopback. Overlap-adds 32 ms spectra and subtracts a slowly adapted copy of
+/// the reference magnitude.
+struct SpectralSuppressor {
+    hop: usize,
+    nfft: usize,
+    pos: usize,
+    mic_ring: Vec<f32>,
+    ref_ring: Vec<f32>,
+    window: Vec<f32>,
+    accum: Vec<f32>,
+    accum_w: Vec<f32>,
+    g: Vec<f32>,
+    fft: Arc<dyn Fft<f32>>,
+    ifft: Arc<dyn Fft<f32>>,
+}
+
+impl SpectralSuppressor {
+    fn new(sample_rate: u32) -> Self {
+        let hop = analysis_hop(sample_rate);
+        let mut nfft = 1usize;
+        while nfft < hop * 3 {
+            nfft *= 2;
+        }
+        let mut planner = FftPlanner::<f32>::new();
+        let window: Vec<f32> = (0..nfft)
+            .map(|i| {
+                let phase = 2.0 * std::f32::consts::PI * i as f32 / nfft as f32;
+                0.5 - 0.5 * phase.cos()
+            })
+            .collect();
+        Self {
+            hop,
+            nfft,
+            pos: 0,
+            mic_ring: vec![0.0; nfft],
+            ref_ring: vec![0.0; nfft],
+            window,
+            accum: vec![0.0; nfft],
+            accum_w: vec![0.0; nfft],
+            g: vec![0.0; nfft / 2 + 1],
+            fft: planner.plan_fft_forward(nfft),
+            ifft: planner.plan_fft_inverse(nfft),
+        }
+    }
+
+    fn process(&mut self, mic: &[f32], reference: &[f32]) -> Vec<f32> {
+        debug_assert_eq!(mic.len(), self.hop);
+        debug_assert_eq!(reference.len(), self.hop);
+        for i in 0..self.hop {
+            self.mic_ring[self.pos] = mic[i];
+            self.ref_ring[self.pos] = reference[i];
+            self.pos += 1;
+            if self.pos == self.nfft {
+                self.pos = 0;
+            }
+        }
+        let n = self.nfft;
+        let pos = self.pos;
+        let mut mic_spec = vec![Complex::new(0.0, 0.0); n];
+        let mut ref_spec = vec![Complex::new(0.0, 0.0); n];
+        for i in 0..n {
+            let index = (pos + i) % n;
+            mic_spec[i] = Complex::new(self.mic_ring[index] * self.window[i], 0.0);
+            ref_spec[i] = Complex::new(self.ref_ring[index] * self.window[i], 0.0);
+        }
+        self.fft.process(&mut mic_spec);
+        self.fft.process(&mut ref_spec);
+        let bins = n / 2;
+        for k in 0..=bins {
+            let mag_m = mic_spec[k].norm();
+            let mag_r = ref_spec[k].norm();
+            if mag_r > 1e-4 {
+                let inst = (mag_m / mag_r).min(4.0);
+                self.g[k] = 0.925 * self.g[k] + 0.075 * inst;
+            }
+            let echo = self.g[k] * mag_r;
+            let cleaned = (mag_m - SPECTRAL_OVERSUB * echo).max(SPECTRAL_FLOOR * mag_m);
+            let gain = if mag_m > 1e-8 { cleaned / mag_m } else { 1.0 };
+            mic_spec[k] *= gain;
+            if k > 0 && k < bins {
+                mic_spec[n - k] *= gain;
+            }
+        }
+        self.ifft.process(&mut mic_spec);
+        let scale = 1.0 / n as f32;
+        for i in 0..n {
+            self.accum[i] += mic_spec[i].re * scale * self.window[i];
+            self.accum_w[i] += self.window[i] * self.window[i];
+        }
+        let mut out = Vec::with_capacity(self.hop);
+        for i in 0..self.hop {
+            out.push(self.accum[i] / self.accum_w[i].max(1e-8));
+        }
+        self.accum.copy_within(self.hop.., 0);
+        self.accum_w.copy_within(self.hop.., 0);
+        for i in (n - self.hop)..n {
+            self.accum[i] = 0.0;
+            self.accum_w[i] = 0.0;
+        }
+        out
+    }
+}
+
 /// Subtracts system-audio echo from the microphone.
 pub struct AcousticEchoCanceller {
     mic_rate: u32,
@@ -393,9 +511,13 @@ pub struct AcousticEchoCanceller {
     lag: i64,
     ncc: f32,
     cancelling: bool,
+    /// Speaker bleed is present in the spectrum but not as a linear waveform copy.
+    spectral: bool,
     decided: bool,
     samples_since_estimate: usize,
+    last_spectral_search: i64,
     mdf: Mdf,
+    suppressor: SpectralSuppressor,
 }
 
 impl AcousticEchoCanceller {
@@ -422,9 +544,12 @@ impl AcousticEchoCanceller {
             lag: 0,
             ncc: 0.0,
             cancelling: false,
+            spectral: false,
             decided: false,
             samples_since_estimate: 0,
+            last_spectral_search: i64::MIN,
             mdf: Mdf::new(mic_rate),
+            suppressor: SpectralSuppressor::new(mic_rate),
         }
     }
 
@@ -493,32 +618,36 @@ impl AcousticEchoCanceller {
         self.mic.push(start, samples);
         self.mic_history.push(start, samples);
         self.mic_history
-            .discard_before(self.mic_history.end() - self.ms(2_000));
+            .discard_before(self.mic_history.end() - self.ms(3_000));
     }
 
     fn pump(&mut self, flushing: bool) -> Vec<f32> {
         if !self.decided {
-            // Wait until the overlap is long enough for the delay search to see
-            // a typical speaker path. Deciding on the first 100ms locks onto a
-            // side lobe and then never cancels the real echo.
-            let ready = self.aligned_span() >= self.ms(500);
-            if ready {
-                if let Some((lag, ncc)) = self.estimate_lag() {
-                    self.apply_lock(lag, ncc);
-                } else if flushing || self.mic_history.len() as i64 >= self.ms(800) {
-                    self.force_passthrough();
-                } else {
-                    return Vec::new();
-                }
-            } else if flushing || self.mic_history.len() as i64 >= self.ms(800) {
-                self.force_passthrough();
-            } else {
+            self.decide(flushing);
+            if !self.decided {
                 return Vec::new();
             }
         } else if self.samples_since_estimate >= self.mic_rate as usize {
             self.samples_since_estimate = 0;
-            if let Some((lag, ncc)) = self.estimate_lag() {
+            if self.spectral {
+                // The speaker path stays put. A later window can prefer a side
+                // lobe and undo the subtraction, so only nudge the lag.
+                if let Some((lag, _similarity)) = self.estimate_spectral_lag() {
+                    if (lag - self.lag).abs() <= self.ms(40) {
+                        self.lag = lag;
+                    }
+                }
+            } else if let Some((lag, ncc)) = self.estimate_lag() {
                 self.apply_reestimate(lag, ncc);
+                if !self.cancelling {
+                    if let Some((lag, similarity)) = self.estimate_spectral_lag() {
+                        self.apply_spectral_lock(lag, similarity);
+                    }
+                }
+            } else if !self.cancelling {
+                if let Some((lag, similarity)) = self.estimate_spectral_lag() {
+                    self.apply_spectral_lock(lag, similarity);
+                }
             }
         }
 
@@ -526,12 +655,16 @@ impl AcousticEchoCanceller {
             let passed = self.mic.take_all();
             self.samples_since_estimate = self.samples_since_estimate.saturating_add(passed.len());
             let mic_end = self.mic.end();
-            self.reference.discard_before(mic_end - self.ms(2_000));
+            self.reference.discard_before(mic_end - self.ms(3_000));
             return passed;
         }
 
         let mut out = Vec::new();
-        let frame = self.mdf.frame as i64;
+        let frame = if self.spectral {
+            self.suppressor.hop as i64
+        } else {
+            self.mdf.frame as i64
+        };
         loop {
             let start = self.next_out.unwrap_or(self.mic.origin);
             if self.mic.end() < start + frame {
@@ -548,7 +681,12 @@ impl AcousticEchoCanceller {
             }
             if self.reference.end() < ref_start + frame {
                 let waiting = self.mic.end() - start;
-                if flushing || waiting > self.ms(300) {
+                let wait_limit = if self.spectral {
+                    self.ms(1_400).max(-self.lag + frame)
+                } else {
+                    self.ms(300)
+                };
+                if flushing || waiting > wait_limit {
                     if let Some(mic) = self.mic.slice(start, frame as usize) {
                         out.extend(mic);
                         self.next_out = Some(start + frame);
@@ -563,18 +701,50 @@ impl AcousticEchoCanceller {
             let Some(ref_frame) = self.reference.slice(ref_start, frame as usize) else {
                 break;
             };
-            out.extend(self.mdf.process_frame(&mic_frame, &ref_frame, self.mu()));
+            let cleaned = if self.spectral {
+                self.suppressor.process(&mic_frame, &ref_frame)
+            } else {
+                self.mdf.process_frame(&mic_frame, &ref_frame, self.mu())
+            };
+            out.extend(cleaned);
             self.next_out = Some(start + frame);
         }
 
         if let Some(next) = self.next_out {
             self.mic.discard_before(next);
-            // Keep a couple of seconds so a later delay re-estimate can still
-            // see the reference that lines up with recent mic audio.
-            self.reference.discard_before(next - self.ms(2_000));
+            // Keep a few seconds so a late loopback still lines up with the mic.
+            self.reference.discard_before(next - self.ms(3_000));
         }
         self.samples_since_estimate = self.samples_since_estimate.saturating_add(out.len());
         out
+    }
+
+    fn decide(&mut self, flushing: bool) {
+        // A linear lock can be seen in the first half second. A late, distorted
+        // loopback needs the reference to have arrived before its lag is visible,
+        // so that search waits longer and only then gives up.
+        let ready = self.aligned_span() >= self.ms(500);
+        if ready {
+            if let Some((lag, ncc)) = self.estimate_lag() {
+                if ncc >= MIN_CANCEL_NCC {
+                    self.apply_lock(lag, ncc);
+                    return;
+                }
+            }
+            if self.aligned_span() >= self.ms(1_700) {
+                let now = self.mic_history.end();
+                if now.saturating_sub(self.last_spectral_search) >= self.ms(200) {
+                    self.last_spectral_search = now;
+                    if let Some((lag, similarity)) = self.estimate_spectral_lag() {
+                        self.apply_spectral_lock(lag, similarity);
+                        return;
+                    }
+                }
+            }
+        }
+        if flushing || self.mic_history.len() as i64 >= self.ms(2_200) {
+            self.force_passthrough();
+        }
     }
 
     fn force_passthrough(&mut self) {
@@ -594,6 +764,7 @@ impl AcousticEchoCanceller {
         self.lag = lag;
         self.ncc = ncc;
         self.cancelling = ncc >= MIN_CANCEL_NCC;
+        self.spectral = false;
         self.samples_since_estimate = 0;
         if self.cancelling {
             self.next_out = Some(self.mic.origin);
@@ -609,6 +780,21 @@ impl AcousticEchoCanceller {
                 "Echo canceller leaving the mic unchanged; speaker correlation is low"
             );
         }
+    }
+
+    fn apply_spectral_lock(&mut self, lag: i64, similarity: f32) {
+        self.decided = true;
+        self.cancelling = true;
+        self.spectral = true;
+        self.lag = lag;
+        self.ncc = 0.0;
+        self.samples_since_estimate = 0;
+        self.next_out = Some(self.mic.origin);
+        tracing::info!(
+            lag_ms = self.lag_ms(),
+            similarity,
+            "Echo canceller suppressing speaker bleed from the spectrum"
+        );
     }
 
     fn apply_reestimate(&mut self, lag: i64, ncc: f32) {
@@ -651,7 +837,13 @@ impl AcousticEchoCanceller {
     }
 
     fn shift(&self) -> i64 {
-        self.lag - self.ms(20)
+        if self.spectral {
+            self.lag
+        } else {
+            // Leave a little reference ahead of the linear filter so it can
+            // model a few milliseconds of pre-echo.
+            self.lag - self.ms(20)
+        }
     }
 
     fn lag_ms(&self) -> f32 {
@@ -669,6 +861,78 @@ impl AcousticEchoCanceller {
         } else {
             -((self.t0.duration_since(at).as_secs_f64() * rate).round() as i64)
         }
+    }
+
+    /// Delay at which the microphone's spectrum matches the loopback.
+    ///
+    /// ScreenCaptureKit can deliver the reference long after the speakers have
+    /// already reached the mic, and the acoustic path is distorted enough that
+    /// a waveform correlation stays near zero. Log-band spectra still line up.
+    fn estimate_spectral_lag(&self) -> Option<(i64, f32)> {
+        let guard = self.ms(1_100);
+        let win = self.ms(600);
+        let overlap_end = self.mic_history.end().min(self.reference.end());
+        let overlap_start = self.mic_history.origin.max(self.reference.origin);
+        if overlap_end - overlap_start < guard + win {
+            return None;
+        }
+        let mic_end = overlap_end - guard;
+        let mic_start = mic_end - win;
+        if mic_start < self.mic_history.origin {
+            return None;
+        }
+        let hop = self.ms(20).max(1);
+        let n_frames = (win / hop) as usize;
+        if n_frames < 8 {
+            return None;
+        }
+        let frame_len = (hop as usize) * 2;
+        let lag_min = -self.ms(1_100);
+        let lag_max = self.ms(200);
+        let ref_origin = mic_start - lag_max;
+        let mic_samples = self.mic_history.slice(mic_start, (mic_end - mic_start) as usize)?;
+        if rms(&mic_samples) < 1e-4 {
+            return None;
+        }
+        if ref_origin < self.reference.origin || ref_origin >= self.reference.end() {
+            return None;
+        }
+        let ref_samples = self
+            .reference
+            .slice(ref_origin, (self.reference.end() - ref_origin) as usize)?;
+        let mut planner = FftPlanner::<f32>::new();
+        let fft = planner.plan_fft_forward(frame_len);
+        let mut scratch = vec![Complex::new(0.0, 0.0); frame_len];
+        let mic_bands = log_band_frames(&mic_samples, self.mic_rate, hop as usize, &fft, &mut scratch);
+        let ref_bands = log_band_frames(&ref_samples, self.mic_rate, hop as usize, &fft, &mut scratch);
+        if mic_bands.len() < 8 || ref_bands.is_empty() {
+            return None;
+        }
+
+        let step = self.ms(10).max(1);
+        let mut scores = Vec::new();
+        let mut best = f32::NEG_INFINITY;
+        let mut best_lag = lag_min;
+        let mut lag = lag_min;
+        while lag <= lag_max {
+            let offset = ((mic_start - lag - ref_origin) / hop) as isize;
+            let score = band_cosine(&mic_bands, &ref_bands, offset);
+            scores.push(score);
+            if score > best {
+                best = score;
+                best_lag = lag;
+            }
+            lag += step;
+        }
+        if scores.is_empty() || !best.is_finite() {
+            return None;
+        }
+        scores.sort_by(|left, right| left.total_cmp(right));
+        let median = scores[scores.len() / 2];
+        if best < MIN_SPECTRAL_SIM || best + f32::EPSILON < median + SPECTRAL_LAG_MARGIN {
+            return None;
+        }
+        Some((best_lag, best))
     }
 
     /// Normalized correlation peak between the mic and the reference.
@@ -750,6 +1014,86 @@ impl AcousticEchoCanceller {
     }
 }
 
+fn log_band_frames(
+    samples: &[f32],
+    rate: u32,
+    hop: usize,
+    fft: &Arc<dyn Fft<f32>>,
+    scratch: &mut [Complex<f32>],
+) -> Vec<Vec<f32>> {
+    let frame_len = scratch.len();
+    if hop == 0 || samples.len() < frame_len {
+        return Vec::new();
+    }
+    let mut frames = Vec::new();
+    let mut start = 0;
+    while start + frame_len <= samples.len() {
+        for (index, sample) in samples[start..start + frame_len].iter().enumerate() {
+            scratch[index] = Complex::new(*sample, 0.0);
+        }
+        fft.process(scratch);
+        frames.push(log_bands(scratch, rate));
+        start += hop;
+    }
+    frames
+}
+
+fn log_bands(spec: &[Complex<f32>], rate: u32) -> Vec<f32> {
+    let nfft = spec.len();
+    let mut bands = [0.0f32; 16];
+    let lo = 200.0f32;
+    let hi = 4000.0f32;
+    for bin in 1..=nfft / 2 {
+        let freq = bin as f32 * rate as f32 / nfft as f32;
+        if !(lo..=hi).contains(&freq) {
+            continue;
+        }
+        let position = ((freq - lo) / (hi - lo)).clamp(0.0, 0.999);
+        let band = (position * bands.len() as f32) as usize;
+        bands[band] += spec[bin].norm();
+    }
+    bands.iter().map(|value| (value + 1.0).ln()).collect()
+}
+
+fn band_cosine(mic: &[Vec<f32>], reference: &[Vec<f32>], offset: isize) -> f32 {
+    let mut sum = 0.0f32;
+    let mut count = 0usize;
+    for (index, frame) in mic.iter().enumerate() {
+        let reference_index = index as isize + offset;
+        if reference_index < 0 || reference_index as usize >= reference.len() {
+            continue;
+        }
+        sum += cosine(frame, &reference[reference_index as usize]);
+        count += 1;
+    }
+    if count == 0 {
+        f32::NEG_INFINITY
+    } else {
+        sum / count as f32
+    }
+}
+
+fn cosine(left: &[f32], right: &[f32]) -> f32 {
+    let n = left.len().min(right.len());
+    if n == 0 {
+        return 0.0;
+    }
+    let mut dot = 0.0f32;
+    let mut left_energy = 0.0f32;
+    let mut right_energy = 0.0f32;
+    for index in 0..n {
+        dot += left[index] * right[index];
+        left_energy += left[index] * left[index];
+        right_energy += right[index] * right[index];
+    }
+    let denom = (left_energy * right_energy).sqrt();
+    if denom < 1e-8 {
+        0.0
+    } else {
+        dot / denom
+    }
+}
+
 fn energy(samples: &[f32]) -> f32 {
     samples.iter().map(|sample| sample * sample).sum()
 }
@@ -798,6 +1142,7 @@ mod tests {
     use crate::transcription::audio_source::AudioSource;
     use crate::transcription::pipeline::{AsrOutput, StreamingAsr, StreamingPipeline};
     use crate::transcription::worker::run_worker;
+    use std::path::PathBuf;
     use std::sync::atomic::{AtomicBool, AtomicU64};
     use std::sync::mpsc;
     use std::time::Duration;
@@ -1041,6 +1386,88 @@ mod tests {
             erle > 15.0,
             "the ASR pipeline should receive mic audio with the speaker echo removed, got {erle:.1} dB"
         );
+    }
+
+    #[test]
+    fn suppresses_speaker_bleed_in_the_last_meeting() {
+        let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../debug/2026-09-22T15-05-16");
+        let mic_path = dir.join("mic.flac");
+        let system_path = dir.join("system.flac");
+        if !mic_path.exists() || !system_path.exists() {
+            eprintln!("last meeting audio is not in the workspace; skipping");
+            return;
+        }
+        let rate = 16_000u32;
+        let mic = decode_flac(&mic_path, rate);
+        let system = decode_flac(&system_path, rate);
+        assert!(mic.len() > rate as usize, "mic recording is empty");
+        assert!(system.len() > rate as usize, "system recording is empty");
+        let (mut canceller, far_end) = canceller(rate, rate);
+        let t0 = far_end.t0();
+        let chunk = (rate / 50).max(1) as usize;
+        let mut cleaned = Vec::new();
+        let mut mic_pos = 0usize;
+        let mut ref_pos = 0usize;
+        while mic_pos < mic.len() || ref_pos < system.len() {
+            if ref_pos < system.len() {
+                let next = (ref_pos + chunk).min(system.len());
+                let at = t0 + Duration::from_secs_f64(next as f64 / rate as f64);
+                far_end.push(&system[ref_pos..next], at);
+                ref_pos = next;
+            }
+            if mic_pos < mic.len() {
+                let next = (mic_pos + chunk).min(mic.len());
+                let at = t0 + Duration::from_secs_f64(next as f64 / rate as f64);
+                cleaned.extend(canceller.process_mic(&mic[mic_pos..next], at));
+                mic_pos = next;
+            }
+        }
+        cleaned.extend(canceller.flush());
+        let lag_ms = canceller.lag_ms();
+        assert!(
+            (-1_000.0..-600.0).contains(&lag_ms),
+            "the late loopback should lock near -800 ms, got {lag_ms:.0} ms"
+        );
+        let mid = mic.len() / 2;
+        let span = (rate as usize) * 5;
+        let mic_energy = energy(&mic[mid..mid + span]) / span as f32;
+        let cleaned_energy = energy(&cleaned[mid..mid + span]) / span as f32;
+        let mid_erle = 10.0 * (mic_energy / cleaned_energy.max(1e-12)).log10();
+        assert!(
+            mid_erle > 10.0,
+            "speaker bleed in the last meeting should drop by more than 10 dB once the suppressor has locked, got {mid_erle:.1} dB"
+        );
+    }
+
+    fn decode_flac(path: &std::path::Path, rate: u32) -> Vec<f32> {
+        let output = std::process::Command::new("ffmpeg")
+            .args([
+                "-v",
+                "error",
+                "-i",
+                &path.to_string_lossy(),
+                "-ac",
+                "1",
+                "-ar",
+                &rate.to_string(),
+                "-f",
+                "f32le",
+                "-acodec",
+                "pcm_f32le",
+                "-",
+            ])
+            .output()
+            .expect("ffmpeg should decode the meeting recording");
+        assert!(
+            output.status.success(),
+            "ffmpeg failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        output
+            .stdout
+            .chunks_exact(4)
+            .map(|bytes| f32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]))
+            .collect()
     }
 
     #[test]
