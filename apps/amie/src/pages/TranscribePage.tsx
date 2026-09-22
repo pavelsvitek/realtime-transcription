@@ -17,7 +17,7 @@ import { TranscriptFeed } from "../components/TranscriptFeed";
 import { useAudioDevice } from "../hooks/useAudioDevice";
 import { useMicLevel } from "../hooks/useMicLevel";
 import { useTranscription } from "../hooks/useTranscription";
-import { finishedMeetingTitle } from "../lib/meetings";
+import { finishedMeetingTitle, meetingSkipsAutoSummary } from "../lib/meetings";
 import type { AsrBackend, AudioSource } from "../lib/transcript-types";
 import {
   getMeeting,
@@ -40,7 +40,10 @@ type TranscribePageProps = {
   /** Mod+Backspace confirm calls this. */
   stopMeetingRef?: RefObject<(() => void) | null>;
   onLiveSessionChange?: (session: { listening: boolean; loading: boolean }) => void;
-  onMeetingFinished?: (meetingId: string | null) => void;
+  onMeetingFinished?: (result: {
+    meetingId: string | null;
+    skipAutoSummary: boolean;
+  }) => void;
 };
 
 export function TranscribePage({
@@ -123,12 +126,14 @@ export function TranscribePage({
         return;
       }
 
+      let skipAutoSummary = false;
       if (meetingId) {
         try {
           const record = await getMeeting(meetingId);
           const startedAt = record?.meeting.startedAt;
           const finishedAt = record?.meeting.finishedAt;
           if (startedAt != null && finishedAt != null) {
+            skipAutoSummary = meetingSkipsAutoSummary(startedAt, finishedAt);
             await patchMeeting(meetingId, {
               title: finishedMeetingTitle(startedAt, finishedAt),
             });
@@ -142,7 +147,7 @@ export function TranscribePage({
       setTab("transcript");
       await queryClient.invalidateQueries({ queryKey: meetingKeys.all });
       onLiveSessionChange?.({ listening: false, loading: false });
-      onMeetingFinished?.(meetingId);
+      onMeetingFinished?.({ meetingId, skipAutoSummary });
     } finally {
       setIsFinishing(false);
     }
