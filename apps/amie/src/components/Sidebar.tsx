@@ -3,6 +3,10 @@ import { ThemeToggle } from "./ThemeToggle";
 import { useColorScheme } from "../hooks/useColorScheme";
 import { LiveMeetingButton } from "./LiveMeetingButton";
 import {
+  ariaKeyshortcutsForMod,
+  NAV_HOTKEYS,
+} from "../lib/nav-hotkeys";
+import {
   HomeIcon,
   MeetingsIcon,
   SettingsIcon,
@@ -11,12 +15,12 @@ import {
 
 export type AppPage = "home" | "transcribe" | "meetings" | "settings";
 
-const NAV_ITEMS: { id: AppPage; label: string; icon: ReactNode }[] = [
-  { id: "home", label: "Home", icon: <HomeIcon /> },
-  { id: "transcribe", label: "Transcription", icon: <TranscriptionIcon /> },
-  { id: "meetings", label: "Meetings", icon: <MeetingsIcon /> },
-  { id: "settings", label: "Settings", icon: <SettingsIcon /> },
-];
+const NAV_ICONS: Record<AppPage, ReactNode> = {
+  home: <HomeIcon />,
+  transcribe: <TranscriptionIcon />,
+  meetings: <MeetingsIcon />,
+  settings: <SettingsIcon />,
+};
 
 interface SidebarProps {
   currentPage: AppPage;
@@ -58,15 +62,16 @@ export function Sidebar({
             onClick={onStartMeeting}
           />
         </li>
-        {NAV_ITEMS.map((item) => (
-          <li key={item.id}>
+        {NAV_HOTKEYS.map((item) => (
+          <li key={item.page}>
             <button
               type="button"
-              className={`sidebar-link${currentPage === item.id ? " active" : ""}`}
-              onClick={() => onNavigate(item.id)}
-              aria-current={currentPage === item.id ? "page" : undefined}
+              className={`sidebar-link${currentPage === item.page ? " active" : ""}`}
+              onClick={() => onNavigate(item.page)}
+              aria-current={currentPage === item.page ? "page" : undefined}
+              aria-keyshortcuts={ariaKeyshortcutsForMod(item.hotkey)}
             >
-              {item.icon}
+              {NAV_ICONS[item.page]}
               <span className="sidebar-link-label">{item.label}</span>
             </button>
           </li>
