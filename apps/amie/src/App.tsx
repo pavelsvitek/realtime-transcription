@@ -5,6 +5,7 @@ import { HomePage } from "./pages/HomePage";
 import { MeetingsPage } from "./pages/MeetingsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { TranscribePage } from "./pages/TranscribePage";
+import type { FollowUpSeed } from "./lib/meetings";
 import "./App.css";
 
 function App() {
@@ -15,6 +16,7 @@ function App() {
   const [starting, setStarting] = useState(false);
   const startMeetingRef = useRef<(() => void) | null>(null);
   const stopMeetingRef = useRef<(() => void) | null>(null);
+  const followUpSeedRef = useRef<FollowUpSeed | null>(null);
   const handleLiveSessionChange = useCallback(
     (session: { listening: boolean; loading: boolean }) => {
       setListening(session.listening);
@@ -23,17 +25,19 @@ function App() {
     [],
   );
 
+  const startMeeting = useCallback(() => {
+    setPage("transcribe");
+    if (listening || starting) return;
+    startMeetingRef.current?.();
+  }, [listening, starting]);
+
   return (
     <AppLayout
       currentPage={page}
       onNavigate={setPage}
       listening={listening}
       loading={starting}
-      onStartMeeting={() => {
-        setPage("transcribe");
-        if (listening || starting) return;
-        startMeetingRef.current?.();
-      }}
+      onStartMeeting={startMeeting}
       onStopMeeting={() => {
         stopMeetingRef.current?.();
       }}
@@ -43,6 +47,7 @@ function App() {
         <TranscribePage
           startMeetingRef={startMeetingRef}
           stopMeetingRef={stopMeetingRef}
+          followUpSeedRef={followUpSeedRef}
           onLiveSessionChange={handleLiveSessionChange}
           onMeetingFinished={({ meetingId, skipAutoSummary }) => {
             setListening(false);
@@ -57,7 +62,12 @@ function App() {
         <MeetingsPage
           arrivedMeetingId={arrivedMeetingId}
           skipAutoSummaryNotice={skipAutoSummaryNotice}
+          meetingInProgress={listening || starting}
           onDismissSkipAutoSummaryNotice={() => setSkipAutoSummaryNotice(false)}
+          onFollowUpMeeting={(seed) => {
+            followUpSeedRef.current = seed;
+            startMeeting();
+          }}
         />
       ) : null}
       {page === "settings" ? <SettingsPage /> : null}

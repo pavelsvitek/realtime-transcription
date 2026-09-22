@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   commitMeetingTitle,
   finishedMeetingTitle,
+  followUpMeetingPatch,
+  followUpSeedFromMeeting,
   meetingSkipsAutoSummary,
   formatMeetingDayLabel,
   groupMeetingsByDay,
@@ -121,6 +123,54 @@ describe("parseMeetingLlmOutput", () => {
     expect(parseMeetingLlmOutput(markdown)).toEqual({
       title: null,
       summary: markdown,
+    });
+  });
+});
+
+describe("followUpSeedFromMeeting", () => {
+  it("copies trimmed context and summary", () => {
+    expect(
+      followUpSeedFromMeeting({
+        context: "  Pavel  ",
+        summary: "  Ship it  ",
+      }),
+    ).toEqual({ context: "  Pavel  ", summary: "  Ship it  " });
+  });
+
+  it("falls back to a summary draft when none is saved yet", () => {
+    expect(
+      followUpSeedFromMeeting({ context: null, summary: null }, "  Notes  "),
+    ).toEqual({ context: null, summary: "  Notes  " });
+  });
+
+  it("treats blank strings as missing", () => {
+    expect(
+      followUpSeedFromMeeting({ context: "  \n", summary: "" }, "   "),
+    ).toEqual({ context: null, summary: null });
+  });
+});
+
+describe("followUpMeetingPatch", () => {
+  it("omits empty fields so a new live meeting stays blank", () => {
+    expect(followUpMeetingPatch({ context: null, summary: "  " })).toEqual({});
+  });
+
+  it("wraps summary and appends previous context", () => {
+    expect(
+      followUpMeetingPatch({ context: "Pavel", summary: "Ship it" }),
+    ).toEqual({
+      context:
+        "<previous-meeting-summary>\nShip it\n</previous-meeting-summary>\n\nPavel",
+    });
+  });
+
+  it("uses whichever of summary or context is present", () => {
+    expect(followUpMeetingPatch({ context: "Pavel", summary: null })).toEqual({
+      context: "Pavel",
+    });
+    expect(followUpMeetingPatch({ context: null, summary: "Ship it" })).toEqual({
+      context:
+        "<previous-meeting-summary>\nShip it\n</previous-meeting-summary>",
     });
   });
 });

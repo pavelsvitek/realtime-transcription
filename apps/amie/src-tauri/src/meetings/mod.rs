@@ -141,14 +141,33 @@ impl MeetingStore {
         started_at: i64,
         title: &str,
     ) -> Result<(), AppError> {
+        self.insert_live_meeting_with_context(id, started_at, title, None)
+    }
+
+    pub fn insert_live_meeting_with_context(
+        &self,
+        id: &str,
+        started_at: i64,
+        title: &str,
+        context: Option<&str>,
+    ) -> Result<(), AppError> {
+        let context = context.and_then(|value| {
+            let trimmed = value.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed.to_string())
+            }
+        });
         let now = now_ms();
         let conn = self.conn.lock().unwrap();
         conn.execute(
             "INSERT INTO meetings (
                 id, started_at, finished_at, title, teaser, summary, status,
+                context,
                 updated_at, deleted_at, revision, last_writer_device_id
-            ) VALUES (?1, ?2, NULL, ?3, NULL, NULL, 'live', ?4, NULL, 1, ?5)",
-            params![id, started_at, title, now, self.device_id],
+            ) VALUES (?1, ?2, NULL, ?3, NULL, NULL, 'live', ?4, ?5, NULL, 1, ?6)",
+            params![id, started_at, title, context, now, self.device_id],
         )
         .map_err(store_err)?;
         Ok(())
@@ -385,6 +404,9 @@ impl MeetingStore {
         }
         if let Some(context) = &patch.context {
             self.update_context(id, context)?;
+        }
+        if let Some(summary) = &patch.summary {
+            self.update_summary(id, summary)?;
         }
         if let Some(archived_at) = patch.archived_at {
             self.set_archived_at(id, archived_at, true)?;
@@ -1028,6 +1050,23 @@ mod tests {
             .unwrap();
         assert_eq!(both.meeting.title, "Standup");
         assert_eq!(both.meeting.context.as_deref(), Some("Pavel, Igor"));
+        assert!(both.meeting.summary.is_none());
+
+        let with_summary = store
+            .patch_meeting(
+                "m1",
+                &PatchMeeting {
+                    summary: Some("# Last call\n- Ship the API".into()),
+                    ..PatchMeeting::default()
+                },
+            )
+            .unwrap();
+        assert_eq!(with_summary.meeting.title, "Standup");
+        assert_eq!(with_summary.meeting.context.as_deref(), Some("Pavel, Igor"));
+        assert_eq!(
+            with_summary.meeting.summary.as_deref(),
+            Some("# Last call\n- Ship the API")
+        );
 
         let context_only = store
             .patch_meeting(
@@ -1063,6 +1102,27 @@ mod tests {
         let store = temp_db();
         store.insert_live_meeting("m1", 1_000, "Call").unwrap();
         assert!(store.get_record("m1").unwrap().meeting.context.is_none());
+    }
+
+    #[test]
+    fn insert_live_meeting_can_include_context() {
+        let store = temp_db();
+        store
+            .insert_live_meeting_with_context(
+                "m1",
+                1_000,
+                "Call",
+                Some(
+                    "  <previous-meeting-summary>\nShip it\n</previous-meeting-summary>\n\nPavel  ",
+                ),
+            )
+            .unwrap();
+        assert_eq!(
+            store.get_record("m1").unwrap().meeting.context.as_deref(),
+            Some(
+                "<previous-meeting-summary>\nShip it\n</previous-meeting-summary>\n\nPavel",
+            )
+        );
     }
 
     #[test]

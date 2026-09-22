@@ -15,6 +15,7 @@ export async function patchMeeting(
   const body: MeetingPatch = {};
   if (payload.title !== undefined) body.title = payload.title;
   if (payload.context !== undefined) body.context = payload.context ?? "";
+  if (payload.summary !== undefined) body.summary = payload.summary ?? "";
   if (payload.archivedAt !== undefined) body.archivedAt = payload.archivedAt;
   return invoke<MeetingRecord>("patch_meeting", { id, payload: body });
 }
@@ -47,7 +48,9 @@ export function usePatchMeetingMutation() {
 
       if (
         previousDetail &&
-        (payload.title !== undefined || payload.context !== undefined)
+        (payload.title !== undefined ||
+          payload.context !== undefined ||
+          payload.summary !== undefined)
       ) {
         const nextContext =
           payload.context === undefined
@@ -55,12 +58,19 @@ export function usePatchMeetingMutation() {
             : payload.context && payload.context.trim().length > 0
               ? payload.context.trim()
               : null;
+        const nextSummary =
+          payload.summary === undefined
+            ? previousDetail.meeting.summary
+            : payload.summary && payload.summary.trim().length > 0
+              ? payload.summary.trim()
+              : null;
         queryClient.setQueryData(meetingKeys.detail(id), {
           ...previousDetail,
           meeting: {
             ...previousDetail.meeting,
             ...(payload.title !== undefined ? { title: payload.title } : {}),
             ...(payload.context !== undefined ? { context: nextContext } : {}),
+            ...(payload.summary !== undefined ? { summary: nextSummary } : {}),
           },
         });
       }
@@ -81,13 +91,28 @@ export function usePatchMeetingMutation() {
         }
       }
 
-      if (previousLive?.id === id && payload.context !== undefined) {
+      if (
+        previousLive?.id === id &&
+        (payload.context !== undefined || payload.summary !== undefined)
+      ) {
         queryClient.setQueryData(meetingKeys.live(), {
           ...previousLive,
-          context:
-            payload.context && payload.context.trim().length > 0
-              ? payload.context.trim()
-              : null,
+          ...(payload.context !== undefined
+            ? {
+                context:
+                  payload.context && payload.context.trim().length > 0
+                    ? payload.context.trim()
+                    : null,
+              }
+            : {}),
+          ...(payload.summary !== undefined
+            ? {
+                summary:
+                  payload.summary && payload.summary.trim().length > 0
+                    ? payload.summary.trim()
+                    : null,
+              }
+            : {}),
         });
       }
 
@@ -125,7 +150,11 @@ export function usePatchMeetingMutation() {
           );
         },
       );
-      if (payload.context !== undefined || payload.archivedAt !== undefined) {
+      if (
+        payload.context !== undefined ||
+        payload.summary !== undefined ||
+        payload.archivedAt !== undefined
+      ) {
         void queryClient.invalidateQueries({ queryKey: meetingKeys.live() });
       }
     },

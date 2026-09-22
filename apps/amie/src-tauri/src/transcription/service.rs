@@ -130,14 +130,15 @@ impl TranscriptionService {
         app_handle: AppHandle,
         source: AudioSource,
         backend: AsrBackend,
+        context: Option<&str>,
     ) -> Result<(), AppError> {
-        self.start_internal(Some(app_handle), source, backend)
+        self.start_internal(Some(app_handle), source, backend, context)
     }
 
     /// Start without a Tauri app handle (golden tests / headless runs).
     /// Backend comes from `ASR_BACKEND` (`local` default, or `xai`).
     pub fn start_headless(&self, source: AudioSource) -> Result<(), AppError> {
-        self.start_internal(None, source, AsrBackend::from_env())
+        self.start_internal(None, source, AsrBackend::from_env(), None)
     }
 
     fn start_internal(
@@ -145,6 +146,7 @@ impl TranscriptionService {
         app_handle: Option<AppHandle>,
         source: AudioSource,
         backend: AsrBackend,
+        context: Option<&str>,
     ) -> Result<(), AppError> {
         let mut running = self.running.lock().unwrap();
         if running.is_some() {
@@ -180,7 +182,12 @@ impl TranscriptionService {
 
         let meeting_id = if let Some(store) = &self.meetings {
             let id = uuid::Uuid::new_v4().to_string();
-            store.insert_live_meeting(&id, now_ms(), "Untitled meeting")?;
+            store.insert_live_meeting_with_context(
+                &id,
+                now_ms(),
+                "Untitled meeting",
+                context,
+            )?;
             Some(id)
         } else {
             None

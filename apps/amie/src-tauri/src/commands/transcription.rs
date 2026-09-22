@@ -13,6 +13,7 @@ pub async fn start_transcription(
     state: State<'_, TranscriptionHandle>,
     source: Option<String>,
     backend: Option<String>,
+    context: Option<String>,
 ) -> Result<(), String> {
     let audio_source = source
         .as_deref()
@@ -26,12 +27,13 @@ pub async fn start_transcription(
     tracing::info!(
         ?audio_source,
         ?asr_backend,
+        context_chars = context.as_deref().map(str::len).unwrap_or(0),
         "start_transcription command invoked"
     );
 
     state
         .service
-        .start(app, audio_source, asr_backend)
+        .start(app, audio_source, asr_backend, context.as_deref())
         .map_err(|e| e.to_user_message())?;
 
     tracing::info!("start_transcription command completed");

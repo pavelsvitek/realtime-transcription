@@ -1,0 +1,24 @@
+import { describe, expect, it } from "vitest";
+import { adoptRemoteContext } from "./MeetingContextEditor";
+
+describe("adoptRemoteContext", () => {
+  it("adopts a later seed when the editor is still at the saved blank value", () => {
+    expect(
+      adoptRemoteContext(
+        "",
+        "",
+        "<previous-meeting-summary>\nShip it\n</previous-meeting-summary>\n\nPavel",
+      ),
+    ).toBe(
+      "<previous-meeting-summary>\nShip it\n</previous-meeting-summary>\n\nPavel",
+    );
+  });
+
+  it("does not clobber unsaved typing", () => {
+    expect(adoptRemoteContext("typing", "", "Ship it")).toBeNull();
+  });
+
+  it("does nothing when the incoming value is already saved", () => {
+    expect(adoptRemoteContext("Ship it", "Ship it", "Ship it")).toBeNull();
+  });
+});

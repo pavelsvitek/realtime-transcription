@@ -17,9 +17,15 @@ import { TranscriptFeed } from "../components/TranscriptFeed";
 import { useAudioDevice } from "../hooks/useAudioDevice";
 import { useMicLevel } from "../hooks/useMicLevel";
 import { useTranscription } from "../hooks/useTranscription";
-import { finishedMeetingTitle, meetingSkipsAutoSummary } from "../lib/meetings";
+import type { FollowUpSeed } from "../lib/meetings";
+import {
+  finishedMeetingTitle,
+  followUpContextFromSeed,
+  meetingSkipsAutoSummary,
+} from "../lib/meetings";
 import type { AsrBackend, AudioSource } from "../lib/transcript-types";
 import {
+  getLiveMeeting,
   getMeeting,
   meetingKeys,
   patchMeeting,
@@ -39,6 +45,8 @@ type TranscribePageProps = {
   startMeetingRef?: RefObject<(() => void) | null>;
   /** Mod+Backspace confirm calls this. */
   stopMeetingRef?: RefObject<(() => void) | null>;
+  /** Set by a follow-up confirm; applied to the new live meeting after start. */
+  followUpSeedRef?: RefObject<FollowUpSeed | null>;
   onLiveSessionChange?: (session: { listening: boolean; loading: boolean }) => void;
   onMeetingFinished?: (result: {
     meetingId: string | null;
@@ -49,6 +57,7 @@ type TranscribePageProps = {
 export function TranscribePage({
   startMeetingRef,
   stopMeetingRef,
+  followUpSeedRef,
   onLiveSessionChange,
   onMeetingFinished,
 }: TranscribePageProps) {
@@ -76,6 +85,9 @@ export function TranscribePage({
   const liveQuery = useGetLiveMeetingQuery(true);
   const liveMeeting = liveQuery.data ?? null;
   const contextEditorRef = useRef<MeetingContextEditorHandle>(null);
+  const [followUpContext, setFollowUpContext] = useState<string | null>(null);
+  const canStartRef = useRef(true);
+  canStartRef.current = !isActive && !isLoading && !stopping;
 
   useEffect(() => {
     localStorage.setItem(BACKEND_STORAGE_KEY, backend);
@@ -101,10 +113,35 @@ export function TranscribePage({
   }, [isActive, isLoading, onLiveSessionChange]);
 
   const handleStart = async () => {
-    if (isActive || isLoading || stopping) return;
+    if (!canStartRef.current) return;
     setTab("transcript");
-    await start(audioSource, backend);
+    const seed = followUpSeedRef?.current ?? null;
+    if (followUpSeedRef) followUpSeedRef.current = null;
+    const copiedContext = seed ? followUpContextFromSeed(seed) : null;
+    setFollowUpContext(copiedContext);
+    const started = await start(audioSource, backend, copiedContext);
+    if (!started) {
+      setFollowUpContext(null);
+      return;
+    }
+    await queryClient.cancelQueries({ queryKey: meetingKeys.live() });
     await queryClient.invalidateQueries({ queryKey: meetingKeys.live() });
+    if (copiedContext) {
+      try {
+        const live = await getLiveMeeting();
+        if (live) {
+          queryClient.setQueryData(meetingKeys.live(), {
+            ...live,
+            context: copiedContext,
+          });
+          if ((live.context ?? "") !== copiedContext) {
+            await patchMeeting(live.id, { context: copiedContext });
+          }
+        }
+      } catch (e) {
+        console.warn("Failed to copy follow-up meeting", e);
+      }
+    }
   };
 
   if (startMeetingRef) {
@@ -145,6 +182,7 @@ export function TranscribePage({
 
       clear();
       setTab("transcript");
+      setFollowUpContext(null);
       await queryClient.invalidateQueries({ queryKey: meetingKeys.all });
       onLiveSessionChange?.({ listening: false, loading: false });
       onMeetingFinished?.({ meetingId, skipAutoSummary });
@@ -265,7 +303,7 @@ export function TranscribePage({
           <MeetingContextEditor
             ref={contextEditorRef}
             meetingId={liveMeeting.id}
-            initialContext={liveMeeting.context}
+            initialContext={followUpContext ?? liveMeeting.context}
             fieldId="live-meeting-context-editor"
           />
         ) : isActive ? (

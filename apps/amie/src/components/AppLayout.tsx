@@ -31,7 +31,8 @@ export function AppLayout({
   const [confirmKind, setConfirmKind] = useState<MeetingConfirmKind | null>(
     null,
   );
-  const confirmOpen = confirmKind !== null;
+  const [heldOpen, setHeldOpen] = useState(false);
+  const confirmOpen = confirmKind !== null || heldOpen;
   useNavHotkeys(onNavigate);
   useHotkey(START_MEETING_HOTKEY, () => setConfirmKind("start"), {
     enabled: !confirmOpen && !listening && !loading,
@@ -59,6 +60,7 @@ export function AppLayout({
   return (
     <StartMeetingConfirmLayer
       kind={confirmKind}
+      onHoldChange={setHeldOpen}
       onConfirm={() => {
         const kind = confirmKind;
         setConfirmKind(null);
