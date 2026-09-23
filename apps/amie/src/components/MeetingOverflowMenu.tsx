@@ -20,13 +20,11 @@ export function MeetingOverflowMenu({
   onDelete,
 }: MeetingOverflowMenuProps) {
   const [open, setOpen] = useState(false);
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const startConfirmOpen = useStartMeetingConfirmOpen();
   const rootRef = useRef<HTMLDivElement>(null);
 
   const close = () => {
     setOpen(false);
-    setConfirmingDelete(false);
   };
 
   useEffect(() => {
@@ -89,72 +87,45 @@ export function MeetingOverflowMenu({
       </button>
       {open && (
         <div className="meeting-menu-popover" role="menu">
-          {confirmingDelete ? (
-            <div className="meeting-menu-confirm">
-              <p className="meeting-menu-confirm-copy">
-                Delete this meeting permanently? This cannot be undone.
-              </p>
-              <div className="meeting-menu-confirm-actions">
-                <button
-                  type="button"
-                  className="meeting-menu-item"
-                  onClick={() => setConfirmingDelete(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="meeting-menu-item meeting-menu-item-danger"
-                  role="menuitem"
-                  onClick={() => {
-                    close();
-                    onDelete();
-                  }}
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          ) : (
-            <>
-              <button
-                type="button"
-                className="meeting-menu-item"
-                role="menuitem"
-                disabled={followUpDisabled}
-                onClick={() => {
-                  close();
-                  onFollowUp();
-                }}
-              >
-                <FollowUpIcon />
-                Follow-up meeting…
-              </button>
-              <div className="meeting-menu-divider" />
-              <button
-                type="button"
-                className="meeting-menu-item"
-                role="menuitem"
-                onClick={() => {
-                  close();
-                  onArchive();
-                }}
-              >
-                <ArchiveIcon />
-                Archive…
-              </button>
-              <div className="meeting-menu-divider" />
-              <button
-                type="button"
-                className="meeting-menu-item meeting-menu-item-danger"
-                role="menuitem"
-                onClick={() => setConfirmingDelete(true)}
-              >
-                <TrashIcon />
-                Delete meeting…
-              </button>
-            </>
-          )}
+          <button
+            type="button"
+            className="meeting-menu-item"
+            role="menuitem"
+            disabled={followUpDisabled}
+            onClick={() => {
+              close();
+              onFollowUp();
+            }}
+          >
+            <FollowUpIcon />
+            Follow-up meeting…
+          </button>
+          <div className="meeting-menu-divider" />
+          <button
+            type="button"
+            className="meeting-menu-item"
+            role="menuitem"
+            onClick={() => {
+              close();
+              onArchive();
+            }}
+          >
+            <ArchiveIcon />
+            Archive…
+          </button>
+          <div className="meeting-menu-divider" />
+          <button
+            type="button"
+            className="meeting-menu-item meeting-menu-item-danger"
+            role="menuitem"
+            onClick={() => {
+              close();
+              onDelete();
+            }}
+          >
+            <TrashIcon />
+            Delete meeting…
+          </button>
         </div>
       )}
     </div>

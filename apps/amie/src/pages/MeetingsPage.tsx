@@ -4,6 +4,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { useQueryClient } from "@tanstack/react-query";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { ArchiveMeetingConfirm } from "../components/ArchiveMeetingConfirm";
+import { DeleteMeetingConfirm } from "../components/DeleteMeetingConfirm";
 import { FollowUpMeetingConfirm } from "../components/FollowUpMeetingConfirm";
 import { useStartMeetingConfirmOpen } from "../components/StartMeetingConfirm";
 import { Spinner } from "../components/Spinner";
@@ -108,6 +109,7 @@ export function MeetingsPage({
   const [menuOpen, setMenuOpen] = useState(false);
   const [followUpConfirm, setFollowUpConfirm] = useState(false);
   const [archiveConfirm, setArchiveConfirm] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const startConfirmOpen = useStartMeetingConfirmOpen();
   const orderedIdsRef = useRef<string[]>([]);
@@ -135,6 +137,7 @@ export function MeetingsPage({
     setMenuOpen(false);
     setFollowUpConfirm(false);
     setArchiveConfirm(false);
+    setDeleteConfirm(false);
     setView({ kind: "list" });
   }, []);
 
@@ -213,6 +216,7 @@ export function MeetingsPage({
         !menuOpen &&
         !followUpConfirm &&
         !archiveConfirm &&
+        !deleteConfirm &&
         !startConfirmOpen &&
         !skipAutoSummaryNotice,
       ignoreInputs: true,
@@ -234,6 +238,7 @@ export function MeetingsPage({
         Boolean(record) &&
         !followUpConfirm &&
         !archiveConfirm &&
+        !deleteConfirm &&
         !startConfirmOpen &&
         !skipAutoSummaryNotice &&
         !meetingInProgress &&
@@ -260,6 +265,7 @@ export function MeetingsPage({
         Boolean(record) &&
         !followUpConfirm &&
         !archiveConfirm &&
+        !deleteConfirm &&
         !startConfirmOpen &&
         !skipAutoSummaryNotice &&
         !mutating,
@@ -498,6 +504,7 @@ export function MeetingsPage({
 
   const deleteMeeting = async () => {
     if (view.kind !== "detail" || mutating) return;
+    setDeleteConfirm(false);
     setError(null);
     try {
       await deleteMeetingMutation.mutateAsync({ id: view.id });
@@ -546,7 +553,7 @@ export function MeetingsPage({
             onOpenChange={setMenuOpen}
             onFollowUp={() => setFollowUpConfirm(true)}
             onArchive={() => setArchiveConfirm(true)}
-            onDelete={() => void deleteMeeting()}
+            onDelete={() => setDeleteConfirm(true)}
           />
         </header>
 
@@ -672,6 +679,12 @@ export function MeetingsPage({
         <ArchiveMeetingConfirm
           onConfirm={() => void archiveMeeting()}
           onDismiss={() => setArchiveConfirm(false)}
+        />
+      )}
+      {deleteConfirm && (
+        <DeleteMeetingConfirm
+          onConfirm={() => void deleteMeeting()}
+          onDismiss={() => setDeleteConfirm(false)}
         />
       )}
       </>
