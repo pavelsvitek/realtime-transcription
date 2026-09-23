@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { useQueryClient } from "@tanstack/react-query";
 import { useHotkey } from "@tanstack/react-hotkeys";
+import { ArchiveMeetingConfirm } from "../components/ArchiveMeetingConfirm";
 import { FollowUpMeetingConfirm } from "../components/FollowUpMeetingConfirm";
 import { useStartMeetingConfirmOpen } from "../components/StartMeetingConfirm";
 import { Spinner } from "../components/Spinner";
@@ -20,7 +21,10 @@ import {
   moveMeetingSelection,
   retainMeetingSelection,
 } from "../lib/meeting-list-selection";
-import { FOLLOW_UP_MEETING_HOTKEY } from "../lib/nav-hotkeys";
+import {
+  ARCHIVE_MEETING_HOTKEY,
+  FOLLOW_UP_MEETING_HOTKEY,
+} from "../lib/nav-hotkeys";
 import {
   followUpSeedFromMeeting,
   formatMeetingClock,
@@ -103,6 +107,7 @@ export function MeetingsPage({
   );
   const [menuOpen, setMenuOpen] = useState(false);
   const [followUpConfirm, setFollowUpConfirm] = useState(false);
+  const [archiveConfirm, setArchiveConfirm] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const startConfirmOpen = useStartMeetingConfirmOpen();
   const orderedIdsRef = useRef<string[]>([]);
@@ -129,6 +134,7 @@ export function MeetingsPage({
     setTab("summary");
     setMenuOpen(false);
     setFollowUpConfirm(false);
+    setArchiveConfirm(false);
     setView({ kind: "list" });
   }, []);
 
@@ -206,6 +212,7 @@ export function MeetingsPage({
         view.kind === "detail" &&
         !menuOpen &&
         !followUpConfirm &&
+        !archiveConfirm &&
         !startConfirmOpen &&
         !skipAutoSummaryNotice,
       ignoreInputs: true,
@@ -226,6 +233,7 @@ export function MeetingsPage({
         view.kind === "detail" &&
         Boolean(record) &&
         !followUpConfirm &&
+        !archiveConfirm &&
         !startConfirmOpen &&
         !skipAutoSummaryNotice &&
         !meetingInProgress &&
@@ -235,6 +243,31 @@ export function MeetingsPage({
       meta: {
         name: "Follow-up meeting",
         description: "Confirm creating a follow-up from this meeting",
+      },
+    },
+  );
+
+  useHotkey(
+    ARCHIVE_MEETING_HOTKEY,
+    (event) => {
+      if (event.isComposing) return;
+      event.preventDefault();
+      setArchiveConfirm(true);
+    },
+    {
+      enabled:
+        view.kind === "detail" &&
+        Boolean(record) &&
+        !followUpConfirm &&
+        !archiveConfirm &&
+        !startConfirmOpen &&
+        !skipAutoSummaryNotice &&
+        !mutating,
+      preventDefault: true,
+      conflictBehavior: "allow",
+      meta: {
+        name: "Archive meeting",
+        description: "Confirm archiving this meeting",
       },
     },
   );
@@ -450,6 +483,7 @@ export function MeetingsPage({
 
   const archiveMeeting = async () => {
     if (view.kind !== "detail" || mutating) return;
+    setArchiveConfirm(false);
     setError(null);
     try {
       await patchMeeting.mutateAsync({
@@ -511,7 +545,7 @@ export function MeetingsPage({
             followUpDisabled={meetingInProgress}
             onOpenChange={setMenuOpen}
             onFollowUp={() => setFollowUpConfirm(true)}
-            onArchive={() => void archiveMeeting()}
+            onArchive={() => setArchiveConfirm(true)}
             onDelete={() => void deleteMeeting()}
           />
         </header>
@@ -632,6 +666,12 @@ export function MeetingsPage({
         <FollowUpMeetingConfirm
           onConfirm={() => void confirmFollowUp()}
           onDismiss={() => setFollowUpConfirm(false)}
+        />
+      )}
+      {archiveConfirm && (
+        <ArchiveMeetingConfirm
+          onConfirm={() => void archiveMeeting()}
+          onDismiss={() => setArchiveConfirm(false)}
         />
       )}
       </>

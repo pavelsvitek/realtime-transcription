@@ -2,6 +2,7 @@ import type { AppPage } from "../components/Sidebar";
 
 export const START_MEETING_HOTKEY = "Mod+N";
 export const FOLLOW_UP_MEETING_HOTKEY = "Mod+Shift+N";
+export const ARCHIVE_MEETING_HOTKEY = "Mod+E";
 export const STOP_MEETING_HOTKEY = "Mod+Backspace";
 
 export const NAV_HOTKEYS: {

@@ -141,7 +141,7 @@ export function MeetingOverflowMenu({
                 }}
               >
                 <ArchiveIcon />
-                Archive
+                Archive…
               </button>
               <div className="meeting-menu-divider" />
               <button
