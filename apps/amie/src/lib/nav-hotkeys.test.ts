@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  ARCHIVE_MEETING_HOTKEY,
   FOLLOW_UP_MEETING_HOTKEY,
   NAV_HOTKEYS,
   START_MEETING_HOTKEY,
@@ -26,6 +27,12 @@ describe("START_MEETING_HOTKEY", () => {
 describe("FOLLOW_UP_MEETING_HOTKEY", () => {
   it("uses Mod+Shift+N so Command/Control+Shift+N opens the follow-up confirm", () => {
     expect(FOLLOW_UP_MEETING_HOTKEY).toBe("Mod+Shift+N");
+  });
+});
+
+describe("ARCHIVE_MEETING_HOTKEY", () => {
+  it("uses Mod+E so Command/Control+E opens the archive confirm", () => {
+    expect(ARCHIVE_MEETING_HOTKEY).toBe("Mod+E");
   });
 });
 
