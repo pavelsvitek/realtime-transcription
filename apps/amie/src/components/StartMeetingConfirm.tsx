@@ -77,14 +77,20 @@ export function StartMeetingConfirmLayer({
             onPointerDown={onDismiss}
           >
             <div
-              className="start-meeting-dialog"
+              className="start-meeting-dialog short-meeting-dialog"
               role="alertdialog"
               aria-modal="true"
               aria-labelledby="start-meeting-dialog-title"
+              aria-describedby="start-meeting-dialog-copy"
               onPointerDown={(event) => event.stopPropagation()}
             >
               <p id="start-meeting-dialog-title" className="start-meeting-dialog-title">
                 {stopping ? "Stop the meeting?" : "Start a meeting?"}
+              </p>
+              <p id="start-meeting-dialog-copy" className="short-meeting-dialog-copy">
+                {stopping
+                  ? "Amie will finish capturing audio, save the transcript, and open the meeting so you can review or generate a summary."
+                  : "Amie will start listening through your mic and system audio, keep a live transcript, and save the meeting when you stop."}
               </p>
               {stopping ? (
                 <button

@@ -236,6 +236,8 @@ body,
 
 .start-meeting-dialog .start-meeting-button {
   width: 100%;
+  justify-content: center;
+  text-align: center;
 }
 
 .start-meeting-dialog-stop {
@@ -243,6 +245,8 @@ body,
   padding: 10px 12px;
   font-weight: 600;
   border-radius: 10px;
+  text-align: center;
+  justify-content: center;
 }
 
 .short-meeting-dialog {
@@ -261,6 +265,8 @@ body,
   padding: 10px 12px;
   font-weight: 600;
   border-radius: 10px;
+  text-align: center;
+  justify-content: center;
 }
 
 .sidebar-footer {
