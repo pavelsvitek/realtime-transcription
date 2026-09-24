@@ -211,6 +211,8 @@ What users ask for that surfaces as gaps:
 
 ## Implications for Amie
 
+Interface spec: [amie-local-mcp.md](./amie-local-mcp.md) (stdio server, Jamie-aligned tools, Phase 1 on today's SQLite).
+
 If Amie ships MCP for Claude Code / Codex:
 
 1. **Match the canonical read set:** `list_meetings`, `search_meetings`, `get_meeting` (summary + metadata), `get_meeting_transcript` (paged), `list_tasks` / action items. That is table stakes vs Jamie/Granola/Otter.
