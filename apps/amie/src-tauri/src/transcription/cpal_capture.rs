@@ -3,6 +3,14 @@ use cpal::{FromSample, Sample, SampleFormat, SizedSample, StreamConfig};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc;
 use std::sync::Arc;
+use std::time::Instant;
+
+/// One captured mono block. `captured_at` is the callback time so mic and
+/// system-audio blocks can be compared on the same clock.
+pub struct AudioBlock {
+    pub samples: Vec<f32>,
+    pub captured_at: Instant,
+}
 
 static DROPPED_SAMPLES: AtomicU64 = AtomicU64::new(0);
 static CAPTURED_SAMPLES: AtomicU64 = AtomicU64::new(0);
@@ -51,7 +59,7 @@ pub struct OpenedCpalStream {
 /// Opens an input stream on `device` and forwards mono f32 chunks to `sender`.
 pub fn open_input_stream(
     device: &cpal::Device,
-    sender: mpsc::SyncSender<Vec<f32>>,
+    sender: mpsc::SyncSender<AudioBlock>,
 ) -> anyhow::Result<OpenedCpalStream> {
     let device_name = device.name().unwrap_or_else(|_| "unknown".into());
     let supported = device
@@ -60,13 +68,20 @@ pub fn open_input_stream(
 
     let channels = supported.channels();
     let sample_format = supported.sample_format();
-    open_stream_with_config(device, &device_name, supported.into(), channels, sample_format, sender)
+    open_stream_with_config(
+        device,
+        &device_name,
+        supported.into(),
+        channels,
+        sample_format,
+        sender,
+    )
 }
 
 /// Opens a loopback stream on the default output device (macOS 15+).
 pub fn open_loopback_stream(
     device: &cpal::Device,
-    sender: mpsc::SyncSender<Vec<f32>>,
+    sender: mpsc::SyncSender<AudioBlock>,
 ) -> anyhow::Result<OpenedCpalStream> {
     let device_name = device.name().unwrap_or_else(|_| "unknown".into());
     let supported = device
@@ -75,7 +90,14 @@ pub fn open_loopback_stream(
 
     let channels = supported.channels();
     let sample_format = supported.sample_format();
-    open_stream_with_config(device, &device_name, supported.into(), channels, sample_format, sender)
+    open_stream_with_config(
+        device,
+        &device_name,
+        supported.into(),
+        channels,
+        sample_format,
+        sender,
+    )
 }
 
 fn open_stream_with_config(
@@ -84,7 +106,7 @@ fn open_stream_with_config(
     stream_config: StreamConfig,
     channels: u16,
     sample_format: SampleFormat,
-    sender: mpsc::SyncSender<Vec<f32>>,
+    sender: mpsc::SyncSender<AudioBlock>,
 ) -> anyhow::Result<OpenedCpalStream> {
     let sample_rate = stream_config.sample_rate;
     let channels = channels as usize;
@@ -147,7 +169,7 @@ fn build_input_stream<T>(
     device: &cpal::Device,
     config: &StreamConfig,
     channels: usize,
-    sender: mpsc::SyncSender<Vec<f32>>,
+    sender: mpsc::SyncSender<AudioBlock>,
     counters: CaptureCounters,
 ) -> anyhow::Result<cpal::Stream>
 where
@@ -159,19 +181,18 @@ where
         move |data: &[T], _: &cpal::InputCallbackInfo| {
             let mono = downmix_interleaved(data, channels);
             let sample_count = mono.len() as u64;
-            if sender.try_send(mono).is_err() {
+            let block = AudioBlock {
+                samples: mono,
+                captured_at: Instant::now(),
+            };
+            if sender.try_send(block).is_err() {
                 DROPPED_FRAMES.fetch_add(1, Ordering::Relaxed);
                 DROPPED_SAMPLES.fetch_add(sample_count, Ordering::Relaxed);
-                counters
-                    .dropped_frames
-                    .fetch_add(1, Ordering::Relaxed);
+                counters.dropped_frames.fetch_add(1, Ordering::Relaxed);
                 counters
                     .dropped_samples
                     .fetch_add(sample_count, Ordering::Relaxed);
-                tracing::warn!(
-                    samples = sample_count,
-                    "Audio channel full, dropping frame"
-                );
+                tracing::warn!(samples = sample_count, "Audio channel full, dropping frame");
             } else {
                 CAPTURED_SAMPLES.fetch_add(sample_count, Ordering::Relaxed);
                 counters.captured.fetch_add(sample_count, Ordering::Relaxed);
@@ -190,15 +211,15 @@ where
     f32: FromSample<T>,
 {
     if channels <= 1 {
-        return data.iter().map(|sample| sample.to_sample::<f32>()).collect();
+        return data
+            .iter()
+            .map(|sample| sample.to_sample::<f32>())
+            .collect();
     }
 
     let mut mono = Vec::with_capacity(data.len() / channels);
     for frame in data.chunks_exact(channels) {
-        let sum: f32 = frame
-            .iter()
-            .map(|sample| sample.to_sample::<f32>())
-            .sum();
+        let sum: f32 = frame.iter().map(|sample| sample.to_sample::<f32>()).sum();
         mono.push(sum / channels as f32);
     }
     mono

@@ -18,7 +18,7 @@ enum CaptureGuard {
 
 pub fn open_capture(
     source: AudioSource,
-    sender: mpsc::SyncSender<Vec<f32>>,
+    sender: mpsc::SyncSender<super::cpal_capture::AudioBlock>,
 ) -> anyhow::Result<OpenedCapture> {
     match source {
         AudioSource::Mic => {

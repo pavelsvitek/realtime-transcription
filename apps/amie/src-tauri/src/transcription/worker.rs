@@ -5,7 +5,9 @@ use std::time::Instant;
 
 use crate::ipc::transcript::*;
 use crate::transcription::audio_source::StreamLabels;
+use crate::transcription::cpal_capture::AudioBlock;
 use crate::transcription::debug_dump::StreamObserver;
+use crate::transcription::echo_cancel::AcousticEchoCanceller;
 use crate::transcription::mic_input;
 use crate::transcription::pipeline::{AsrWord, StreamingPipeline};
 
@@ -17,13 +19,14 @@ use crate::transcription::pipeline::{AsrWord, StreamingPipeline};
 /// The generic `emit` parameter keeps this function testable without a Tauri runtime:
 /// in production it wraps `AppHandle::emit`, in tests it collects into a `Vec`.
 pub fn run_worker<E>(
-    audio_rx: Receiver<Vec<f32>>,
+    audio_rx: Receiver<AudioBlock>,
     mut pipeline: StreamingPipeline,
     labels: StreamLabels,
     emit: E,
     stop: Arc<AtomicBool>,
     segment_counter: Arc<AtomicU64>,
     mut observer: Option<Box<dyn StreamObserver>>,
+    mut echo_canceller: Option<AcousticEchoCanceller>,
 ) where
     E: Fn(TranscriptEvent),
 {
@@ -61,12 +64,18 @@ pub fn run_worker<E>(
             }
         };
 
-        // Only the mic stream drives the mic-level indicator.
+        let captured_at = chunk.captured_at;
+        let raw = chunk.samples;
+
+        // Only the mic stream drives the mic-level indicator. Level and the
+        // silence diagnostic stay on the raw mic so a working microphone is
+        // not reported as silent just because echo cancellation removed the
+        // speaker bleed.
         if labels.stream == crate::transcription::labels::MIC_STREAM {
-            let rms = mic_input::compute_rms(&chunk);
+            let rms = mic_input::compute_rms(&raw);
             emit(TranscriptEvent::MicLevel(MicLevel { rms }));
             mic_peak_rms = mic_peak_rms.max(rms);
-            mic_samples_seen += chunk.len();
+            mic_samples_seen += raw.len();
             if !mic_silence_warned && mic_samples_seen >= MIC_SILENCE_CHECK_SAMPLES {
                 mic_silence_warned = true;
                 if mic_peak_rms < SILENCE_RMS_THRESHOLD {
@@ -90,9 +99,9 @@ pub fn run_worker<E>(
             }
         } else if labels.stream == crate::transcription::labels::SYSTEM_STREAM {
             // [silent-loopback diagnostic] see block comment above `system_samples_seen`
-            let rms = mic_input::compute_rms(&chunk);
+            let rms = mic_input::compute_rms(&raw);
             system_peak_rms = system_peak_rms.max(rms);
-            system_samples_seen += chunk.len();
+            system_samples_seen += raw.len();
             if !system_silence_warned && system_samples_seen >= SYSTEM_SILENCE_CHECK_SAMPLES {
                 system_silence_warned = true;
                 if system_peak_rms < SILENCE_RMS_THRESHOLD {
@@ -116,19 +125,28 @@ pub fn run_worker<E>(
             }
         }
 
+        let playback = if let Some(canceller) = echo_canceller.as_mut() {
+            canceller.process_mic(&raw, captured_at)
+        } else {
+            raw
+        };
+        if playback.is_empty() {
+            continue;
+        }
+
         if let Some(obs) = observer.as_mut() {
-            obs.on_audio(&chunk);
+            obs.on_audio(&playback);
         }
 
         let push_started = Instant::now();
-        match pipeline.push_mono(&chunk) {
+        match pipeline.push_mono(&playback) {
             Ok(Some(output)) => {
                 chunks_processed += 1;
                 if let Some(obs) = observer.as_mut() {
                     obs.on_asr_pass(
                         &format!("chunk-{chunks_processed}"),
                         push_started.elapsed(),
-                        chunk.len(),
+                        playback.len(),
                     );
                 }
                 for commit in emit_process_output(
@@ -145,7 +163,7 @@ pub fn run_worker<E>(
                 }
             }
             Ok(None) => {
-                tracing::trace!(chunk_len = chunk.len(), "Buffered, no ASR pass yet");
+                tracing::trace!(chunk_len = playback.len(), "Buffered, no ASR pass yet");
             }
             Err(e) => {
                 tracing::error!(error = %e, "ASR processing error");
@@ -159,6 +177,18 @@ pub fn run_worker<E>(
                     obs.on_finished();
                 }
                 return;
+            }
+        }
+    }
+
+    if let Some(canceller) = echo_canceller.as_mut() {
+        let tail = canceller.flush();
+        if !tail.is_empty() {
+            if let Some(obs) = observer.as_mut() {
+                obs.on_audio(&tail);
+            }
+            if let Err(e) = pipeline.push_mono(&tail) {
+                tracing::warn!(error = %e, "Error flushing echo-cancelled mic tail");
             }
         }
     }
@@ -193,8 +223,15 @@ pub fn run_worker<E>(
 }
 
 fn join_words(words: &[AsrWord]) -> (String, u64, u64) {
-    let text: String = words.iter().map(|w| w.text.as_str()).collect::<Vec<_>>().join(" ");
-    let start_ms = words.first().map(|w| (w.start * 1000.0) as u64).unwrap_or(0);
+    let text: String = words
+        .iter()
+        .map(|w| w.text.as_str())
+        .collect::<Vec<_>>()
+        .join(" ");
+    let start_ms = words
+        .first()
+        .map(|w| (w.start * 1000.0) as u64)
+        .unwrap_or(0);
     let end_ms = words.last().map(|w| (w.end * 1000.0) as u64).unwrap_or(0);
     (text, start_ms, end_ms)
 }
@@ -307,8 +344,7 @@ mod tests {
         };
 
         let committed = vec![word("hello", 0.1, 0.5), word("world", 0.5, 1.0)];
-        let commits =
-            emit_process_output(&committed, &[], mic_labels(), &emit, &counter, false);
+        let commits = emit_process_output(&committed, &[], mic_labels(), &emit, &counter, false);
 
         assert_eq!(commits.len(), 2);
         assert_eq!(commits[0].text, "hello");
@@ -340,7 +376,9 @@ mod tests {
         };
 
         let tentative = vec![word("testing", 1.0, 1.5), word("now", 1.5, 2.0)];
-        assert!(emit_process_output(&[], &tentative, mic_labels(), &emit, &counter, false).is_empty());
+        assert!(
+            emit_process_output(&[], &tentative, mic_labels(), &emit, &counter, false).is_empty()
+        );
 
         let events = events.lock().unwrap();
         assert_eq!(events.len(), 1);
@@ -421,8 +459,7 @@ mod tests {
         };
 
         let tentative = vec![word("final", 1.0, 2.0)];
-        let commits =
-            emit_process_output(&[], &tentative, mic_labels(), &emit, &counter, true);
+        let commits = emit_process_output(&[], &tentative, mic_labels(), &emit, &counter, true);
 
         assert_eq!(commits.len(), 1);
         assert_eq!(commits[0].text, "final");

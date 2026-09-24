@@ -1,8 +1,10 @@
 use std::fs;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{mpsc, Arc, Mutex};
+use std::sync::mpsc::{self, TrySendError};
+use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
+use std::time::Instant;
 
 use tauri::{AppHandle, Emitter};
 
@@ -16,8 +18,9 @@ use crate::transcription::asr::LoadedEngine;
 use crate::transcription::audio_source::AudioSource;
 use crate::transcription::backend::AsrBackend;
 use crate::transcription::capture;
-use crate::transcription::cpal_capture::CaptureCounters;
+use crate::transcription::cpal_capture::{AudioBlock, CaptureCounters};
 use crate::transcription::debug_dump::{DebugSession, StreamCaptureStats};
+use crate::transcription::echo_cancel::{AcousticEchoCanceller, SharedFarEnd};
 use crate::transcription::flac_convert::convert_wav_to_flac_background;
 use crate::transcription::transcript_store::TranscriptStore;
 use crate::transcription::worker;
@@ -28,9 +31,11 @@ const AUDIO_CHANNEL_BOUND: usize = 8_192;
 /// One capture + worker pair for a single audio stream.
 struct StreamPair {
     worker_handle: JoinHandle<()>,
+    fanout_handle: Option<JoinHandle<()>>,
     _capture: capture::OpenedCapture,
     stream: String,
     counters: CaptureCounters,
+    sample_rate: u32,
 }
 
 struct RunningState {
@@ -205,8 +210,11 @@ impl TranscriptionService {
 
         let (mic, system) = match source {
             AudioSource::Both => {
-                let mic = spawn_stream_worker(
-                    AudioSource::Mic,
+                // System audio is what the speakers play. Publish it as the
+                // far-end reference and subtract it from the mic before ASR.
+                let far_end = Arc::new(SharedFarEnd::new(Instant::now()));
+                let system = spawn_stream_worker(
+                    AudioSource::SystemAudio,
                     models,
                     stop_flag.clone(),
                     counter.clone(),
@@ -215,9 +223,11 @@ impl TranscriptionService {
                     debug_session.clone(),
                     self.meetings.clone(),
                     meeting_id.clone(),
+                    Some(far_end.clone()),
+                    None,
                 )?;
-                let system = spawn_stream_worker(
-                    AudioSource::SystemAudio,
+                let mic = spawn_stream_worker(
+                    AudioSource::Mic,
                     models,
                     stop_flag.clone(),
                     counter,
@@ -226,6 +236,8 @@ impl TranscriptionService {
                     debug_session.clone(),
                     self.meetings.clone(),
                     meeting_id.clone(),
+                    Some(far_end),
+                    Some(system.sample_rate),
                 )?;
                 (Some(mic), Some(system))
             }
@@ -240,6 +252,8 @@ impl TranscriptionService {
                     debug_session.clone(),
                     self.meetings.clone(),
                     meeting_id.clone(),
+                    None,
+                    None,
                 )?;
                 (Some(pair), None)
             }
@@ -254,6 +268,8 @@ impl TranscriptionService {
                     debug_session.clone(),
                     self.meetings.clone(),
                     meeting_id.clone(),
+                    None,
+                    None,
                 )?;
                 (None, Some(pair))
             }
@@ -345,28 +361,29 @@ impl TranscriptionService {
 
         state.stop_flag.store(true, Ordering::Relaxed);
 
-        // Drop captures first to close audio channels, then join workers.
-        // Both captures must be closed before either join so workers can drain and exit.
+        // Drop captures first so the fanout threads see a closed device channel.
+        // Join fanout before workers: the system worker's channel stays open
+        // until the fanout drops it.
         let pairs: Vec<StreamPair> = [state.mic, state.system].into_iter().flatten().collect();
         let capture_info: Vec<(String, CaptureCounters)> = pairs
             .iter()
             .map(|pair| (pair.stream.clone(), pair.counters.clone()))
             .collect();
-        let handles: Vec<JoinHandle<()>> = pairs
-            .into_iter()
-            .map(
-                |StreamPair {
-                     worker_handle,
-                     _capture,
-                     ..
-                 }| {
-                    drop(_capture);
-                    worker_handle
-                },
-            )
-            .collect();
-
-        for handle in handles {
+        let mut fanouts = Vec::new();
+        let mut workers = Vec::new();
+        for pair in pairs {
+            drop(pair._capture);
+            if let Some(fanout) = pair.fanout_handle {
+                fanouts.push(fanout);
+            }
+            workers.push(pair.worker_handle);
+        }
+        for handle in fanouts {
+            if let Err(e) = handle.join() {
+                tracing::error!("Reference fanout thread panicked: {e:?}");
+            }
+        }
+        for handle in workers {
             if let Err(e) = handle.join() {
                 tracing::error!("Worker thread panicked: {e:?}");
             }
@@ -531,24 +548,42 @@ fn spawn_stream_worker(
     debug_session: Option<Arc<DebugSession>>,
     meetings: Option<MeetingStore>,
     meeting_id: Option<String>,
+    far_end: Option<Arc<SharedFarEnd>>,
+    reference_sample_rate: Option<u32>,
 ) -> Result<StreamPair, AppError> {
     super::cpal_capture::reset_capture_stats();
-    let (audio_tx, audio_rx) = mpsc::sync_channel::<Vec<f32>>(AUDIO_CHANNEL_BOUND);
+    let publish_reference = far_end.is_some() && reference_sample_rate.is_none();
+    let (audio_tx, audio_rx, fanout_handle) = if publish_reference {
+        let (capture_tx, capture_rx) = mpsc::sync_channel::<AudioBlock>(AUDIO_CHANNEL_BOUND);
+        let (asr_tx, asr_rx) = mpsc::sync_channel::<AudioBlock>(AUDIO_CHANNEL_BOUND);
+        let far_end = far_end.clone();
+        let fanout = std::thread::Builder::new()
+            .name("audio-ref-fanout".into())
+            .spawn(move || fanout_reference(capture_rx, asr_tx, far_end))
+            .map_err(|e| AppError::Capture(format!("Failed to spawn reference fanout: {e}")))?;
+        (capture_tx, asr_rx, Some(fanout))
+    } else {
+        let (audio_tx, audio_rx) = mpsc::sync_channel::<AudioBlock>(AUDIO_CHANNEL_BOUND);
+        (audio_tx, audio_rx, None)
+    };
     let opened =
         capture::open_capture(source, audio_tx).map_err(|e| AppError::Capture(format!("{e:#}")))?;
     let stream_name = source.as_str().to_string();
+    let sample_rate = opened.sample_rate;
     let counters = opened.counters.clone();
     let observer = debug_session.as_ref().and_then(|session| {
-        session.open_stream_observer(
-            source.as_str(),
-            opened.device_name.clone(),
-            opened.sample_rate,
-        )
+        session.open_stream_observer(source.as_str(), opened.device_name.clone(), sample_rate)
     });
     let pipeline = models
-        .create_pipeline(opened.sample_rate, source.as_str())
+        .create_pipeline(sample_rate, source.as_str())
         .map_err(|e| AppError::Asr(format!("{e:#}")))?;
     let labels = source.labels();
+    let echo_canceller = match (far_end, reference_sample_rate) {
+        (Some(far), Some(reference_rate)) => {
+            Some(AcousticEchoCanceller::new(sample_rate, reference_rate, far))
+        }
+        _ => None,
+    };
 
     let worker_handle = std::thread::Builder::new()
         .name(format!("transcription-worker-{}", source.as_str()))
@@ -588,16 +623,43 @@ fn spawn_stream_worker(
                 stop_flag,
                 segment_counter,
                 observer,
+                echo_canceller,
             );
         })
         .map_err(|e| AppError::Capture(format!("Failed to spawn worker: {e}")))?;
 
     Ok(StreamPair {
         worker_handle,
+        fanout_handle,
         _capture: opened,
         stream: stream_name,
         counters,
+        sample_rate,
     })
+}
+
+/// Copy system-audio blocks into the far-end reference, then forward them to
+/// the system transcription worker. The reference is published first so a slow
+/// system ASR pass cannot starve echo cancellation.
+fn fanout_reference(
+    capture_rx: mpsc::Receiver<AudioBlock>,
+    asr_tx: mpsc::SyncSender<AudioBlock>,
+    far_end: Option<Arc<SharedFarEnd>>,
+) {
+    while let Ok(block) = capture_rx.recv() {
+        if let Some(far_end) = &far_end {
+            far_end.push(&block.samples, block.captured_at);
+        }
+        match asr_tx.try_send(block) {
+            Ok(()) => {}
+            Err(TrySendError::Full(_)) => {
+                tracing::warn!(
+                    "System ASR channel full; kept the echo reference and dropped the ASR frame"
+                );
+            }
+            Err(TrySendError::Disconnected(_)) => break,
+        }
+    }
 }
 
 fn emit_to_app(app_handle: &AppHandle, event: TranscriptEvent) {
