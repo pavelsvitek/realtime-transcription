@@ -103,6 +103,17 @@ impl MeetingStore {
     }
 
     pub fn open(path: &Path) -> Result<Self, AppError> {
+        Self::open_inner(path, true)
+    }
+
+    /// Open the database without closing live rows. The MCP server shares
+    /// `meetings.db` with a running Amie process, so it must not finish the
+    /// meeting the app is capturing.
+    pub fn open_shared(path: &Path) -> Result<Self, AppError> {
+        Self::open_inner(path, false)
+    }
+
+    fn open_inner(path: &Path, finish_live: bool) -> Result<Self, AppError> {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
@@ -125,8 +136,10 @@ impl MeetingStore {
         };
         // A killed app leaves status=live rows. Close them so they show in Meetings
         // and so recycled ASR ids from a later session cannot collide.
-        if let Err(e) = store.finish_open_meetings(now_ms()) {
-            tracing::warn!(error = %e, "Failed to close leftover live meetings on open");
+        if finish_live {
+            if let Err(e) = store.finish_open_meetings(now_ms()) {
+                tracing::warn!(error = %e, "Failed to close leftover live meetings on open");
+            }
         }
         Ok(store)
     }
@@ -512,6 +525,335 @@ impl MeetingStore {
         self.find_record(id)?
             .ok_or_else(|| AppError::Store("Meeting not found".into()))
     }
+
+    pub fn device_id(&self) -> &str {
+        &self.device_id
+    }
+
+    pub fn archived_at(&self, id: &str) -> Result<Option<i64>, AppError> {
+        let conn = self.conn.lock().unwrap();
+        conn.query_row(
+            "SELECT archived_at FROM meetings WHERE id = ?1 AND deleted_at IS NULL",
+            params![id],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(store_err)?
+        .ok_or_else(|| AppError::Store("Meeting not found".into()))
+    }
+
+    pub fn set_meeting_archived_at(&self, id: &str, archived_at: i64) -> Result<(), AppError> {
+        self.set_archived_at(id, archived_at, true)
+    }
+
+    pub fn clear_archived_at(&self, id: &str) -> Result<(), AppError> {
+        let now = now_ms();
+        let conn = self.conn.lock().unwrap();
+        let changed = conn
+            .execute(
+                "UPDATE meetings
+                 SET archived_at = NULL,
+                     updated_at = ?1,
+                     revision = revision + 1,
+                     last_writer_device_id = ?2
+                 WHERE id = ?3 AND deleted_at IS NULL",
+                params![now, self.device_id, id],
+            )
+            .map_err(store_err)?;
+        if changed == 0 {
+            return Err(AppError::Store("Meeting not found".into()));
+        }
+        Ok(())
+    }
+
+    pub fn list_for_mcp(&self, filter: &McpListFilter) -> Result<McpListPage, AppError> {
+        let status = filter.status.clone();
+        let start_ms = filter.start_ms;
+        let end_ms = filter.end_ms;
+        let include_archived = if filter.include_archived { 1 } else { 0 };
+        let cursor_started = filter.cursor.as_ref().map(|(started, _)| *started);
+        let cursor_id = filter.cursor.as_ref().map(|(_, id)| id.clone());
+        let fetch = i64::from(filter.limit.saturating_add(1));
+
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn
+            .prepare(
+                "SELECT id, started_at, finished_at, title, teaser, status
+                 FROM meetings
+                 WHERE deleted_at IS NULL
+                   AND (?1 IS NULL OR status = ?1)
+                   AND (?2 = 1 OR archived_at IS NULL)
+                   AND (?3 IS NULL OR started_at >= ?3)
+                   AND (?4 IS NULL OR started_at <= ?4)
+                   AND (
+                     ?5 IS NULL
+                     OR started_at < ?5
+                     OR (started_at = ?5 AND id < ?6)
+                   )
+                 ORDER BY started_at DESC, id DESC
+                 LIMIT ?7",
+            )
+            .map_err(store_err)?;
+        let rows = stmt
+            .query_map(
+                params![
+                    status,
+                    include_archived,
+                    start_ms,
+                    end_ms,
+                    cursor_started,
+                    cursor_id,
+                    fetch
+                ],
+                |row| {
+                    Ok(McpMeetingRow {
+                        id: row.get(0)?,
+                        started_at: row.get(1)?,
+                        finished_at: row.get(2)?,
+                        title: row.get(3)?,
+                        teaser: row.get(4)?,
+                        status: row.get(5)?,
+                    })
+                },
+            )
+            .map_err(store_err)?;
+
+        let mut meetings = Vec::new();
+        for row in rows {
+            meetings.push(row.map_err(store_err)?);
+        }
+        drop(stmt);
+        drop(conn);
+
+        let next_cursor = if meetings.len() > filter.limit as usize {
+            meetings.pop();
+            meetings.last().map(|row| (row.started_at, row.id.clone()))
+        } else {
+            None
+        };
+        Ok(McpListPage {
+            meetings,
+            next_cursor,
+        })
+    }
+
+    pub fn search_meetings(&self, query: &McpSearch) -> Result<Vec<McpSearchHit>, AppError> {
+        let pattern = like_contains_pattern(&query.query);
+        let scope = query.scope.as_str();
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn
+            .prepare(
+                "SELECT m.id, m.title, m.started_at, m.summary,
+                        (
+                          SELECT s.text
+                          FROM transcript_segments s
+                          WHERE s.meeting_id = m.id
+                            AND s.deleted_at IS NULL
+                            AND s.text LIKE ?1 ESCAPE '\\'
+                          ORDER BY s.start_ms ASC, s.id ASC
+                          LIMIT 1
+                        )
+                 FROM meetings m
+                 WHERE m.deleted_at IS NULL
+                   AND m.archived_at IS NULL
+                   AND m.started_at >= ?2
+                   AND (?3 IS NULL OR m.started_at <= ?3)
+                   AND (
+                     (?4 IN ('all', 'title') AND m.title LIKE ?1 ESCAPE '\\')
+                     OR (?4 IN ('all', 'summary') AND IFNULL(m.summary, '') LIKE ?1 ESCAPE '\\')
+                     OR (
+                       ?4 IN ('all', 'transcript')
+                       AND EXISTS (
+                         SELECT 1 FROM transcript_segments s
+                         WHERE s.meeting_id = m.id
+                           AND s.deleted_at IS NULL
+                           AND s.text LIKE ?1 ESCAPE '\\'
+                       )
+                     )
+                   )
+                 ORDER BY m.started_at DESC, m.id DESC
+                 LIMIT ?5",
+            )
+            .map_err(store_err)?;
+        let rows = stmt
+            .query_map(
+                params![pattern, query.start_ms, query.end_ms, scope, query.limit],
+                |row| {
+                    Ok(McpSearchHit {
+                        meeting_id: row.get(0)?,
+                        title: row.get(1)?,
+                        started_at: row.get(2)?,
+                        summary: row.get(3)?,
+                        transcript_hit: row.get(4)?,
+                    })
+                },
+            )
+            .map_err(store_err)?;
+        let mut hits = Vec::new();
+        for row in rows {
+            hits.push(row.map_err(store_err)?);
+        }
+        Ok(hits)
+    }
+
+    pub fn page_segments(&self, page: &McpSegmentPageQuery) -> Result<McpSegmentPage, AppError> {
+        let exists: Option<i64> = {
+            let conn = self.conn.lock().unwrap();
+            conn.query_row(
+                "SELECT 1 FROM meetings WHERE id = ?1 AND deleted_at IS NULL",
+                params![page.meeting_id],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(store_err)?
+        };
+        if exists.is_none() {
+            return Err(AppError::Store("Meeting not found".into()));
+        }
+
+        let cursor_start = page.cursor.as_ref().map(|(start, _)| *start);
+        let cursor_id = page.cursor.as_ref().map(|(_, id)| id.clone());
+        let fetch = i64::from(page.limit.saturating_add(1));
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn
+            .prepare(
+                "SELECT id, start_ms, end_ms, text, speaker, stream
+                 FROM transcript_segments
+                 WHERE meeting_id = ?1
+                   AND deleted_at IS NULL
+                   AND (
+                     ?2 IS NULL
+                     OR start_ms > ?2
+                     OR (start_ms = ?2 AND id > ?3)
+                   )
+                 ORDER BY start_ms ASC, id ASC
+                 LIMIT ?4",
+            )
+            .map_err(store_err)?;
+        let rows = stmt
+            .query_map(
+                params![page.meeting_id, cursor_start, cursor_id, fetch],
+                |row| {
+                    Ok(MeetingSegment {
+                        id: row.get(0)?,
+                        start_ms: row.get(1)?,
+                        end_ms: row.get(2)?,
+                        text: row.get(3)?,
+                        speaker: row.get(4)?,
+                        stream: row.get(5)?,
+                    })
+                },
+            )
+            .map_err(store_err)?;
+        let mut segments = Vec::new();
+        for row in rows {
+            segments.push(row.map_err(store_err)?);
+        }
+        let next_cursor = if segments.len() > page.limit as usize {
+            segments.pop();
+            segments
+                .last()
+                .map(|seg| (seg.start_ms, seg.id.clone()))
+        } else {
+            None
+        };
+        Ok(McpSegmentPage {
+            segments,
+            next_cursor,
+        })
+    }
+}
+
+pub const fn schema_version() -> i64 {
+    SCHEMA_VERSION
+}
+
+#[derive(Debug, Clone)]
+pub struct McpListFilter {
+    pub status: Option<String>,
+    pub start_ms: Option<i64>,
+    pub end_ms: Option<i64>,
+    pub include_archived: bool,
+    pub cursor: Option<(i64, String)>,
+    pub limit: u32,
+}
+
+#[derive(Debug, Clone)]
+pub struct McpMeetingRow {
+    pub id: String,
+    pub started_at: i64,
+    pub finished_at: Option<i64>,
+    pub title: String,
+    pub teaser: Option<String>,
+    pub status: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct McpListPage {
+    pub meetings: Vec<McpMeetingRow>,
+    pub next_cursor: Option<(i64, String)>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum McpSearchScope {
+    All,
+    Title,
+    Summary,
+    Transcript,
+}
+
+impl McpSearchScope {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::All => "all",
+            Self::Title => "title",
+            Self::Summary => "summary",
+            Self::Transcript => "transcript",
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct McpSearch {
+    pub query: String,
+    pub start_ms: i64,
+    pub end_ms: Option<i64>,
+    pub limit: u32,
+    pub scope: McpSearchScope,
+}
+
+#[derive(Debug, Clone)]
+pub struct McpSearchHit {
+    pub meeting_id: String,
+    pub title: String,
+    pub started_at: i64,
+    pub summary: Option<String>,
+    pub transcript_hit: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct McpSegmentPageQuery {
+    pub meeting_id: String,
+    pub cursor: Option<(i64, String)>,
+    pub limit: u32,
+}
+
+#[derive(Debug, Clone)]
+pub struct McpSegmentPage {
+    pub segments: Vec<MeetingSegment>,
+    pub next_cursor: Option<(i64, String)>,
+}
+
+fn like_contains_pattern(query: &str) -> String {
+    let mut out = String::from('%');
+    for ch in query.chars() {
+        if matches!(ch, '\\' | '%' | '_') {
+            out.push('\\');
+        }
+        out.push(ch);
+    }
+    out.push('%');
+    out
 }
 
 pub fn default_db_path() -> PathBuf {
@@ -754,6 +1096,21 @@ mod tests {
         let row = store.get_record("m1").unwrap();
         assert_eq!(row.meeting.status, "finished");
         assert_eq!(row.meeting.finished_at, Some(2_000));
+    }
+
+    #[test]
+    fn opening_shared_store_keeps_live_meetings() {
+        let dir = std::env::temp_dir().join(format!("meetings-shared-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("meetings.db");
+        {
+            let store = MeetingStore::open(&path).unwrap();
+            store.insert_live_meeting("m1", 1_000, "Live").unwrap();
+        }
+        let store = MeetingStore::open_shared(&path).unwrap();
+        let row = store.get_record("m1").unwrap();
+        assert_eq!(row.meeting.status, "live");
+        assert!(row.meeting.finished_at.is_none());
     }
 
     #[test]

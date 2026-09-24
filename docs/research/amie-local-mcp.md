@@ -2,7 +2,7 @@
 
 Design for a device-local MCP server that exposes Amie meetings to Claude Code, Codex, and Cursor. Tool names and arguments follow [Jamie's MCP](https://docs.meetjamie.ai/integrations/mcp), mapped onto Amie's on-disk meeting store. Landscape context: [transcription-mcp-landscape.md](./transcription-mcp-landscape.md).
 
-This document is the interface spec. Implementing the `amie-mcp` binary is a follow-up.
+This document is the interface spec. Phase 1 is the `amie_mcp` binary in [apps/amie/src-tauri](../../apps/amie/src-tauri) (`cargo build --manifest-path apps/amie/src-tauri/Cargo.toml --bin amie_mcp`). Phase 2 tools are not registered.
 
 ## Goals
 
