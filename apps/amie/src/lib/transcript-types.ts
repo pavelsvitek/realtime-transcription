@@ -76,3 +76,10 @@ export type AudioDeviceInfo = {
 export type AudioDevicePayload = {
   device: AudioDeviceInfo;
 };
+
+export type MeetingApp = "zoom" | "teams";
+
+export type SpeakerTagsStatus = {
+  trusted: boolean;
+  meetingApp: MeetingApp | null;
+};

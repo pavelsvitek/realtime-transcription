@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   MeetingContextEditor,
@@ -23,7 +24,7 @@ import {
   followUpContextFromSeed,
   meetingSkipsAutoSummary,
 } from "../lib/meetings";
-import type { AsrBackend, AudioSource } from "../lib/transcript-types";
+import type { AsrBackend, AudioSource, SpeakerTagsStatus } from "../lib/transcript-types";
 import {
   getLiveMeeting,
   getMeeting,
@@ -62,6 +63,7 @@ export function TranscribePage({
   onMeetingFinished,
 }: TranscribePageProps) {
   const [audioSource, setAudioSource] = useState<AudioSource>("both");
+  const [speakerStatus, setSpeakerStatus] = useState<SpeakerTagsStatus | null>(null);
   const [backend, setBackend] = useState<AsrBackend>(loadBackend);
   const {
     segments,
@@ -92,6 +94,25 @@ export function TranscribePage({
   useEffect(() => {
     localStorage.setItem(BACKEND_STORAGE_KEY, backend);
   }, [backend]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = () => {
+      void invoke<SpeakerTagsStatus>("get_speaker_tags_status")
+        .then((next) => {
+          if (!cancelled) setSpeakerStatus(next);
+        })
+        .catch(() => {
+          if (!cancelled) setSpeakerStatus(null);
+        });
+    };
+    load();
+    const id = window.setInterval(load, 4000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, []);
 
   useEffect(() => {
     if (sessionSource) {
@@ -268,6 +289,23 @@ export function TranscribePage({
       {error && (
         <div className="error-banner">
           {error}
+        </div>
+      )}
+
+      {speakerStatus?.meetingApp && !speakerStatus.trusted && (
+        <div className="speaker-prompt">
+          <p>Reads who Zoom or Teams shows as speaking. Does not record the screen.</p>
+          <button
+            className="btn btn-clear"
+            type="button"
+            onClick={() => {
+              void invoke<SpeakerTagsStatus>("request_accessibility_permission")
+                .then(setSpeakerStatus)
+                .catch(() => undefined);
+            }}
+          >
+            Allow Accessibility
+          </button>
         </div>
       )}
 

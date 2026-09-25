@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import type { AsrSettings, SummaryProvider, SummarySettings } from "../lib/transcript-types";
+import type {
+  AsrSettings,
+  SpeakerTagsStatus,
+  SummaryProvider,
+  SummarySettings,
+} from "../lib/transcript-types";
 import { summaryProviderHasKey } from "../lib/summary-providers";
 
 const KEY_MASK = "•".repeat(24);
@@ -20,15 +25,18 @@ export function SettingsPage() {
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [speakerStatus, setSpeakerStatus] = useState<SpeakerTagsStatus | null>(null);
 
   const refresh = useCallback(async () => {
     try {
-      const [next, summary] = await Promise.all([
+      const [next, summary, speakers] = await Promise.all([
         invoke<AsrSettings>("get_asr_settings"),
         invoke<SummarySettings>("get_summary_settings"),
+        invoke<SpeakerTagsStatus>("get_speaker_tags_status"),
       ]);
       setSettings(next);
       setSummarySettings(summary);
+      setSpeakerStatus(speakers);
       setError(null);
     } catch (e) {
       setError(String(e));
@@ -89,6 +97,39 @@ export function SettingsPage() {
       </header>
 
       <div className="settings-scroll">
+        <section className="settings-section">
+          <h2 className="settings-heading">Speaker names</h2>
+          <p className="settings-copy">
+            Reads who Zoom or Teams shows as speaking. Does not record the screen.
+          </p>
+          <div className="settings-row">
+            <span className="settings-label">Accessibility</span>
+            <span className="settings-value">
+              {speakerStatus ? (speakerStatus.trusted ? "On" : "Off") : "Loading…"}
+            </span>
+          </div>
+          {speakerStatus?.meetingApp === "zoom" && (
+            <p className="settings-copy">Zoom is open.</p>
+          )}
+          {speakerStatus?.meetingApp === "teams" && (
+            <p className="settings-copy">Microsoft Teams is open.</p>
+          )}
+          <div className="settings-actions">
+            <button
+              className="btn btn-start"
+              onClick={() =>
+                void run(async () => {
+                  await invoke("request_accessibility_permission");
+                  setStatus("Asked macOS for Accessibility access.");
+                })
+              }
+              disabled={saving || speakerStatus?.trusted === true}
+            >
+              Allow Accessibility
+            </button>
+          </div>
+        </section>
+
         <section className="settings-section">
           <h2 className="settings-heading">Meeting summaries</h2>
           <p className="settings-copy">
