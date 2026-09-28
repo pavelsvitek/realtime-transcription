@@ -120,7 +120,9 @@ export function SettingsPage() {
               onClick={() =>
                 void run(async () => {
                   await invoke("request_accessibility_permission");
-                  setStatus("Asked macOS for Accessibility access.");
+                  setStatus(
+                    "System Settings is open on the Accessibility list. Turn Amie on there.",
+                  );
                 })
               }
               disabled={saving || speakerStatus?.trusted === true}

@@ -19,5 +19,6 @@ pub fn status() -> SpeakerTagsStatus {
 
 pub fn request_permission() -> SpeakerTagsStatus {
     permission::prompt();
+    permission::open_privacy_settings();
     status()
 }

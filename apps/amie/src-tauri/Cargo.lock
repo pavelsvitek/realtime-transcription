@@ -77,6 +77,7 @@ dependencies = [
  "cpal",
  "futures-util",
  "hound",
+ "libc",
  "objc2-app-kit",
  "objc2-core-audio",
  "objc2-foundation",

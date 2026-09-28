@@ -64,6 +64,8 @@ export function TranscribePage({
 }: TranscribePageProps) {
   const [audioSource, setAudioSource] = useState<AudioSource>("both");
   const [speakerStatus, setSpeakerStatus] = useState<SpeakerTagsStatus | null>(null);
+  const [speakerError, setSpeakerError] = useState<string | null>(null);
+  const askedForAccess = useRef(false);
   const [backend, setBackend] = useState<AsrBackend>(loadBackend);
   const {
     segments,
@@ -100,10 +102,24 @@ export function TranscribePage({
     const load = () => {
       void invoke<SpeakerTagsStatus>("get_speaker_tags_status")
         .then((next) => {
-          if (!cancelled) setSpeakerStatus(next);
+          if (cancelled) return;
+          setSpeakerStatus(next);
+          setSpeakerError(null);
+          if (!next.trusted && !askedForAccess.current) {
+            askedForAccess.current = true;
+            void invoke<SpeakerTagsStatus>("request_accessibility_permission")
+              .then((updated) => {
+                if (!cancelled) setSpeakerStatus(updated);
+              })
+              .catch((err: unknown) => {
+                if (!cancelled) setSpeakerError(String(err));
+              });
+          }
         })
-        .catch(() => {
-          if (!cancelled) setSpeakerStatus(null);
+        .catch((err: unknown) => {
+          if (cancelled) return;
+          setSpeakerStatus(null);
+          setSpeakerError(String(err));
         });
     };
     load();
@@ -292,16 +308,22 @@ export function TranscribePage({
         </div>
       )}
 
-      {speakerStatus?.meetingApp && !speakerStatus.trusted && (
+      {(speakerError || (speakerStatus && !speakerStatus.trusted)) && (
         <div className="speaker-prompt">
-          <p>Reads who Zoom or Teams shows as speaking. Does not record the screen.</p>
+          <p>
+            Speaker names need Accessibility. Turn Amie on in the Privacy &amp; Security list.
+            {speakerError ? ` ${speakerError}` : ""}
+          </p>
           <button
             className="btn btn-clear"
             type="button"
             onClick={() => {
               void invoke<SpeakerTagsStatus>("request_accessibility_permission")
-                .then(setSpeakerStatus)
-                .catch(() => undefined);
+                .then((next) => {
+                  setSpeakerStatus(next);
+                  setSpeakerError(null);
+                })
+                .catch((err: unknown) => setSpeakerError(String(err)));
             }}
           >
             Allow Accessibility

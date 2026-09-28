@@ -29,6 +29,23 @@ impl MeetingApp {
     }
 }
 
+/// The main Teams executable. Renamed installs ("work or school", "classic")
+/// still live in an app bundle whose path contains "Microsoft Teams". Helper
+/// processes inside that bundle are not the window we read.
+pub fn is_teams_app_path(path: &str) -> bool {
+    let lower = path.to_ascii_lowercase();
+    if lower.contains("helper") {
+        return false;
+    }
+    match (
+        lower.find("microsoft teams"),
+        lower.find(".app/contents/macos/"),
+    ) {
+        (Some(name), Some(executable)) => name < executable,
+        _ => false,
+    }
+}
+
 /// Remote display names marked speaking, or an empty set when no meeting app
 /// is running. `Err` means the accessibility read failed and the previous
 /// timeline entry should be left alone.
@@ -102,4 +119,28 @@ fn read_teams(pid: i32) -> Result<BTreeSet<String>, String> {
         }
     }
     Ok(read.speakers)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_teams_app_path;
+
+    #[test]
+    fn teams_main_executables_match_and_helpers_do_not() {
+        assert!(is_teams_app_path(
+            "/Applications/Microsoft Teams.app/Contents/MacOS/MSTeams"
+        ));
+        assert!(is_teams_app_path(
+            "/Applications/Microsoft Teams (work or school).app/Contents/MacOS/MSTeams"
+        ));
+        assert!(is_teams_app_path(
+            "/Applications/Microsoft Teams classic.app/Contents/MacOS/Teams"
+        ));
+        assert!(!is_teams_app_path(
+            "/Applications/Microsoft Teams.app/Contents/Helpers/Microsoft Teams Helper.app/Contents/MacOS/Microsoft Teams Helper"
+        ));
+        assert!(!is_teams_app_path(
+            "/Applications/zoom.us.app/Contents/MacOS/zoom.us"
+        ));
+    }
 }

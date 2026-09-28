@@ -46,3 +46,25 @@ pub fn is_trusted() -> bool {
 pub fn prompt() {
     imp::prompt();
 }
+
+/// macOS shows the Accessibility dialog at most once per app. After that the
+/// prompt call returns without a window, so open the Privacy list directly.
+pub fn open_privacy_settings() {
+    #[cfg(target_os = "macos")]
+    {
+        let _ = std::process::Command::new("open")
+            .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
+            .spawn();
+    }
+}
+
+pub fn is_main_thread() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        unsafe { libc::pthread_main_np() != 0 }
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        true
+    }
+}
