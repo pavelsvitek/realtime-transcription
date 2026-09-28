@@ -65,7 +65,6 @@ export function TranscribePage({
   const [audioSource, setAudioSource] = useState<AudioSource>("both");
   const [speakerStatus, setSpeakerStatus] = useState<SpeakerTagsStatus | null>(null);
   const [speakerError, setSpeakerError] = useState<string | null>(null);
-  const askedForAccess = useRef(false);
   const [backend, setBackend] = useState<AsrBackend>(loadBackend);
   const {
     segments,
@@ -105,16 +104,6 @@ export function TranscribePage({
           if (cancelled) return;
           setSpeakerStatus(next);
           setSpeakerError(null);
-          if (!next.trusted && !askedForAccess.current) {
-            askedForAccess.current = true;
-            void invoke<SpeakerTagsStatus>("request_accessibility_permission")
-              .then((updated) => {
-                if (!cancelled) setSpeakerStatus(updated);
-              })
-              .catch((err: unknown) => {
-                if (!cancelled) setSpeakerError(String(err));
-              });
-          }
         })
         .catch((err: unknown) => {
           if (cancelled) return;

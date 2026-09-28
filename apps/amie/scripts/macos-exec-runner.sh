@@ -55,9 +55,23 @@ trap cleanup EXIT INT TERM HUP
 # Drop leftover windows from a previous cargo run / Ctrl-C before we replace the binary.
 kill_bundle_bins
 
+install_if_changed() {
+  local src="$1" dest="$2"
+  if [[ -f "$dest" ]] && cmp -s "$src" "$dest"; then
+    return 1
+  fi
+  cp "$src" "$dest"
+  return 0
+}
+
 mkdir -p "$MACOS_DIR" "$RESOURCES_DIR" "$(dirname "$PIDFILE")"
-cp "$ROOT/src-tauri/Info.plist" "$INFO_PLIST"
-cp "$BINARY" "$REAL_BINARY"
+CHANGED=0
+if install_if_changed "$ROOT/src-tauri/Info.plist" "$INFO_PLIST"; then
+  CHANGED=1
+fi
+if install_if_changed "$BINARY" "$REAL_BINARY"; then
+  CHANGED=1
+fi
 chmod +x "$REAL_BINARY"
 
 {
@@ -68,7 +82,8 @@ chmod +x "$REAL_BINARY"
   done
 } >"$ENV_FILE"
 
-cat >"$WRAPPER" <<'EOF'
+WRAPPER_SRC="$(mktemp)"
+cat >"$WRAPPER_SRC" <<'EOF'
 #!/bin/bash
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -81,12 +96,20 @@ if [[ -f "$RES/dev-runner.env" ]]; then
 fi
 exec "$HERE/amie-bin" "$@"
 EOF
+if install_if_changed "$WRAPPER_SRC" "$WRAPPER"; then
+  CHANGED=1
+fi
+rm -f "$WRAPPER_SRC"
 chmod +x "$WRAPPER"
 
-if command -v codesign >/dev/null 2>&1; then
-  codesign -s - --force --deep --identifier com.pavel.amie \
-    --entitlements "$ROOT/src-tauri/Entitlements.plist" \
-    "$APP" 2>/dev/null || codesign -s - --force --deep "$APP"
+# Ad-hoc --force signing mints a new cdhash. Accessibility TCC follows that
+# hash, so a re-sign on every launch asks again even when the binary is the same.
+if [[ "$CHANGED" -eq 1 ]] || [[ ! -e "$APP/Contents/_CodeSignature" ]]; then
+  if command -v codesign >/dev/null 2>&1; then
+    codesign -s - --force --deep --identifier com.pavel.amie \
+      --entitlements "$ROOT/src-tauri/Entitlements.plist" \
+      "$APP" 2>/dev/null || codesign -s - --force --deep "$APP"
+  fi
 fi
 
 echo $$ >"$PIDFILE"
