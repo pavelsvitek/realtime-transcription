@@ -44,9 +44,17 @@ impl SpeakerTimeline {
             return None;
         }
         let range_end = end_ms.max(start_ms.saturating_add(1));
-        if start_ms < self.polls[0].0 {
-            return None;
-        }
+        let first = self.polls[0].0;
+        // Capture starts before the first accessibility poll. Speech that
+        // begins in that prefix still uses the speaker who covers the rest.
+        let start_ms = if start_ms < first {
+            if range_end <= first {
+                return None;
+            }
+            first
+        } else {
+            start_ms
+        };
 
         let mut only: Option<String> = None;
         let mut cursor = start_ms;
@@ -131,5 +139,12 @@ mod tests {
         assert_eq!(timeline.poll_count(), 2);
         assert!(timeline.resolve(0, 2_500).is_none());
         assert_eq!(timeline.resolve(2_000, 3_000).as_deref(), Some("Bob"));
+    }
+
+    #[test]
+    fn speech_that_starts_before_the_first_poll_keeps_the_covering_name() {
+        let mut timeline = SpeakerTimeline::new();
+        timeline.push(200, ["Ada Lovelace"]);
+        assert_eq!(timeline.resolve(0, 2_000).as_deref(), Some("Ada Lovelace"));
     }
 }

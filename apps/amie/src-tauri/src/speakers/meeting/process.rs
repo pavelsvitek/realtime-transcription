@@ -6,6 +6,13 @@ use objc2_foundation::NSString;
 
 pub const ZOOM_BUNDLE: &str = "us.zoom.xos";
 pub const TEAMS_BUNDLE: &str = "com.microsoft.teams2";
+const TEAMS_BUNDLES: &[&str] = &[TEAMS_BUNDLE, "com.microsoft.teams"];
+
+pub fn teams_pid() -> Option<i32> {
+    TEAMS_BUNDLES
+        .iter()
+        .find_map(|bundle_id| pid_for(bundle_id))
+}
 
 pub fn pid_for(bundle_id: &str) -> Option<i32> {
     let ident = NSString::from_str(bundle_id);

@@ -17,11 +17,25 @@ const AX_SUCCESS: i32 = 0;
 const AX_INVALID_ELEMENT: i32 = -25202;
 const AX_API_DISABLED: i32 = -25211;
 const AX_VALUE_CGSIZE: u32 = 2;
+const AX_VALUE_CGRECT: u32 = 3;
+const WEB_VIEW: &str = "RenderWidgetHostViewCocoa";
 
 #[repr(C)]
 struct CgSize {
     width: f64,
     height: f64,
+}
+
+#[repr(C)]
+struct CgPoint {
+    x: f64,
+    y: f64,
+}
+
+#[repr(C)]
+struct CgRect {
+    origin: CgPoint,
+    size: CgSize,
 }
 
 #[link(name = "ApplicationServices", kind = "framework")]
@@ -58,7 +72,7 @@ pub fn application_tree(pid: i32, enable_electron: bool) -> Result<AxNode, Strin
                 require_access(set_bool(app, "AXManualAccessibility"))?;
                 require_access(set_bool(app, "AXEnhancedUserInterface"))?;
             }
-            read_node(app, 0)
+            read_node(app, 0, enable_electron)
         })();
         CFRelease(app);
         result
@@ -115,8 +129,20 @@ fn copy_string(element: CFTypeRef, name: &str) -> Result<Option<String>, String>
 }
 
 fn copy_size(element: CFTypeRef) -> Result<(f64, f64), String> {
-    let Some(value) = copy_attribute(element, "AXSize")? else {
-        return Ok((0.0, 0.0));
+    if let Some((width, height)) = read_cgsize(element, "AXSize")? {
+        if width > 0.0 || height > 0.0 {
+            return Ok((width, height));
+        }
+    }
+    if let Some((width, height)) = read_cgrect(element, "AXFrame")? {
+        return Ok((width, height));
+    }
+    Ok((0.0, 0.0))
+}
+
+fn read_cgsize(element: CFTypeRef, name: &str) -> Result<Option<(f64, f64)>, String> {
+    let Some(value) = copy_attribute(element, name)? else {
+        return Ok(None);
     };
     let mut size = CgSize {
         width: 0.0,
@@ -133,10 +159,52 @@ fn copy_size(element: CFTypeRef) -> Result<(f64, f64), String> {
             ) != 0
     };
     if ok {
-        Ok((size.width, size.height))
+        Ok(Some((size.width, size.height)))
     } else {
-        Ok((0.0, 0.0))
+        Ok(None)
     }
+}
+
+fn read_cgrect(element: CFTypeRef, name: &str) -> Result<Option<(f64, f64)>, String> {
+    let Some(value) = copy_attribute(element, name)? else {
+        return Ok(None);
+    };
+    let mut rect = CgRect {
+        origin: CgPoint { x: 0.0, y: 0.0 },
+        size: CgSize {
+            width: 0.0,
+            height: 0.0,
+        },
+    };
+    let raw = value.as_CFTypeRef();
+    let ok = unsafe {
+        CFGetTypeID(raw) == AXValueGetTypeID()
+            && AXValueGetType(raw) == AX_VALUE_CGRECT
+            && AXValueGetValue(
+                raw,
+                AX_VALUE_CGRECT,
+                &mut rect as *mut CgRect as *mut c_void,
+            ) != 0
+    };
+    if ok {
+        Ok(Some((rect.size.width, rect.size.height)))
+    } else {
+        Ok(None)
+    }
+}
+
+fn wants_electron_accessibility(node: &AxNode) -> bool {
+    node.role == "AXWindow"
+        || node.role == "AXApplication"
+        || node.role.contains(WEB_VIEW)
+        || node
+            .title
+            .as_deref()
+            .is_some_and(|title| title.contains(WEB_VIEW))
+        || node
+            .description
+            .as_deref()
+            .is_some_and(|description| description.contains(WEB_VIEW))
 }
 
 fn copy_children(element: CFTypeRef) -> Result<Option<CFArray>, String> {
@@ -146,7 +214,7 @@ fn copy_children(element: CFTypeRef) -> Result<Option<CFArray>, String> {
     Ok(value.downcast_into::<CFArray>())
 }
 
-fn read_node(element: CFTypeRef, depth: u32) -> Result<AxNode, String> {
+fn read_node(element: CFTypeRef, depth: u32, enable_electron: bool) -> Result<AxNode, String> {
     if depth > MAX_DEPTH {
         return Ok(AxNode::new("AXGroup"));
     }
@@ -163,6 +231,12 @@ fn read_node(element: CFTypeRef, depth: u32) -> Result<AxNode, String> {
     }
     let (width, height) = copy_size(element)?;
     node = node.frame(width, height);
+    if enable_electron && wants_electron_accessibility(&node) {
+        // Teams keeps the web view closed until this is set on the window,
+        // not only on the application element. Children may appear next poll.
+        let _ = set_bool(element, "AXManualAccessibility");
+        let _ = set_bool(element, "AXEnhancedUserInterface");
+    }
 
     // The children array owns each element. Walk them before it is released.
     if let Some(children) = copy_children(element)? {
@@ -171,7 +245,8 @@ fn read_node(element: CFTypeRef, depth: u32) -> Result<AxNode, String> {
             if ptr.is_null() {
                 continue;
             }
-            node.children.push(read_node(ptr, depth + 1)?);
+            node.children
+                .push(read_node(ptr, depth + 1, enable_electron)?);
         }
     }
     Ok(node)

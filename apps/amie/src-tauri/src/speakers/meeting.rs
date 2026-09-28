@@ -1,4 +1,6 @@
 use std::collections::BTreeSet;
+#[cfg(target_os = "macos")]
+use std::sync::atomic::{AtomicBool, Ordering};
 
 #[cfg(target_os = "macos")]
 mod ax;
@@ -47,7 +49,7 @@ pub fn running_meeting_app() -> Option<MeetingApp> {
         if process::pid_for(process::ZOOM_BUNDLE).is_some() {
             return Some(MeetingApp::Zoom);
         }
-        if process::pid_for(process::TEAMS_BUNDLE).is_some() {
+        if process::teams_pid().is_some() {
             return Some(MeetingApp::Teams);
         }
         None
@@ -61,7 +63,7 @@ pub fn running_meeting_app() -> Option<MeetingApp> {
 #[cfg(target_os = "macos")]
 fn read_speakers_macos() -> Result<BTreeSet<String>, String> {
     let zoom = process::pid_for(process::ZOOM_BUNDLE);
-    let teams_pid = process::pid_for(process::TEAMS_BUNDLE);
+    let teams_pid = process::teams_pid();
     match (zoom, teams_pid) {
         (None, None) => Ok(BTreeSet::new()),
         (Some(pid), None) => read_zoom(pid),
@@ -84,5 +86,20 @@ fn read_zoom(pid: i32) -> Result<BTreeSet<String>, String> {
 
 #[cfg(target_os = "macos")]
 fn read_teams(pid: i32) -> Result<BTreeSet<String>, String> {
-    ax::application_tree(pid, true).map(|tree| teams::read(&tree).speakers)
+    let tree = ax::application_tree(pid, true)?;
+    let read = teams::read(&tree);
+    if read.requested_manual_accessibility && read.speakers.is_empty() {
+        return Err("Teams accessibility tree is still closed".into());
+    }
+    if read.speakers.is_empty() && !read.present.is_empty() {
+        static LOGGED: AtomicBool = AtomicBool::new(false);
+        if !LOGGED.swap(true, Ordering::Relaxed) {
+            let names: Vec<_> = read.present.iter().take(8).cloned().collect();
+            tracing::warn!(
+                ?names,
+                "Teams accessibility tree has participant names and no speaking mark"
+            );
+        }
+    }
+    Ok(read.speakers)
 }

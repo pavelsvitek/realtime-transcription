@@ -23,8 +23,18 @@ pub fn parse_tile_label(raw: &str) -> Option<TileLabel> {
     loop {
         let lower = text.to_lowercase();
         let matched = [
+            (" is not speaking", Suffix::NotSpeaking),
             (", not speaking", Suffix::NotSpeaking),
+            (" is not talking", Suffix::NotSpeaking),
+            (", not talking", Suffix::NotSpeaking),
+            (" is currently speaking", Suffix::Speaking),
+            (" currently speaking", Suffix::Speaking),
+            (" is speaking", Suffix::Speaking),
             (", speaking", Suffix::Speaking),
+            (" is talking", Suffix::Speaking),
+            (", talking", Suffix::Speaking),
+            (" (speaking)", Suffix::Speaking),
+            ("(speaking)", Suffix::Speaking),
             (", unmuted", Suffix::Other),
             (", muted", Suffix::Other),
             (", context menu", Suffix::Other),
@@ -115,5 +125,13 @@ mod tests {
         let label = parse_tile_label("Ada, not speaking").unwrap();
         assert!(!label.speaking);
         assert_eq!(label.name, "Ada");
+    }
+
+    #[test]
+    fn is_speaking_is_a_speaking_suffix() {
+        let label = parse_tile_label("Ada Lovelace is speaking").unwrap();
+        assert_eq!(label.name, "Ada Lovelace");
+        assert!(label.speaking);
+        assert!(!label.is_self);
     }
 }
