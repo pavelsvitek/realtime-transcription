@@ -206,6 +206,7 @@ impl TranscriptionService {
                 Some(Arc::new(Mutex::new(SpeakerTimeline::new())))
             }
         };
+        let speaker_cut = Arc::new(AtomicU64::new(0));
 
         let (mic, system) = match source {
             AudioSource::Both => {
@@ -220,6 +221,7 @@ impl TranscriptionService {
                     self.meetings.clone(),
                     meeting_id.clone(),
                     None,
+                    None,
                 )?;
                 let system = spawn_stream_worker(
                     AudioSource::SystemAudio,
@@ -232,6 +234,7 @@ impl TranscriptionService {
                     self.meetings.clone(),
                     meeting_id.clone(),
                     speakers.clone(),
+                    Some(speaker_cut.clone()),
                 )?;
                 (Some(mic), Some(system))
             }
@@ -246,6 +249,7 @@ impl TranscriptionService {
                     debug_session.clone(),
                     self.meetings.clone(),
                     meeting_id.clone(),
+                    None,
                     None,
                 )?;
                 (Some(pair), None)
@@ -262,6 +266,7 @@ impl TranscriptionService {
                     self.meetings.clone(),
                     meeting_id.clone(),
                     speakers.clone(),
+                    Some(speaker_cut.clone()),
                 )?;
                 (None, Some(pair))
             }
@@ -274,6 +279,7 @@ impl TranscriptionService {
                     pair.counters.captured_counter(),
                     pair.sample_rate,
                     stop_flag.clone(),
+                    speaker_cut,
                 )
             })
         });
@@ -555,6 +561,7 @@ fn spawn_stream_worker(
     meetings: Option<MeetingStore>,
     meeting_id: Option<String>,
     speakers: Option<Arc<Mutex<SpeakerTimeline>>>,
+    speaker_cut: Option<Arc<AtomicU64>>,
 ) -> Result<StreamPair, AppError> {
     super::cpal_capture::reset_capture_stats();
     let (audio_tx, audio_rx) = mpsc::sync_channel::<Vec<f32>>(AUDIO_CHANNEL_BOUND);
@@ -618,6 +625,7 @@ fn spawn_stream_worker(
                 stop_flag,
                 segment_counter,
                 observer,
+                speaker_cut,
             );
         })
         .map_err(|e| AppError::Capture(format!("Failed to spawn worker: {e}")))?;

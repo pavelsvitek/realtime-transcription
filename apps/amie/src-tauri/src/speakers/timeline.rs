@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 
 /// Convert a capture sample count into milliseconds on that stream's clock.
 pub fn samples_to_ms(samples: u64, sample_rate: u32) -> u64 {
@@ -12,7 +12,10 @@ pub fn samples_to_ms(samples: u64, sample_rate: u32) -> u64 {
 /// Polls of who is speaking, stamped on the system-audio sample clock.
 ///
 /// Consecutive polls with the same set collapse into one interval. `resolve`
-/// returns a name only when that single remote speaker covers the whole range.
+/// returns the speaker set that covers the most of the range. Simultaneous
+/// names are joined with `"; "` in sorted order so a comma inside a name
+/// (e.g. `Richardson, Bob`) is not a speaker boundary. Ties keep the set
+/// that starts earlier.
 #[derive(Debug, Default, Clone)]
 pub struct SpeakerTimeline {
     polls: Vec<(u64, BTreeSet<String>)>,
@@ -23,16 +26,17 @@ impl SpeakerTimeline {
         Self { polls: Vec::new() }
     }
 
-    pub fn push<I, S>(&mut self, at_ms: u64, speakers: I)
+    pub fn push<I, S>(&mut self, at_ms: u64, speakers: I) -> bool
     where
         I: IntoIterator<Item = S>,
         S: Into<String>,
     {
         let set: BTreeSet<String> = speakers.into_iter().map(Into::into).collect();
         if self.polls.last().is_some_and(|(_, last)| last == &set) {
-            return;
+            return false;
         }
         self.polls.push((at_ms, set));
+        true
     }
 
     pub fn poll_count(&self) -> usize {
@@ -56,41 +60,56 @@ impl SpeakerTimeline {
             start_ms
         };
 
-        let mut only: Option<String> = None;
-        let mut cursor = start_ms;
-        for (index, (at, set)) in self.polls.iter().enumerate() {
-            let next = self
-                .polls
-                .get(index + 1)
-                .map(|(time, _)| *time)
-                .unwrap_or(u64::MAX);
-            if next <= start_ms || *at >= range_end {
-                continue;
-            }
-            let name = single_name(set)?;
-            match &only {
-                None => only = Some(name.to_string()),
-                Some(existing) if existing != name => return None,
-                Some(_) => {}
-            }
-            let cover_from = (*at).max(start_ms);
-            if cover_from > cursor {
-                return None;
-            }
-            cursor = cursor.max(next.min(range_end));
-        }
-        if cursor < range_end {
-            return None;
-        }
-        only
+        score_range(&self.polls, start_ms, range_end)
     }
 }
 
-fn single_name(set: &BTreeSet<String>) -> Option<&str> {
-    if set.len() != 1 {
+struct Coverage {
+    duration: u64,
+    earliest: u64,
+}
+
+fn score_range(polls: &[(u64, BTreeSet<String>)], start_ms: u64, range_end: u64) -> Option<String> {
+    let mut scores: HashMap<String, Coverage> = HashMap::new();
+    for (index, (at, set)) in polls.iter().enumerate() {
+        let next = polls
+            .get(index + 1)
+            .map(|(time, _)| *time)
+            .unwrap_or(u64::MAX);
+        if next <= start_ms || *at >= range_end {
+            continue;
+        }
+        let Some(label) = format_speakers(set) else {
+            continue;
+        };
+        let cover_from = (*at).max(start_ms);
+        let cover_to = next.min(range_end);
+        if cover_to <= cover_from {
+            continue;
+        }
+        let entry = scores.entry(label).or_insert(Coverage {
+            duration: 0,
+            earliest: cover_from,
+        });
+        entry.duration += cover_to - cover_from;
+        entry.earliest = entry.earliest.min(cover_from);
+    }
+    scores
+        .into_iter()
+        .max_by(|left, right| {
+            left.1
+                .duration
+                .cmp(&right.1.duration)
+                .then(right.1.earliest.cmp(&left.1.earliest))
+        })
+        .map(|(label, _)| label)
+}
+
+fn format_speakers(set: &BTreeSet<String>) -> Option<String> {
+    if set.is_empty() {
         return None;
     }
-    set.iter().next().map(String::as_str)
+    Some(set.iter().cloned().collect::<Vec<_>>().join("; "))
 }
 
 #[cfg(test)]
@@ -112,10 +131,20 @@ mod tests {
     }
 
     #[test]
-    fn overlap_gap_and_local_user_stay_unresolved() {
+    fn overlap_is_joined_and_a_gap_or_nobody_stays_unresolved() {
         let mut overlap = SpeakerTimeline::new();
         overlap.push(0, ["Ada Lovelace", "Bob"]);
-        assert!(overlap.resolve(0, 500).is_none());
+        assert_eq!(
+            overlap.resolve(0, 500).as_deref(),
+            Some("Ada Lovelace; Bob")
+        );
+
+        let mut last_first = SpeakerTimeline::new();
+        last_first.push(0, ["Richardson, Bob", "Ada Lovelace"]);
+        assert_eq!(
+            last_first.resolve(0, 500).as_deref(),
+            Some("Ada Lovelace; Richardson, Bob")
+        );
 
         let mut gap = SpeakerTimeline::new();
         gap.push(1_000, ["Ada Lovelace"]);
@@ -124,6 +153,23 @@ mod tests {
         let mut nobody = SpeakerTimeline::new();
         nobody.push(0, Vec::<String>::new());
         assert!(nobody.resolve(0, 500).is_none());
+    }
+
+    #[test]
+    fn a_later_speaker_does_not_steal_a_range_they_barely_overlap() {
+        let mut timeline = SpeakerTimeline::new();
+        timeline.push(0, ["Ada Lovelace"]);
+        timeline.push(1_900, ["Bob"]);
+        assert_eq!(timeline.resolve(0, 2_000).as_deref(), Some("Ada Lovelace"));
+        assert_eq!(timeline.resolve(1_900, 2_500).as_deref(), Some("Bob"));
+    }
+
+    #[test]
+    fn an_equal_split_keeps_the_speaker_who_started_the_range() {
+        let mut timeline = SpeakerTimeline::new();
+        timeline.push(0, ["Bob"]);
+        timeline.push(500, ["Ada Lovelace"]);
+        assert_eq!(timeline.resolve(0, 1_000).as_deref(), Some("Bob"));
     }
 
     #[test]
@@ -137,7 +183,7 @@ mod tests {
 
         timeline.push(2_000, ["Bob"]);
         assert_eq!(timeline.poll_count(), 2);
-        assert!(timeline.resolve(0, 2_500).is_none());
+        assert_eq!(timeline.resolve(0, 2_500).as_deref(), Some("Ada Lovelace"));
         assert_eq!(timeline.resolve(2_000, 3_000).as_deref(), Some("Bob"));
     }
 

@@ -1,14 +1,15 @@
 /// One node of an accessibility tree.
 ///
-/// Production fills this from `AXUIElement`. Tests build it directly. Class
-/// names and `data-*` attributes are not here, because the accessibility API
-/// does not return them.
+/// Production fills this from `AXUIElement`. Tests build it directly.
+/// Chromium / WebView2 also expose `AXDOMIdentifier` and `AXDOMClassList`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct AxNode {
     pub role: String,
     pub title: Option<String>,
     pub description: Option<String>,
     pub value: Option<String>,
+    pub dom_id: Option<String>,
+    pub classes: Vec<String>,
     pub width: f64,
     pub height: f64,
     pub children: Vec<AxNode>,
@@ -21,6 +22,8 @@ impl AxNode {
             title: None,
             description: None,
             value: None,
+            dom_id: None,
+            classes: Vec::new(),
             width: 0.0,
             height: 0.0,
             children: Vec::new(),
@@ -39,6 +42,20 @@ impl AxNode {
 
     pub fn valued(mut self, value: impl Into<String>) -> Self {
         self.value = Some(value.into());
+        self
+    }
+
+    pub fn id(mut self, dom_id: impl Into<String>) -> Self {
+        self.dom_id = Some(dom_id.into());
+        self
+    }
+
+    pub fn classes<I, S>(mut self, classes: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.classes = classes.into_iter().map(Into::into).collect();
         self
     }
 

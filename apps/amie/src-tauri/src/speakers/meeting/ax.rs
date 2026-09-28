@@ -5,7 +5,9 @@
 //! `kAXErrorInvalidUIElement`.
 
 use core_foundation::array::CFArray;
-use core_foundation::base::{CFGetTypeID, CFRelease, CFType, CFTypeID, CFTypeRef, TCFType};
+use core_foundation::base::{
+    CFGetTypeID, CFRelease, CFRetain, CFType, CFTypeID, CFTypeRef, TCFType,
+};
 use core_foundation::boolean::CFBoolean;
 use core_foundation::string::{CFString, CFStringRef};
 use std::ffi::c_void;
@@ -51,6 +53,7 @@ extern "C" {
         attribute: CFStringRef,
         value: CFTypeRef,
     ) -> i32;
+    fn AXUIElementPerformAction(element: CFTypeRef, action: CFStringRef) -> i32;
     fn AXValueGetType(value: CFTypeRef) -> u32;
     fn AXValueGetValue(value: CFTypeRef, value_type: u32, out: *mut c_void) -> u8;
     fn AXValueGetTypeID() -> CFTypeID;
@@ -77,6 +80,75 @@ pub fn application_tree(pid: i32, enable_electron: bool) -> Result<AxNode, Strin
         CFRelease(app);
         result
     }
+}
+
+/// Press the first node whose Chromium `AXDOMIdentifier` equals `want`.
+pub fn press_dom_id(pid: i32, want: &str) -> Result<bool, String> {
+    press_first(pid, |element| {
+        Ok(copy_string(element, "AXDOMIdentifier")?.as_deref() == Some(want))
+    })
+}
+
+/// Press the first node whose accessibility title equals `want`.
+pub fn press_titled(pid: i32, want: &str) -> Result<bool, String> {
+    press_first(pid, |element| {
+        Ok(copy_string(element, "AXTitle")?.as_deref() == Some(want))
+    })
+}
+
+fn press_first(
+    pid: i32,
+    matches: impl Fn(CFTypeRef) -> Result<bool, String>,
+) -> Result<bool, String> {
+    unsafe {
+        let app = AXUIElementCreateApplication(pid);
+        if app.is_null() {
+            return Err(format!("Could not open accessibility tree for pid {pid}"));
+        }
+        let found = find_first(app, 0, &matches);
+        let pressed = match found {
+            Ok(Some(element)) => {
+                let action = CFString::new("AXPress");
+                let err = AXUIElementPerformAction(element, action.as_concrete_TypeRef());
+                CFRelease(element);
+                require_access(err)?;
+                err == AX_SUCCESS
+            }
+            Ok(None) => false,
+            Err(error) => {
+                CFRelease(app);
+                return Err(error);
+            }
+        };
+        CFRelease(app);
+        Ok(pressed)
+    }
+}
+
+fn find_first(
+    element: CFTypeRef,
+    depth: u32,
+    matches: &impl Fn(CFTypeRef) -> Result<bool, String>,
+) -> Result<Option<CFTypeRef>, String> {
+    if depth > MAX_DEPTH {
+        return Ok(None);
+    }
+    if matches(element)? {
+        unsafe { CFRetain(element) };
+        return Ok(Some(element));
+    }
+    if let Some(children) = copy_children(element)? {
+        for child in &children {
+            let ptr = *child as CFTypeRef;
+            if ptr.is_null() {
+                continue;
+            }
+            if let Some(found) = find_first(ptr, depth + 1, matches)? {
+                return Ok(Some(found));
+            }
+        }
+    }
+    Ok(None)
 }
 
 fn set_bool(element: CFTypeRef, name: &str) -> i32 {
@@ -214,6 +286,27 @@ fn copy_children(element: CFTypeRef) -> Result<Option<CFArray>, String> {
     Ok(value.downcast_into::<CFArray>())
 }
 
+fn copy_string_array(element: CFTypeRef, name: &str) -> Result<Vec<String>, String> {
+    let Some(value) = copy_attribute(element, name)? else {
+        return Ok(Vec::new());
+    };
+    let Some(array) = value.downcast_into::<CFArray>() else {
+        return Ok(Vec::new());
+    };
+    let mut out = Vec::new();
+    for item in &array {
+        let ptr = *item as CFTypeRef;
+        if ptr.is_null() {
+            continue;
+        }
+        let wrapped = unsafe { CFType::wrap_under_get_rule(ptr) };
+        if let Some(text) = wrapped.downcast_into::<CFString>() {
+            out.push(text.to_string());
+        }
+    }
+    Ok(out)
+}
+
 fn read_node(element: CFTypeRef, depth: u32, enable_electron: bool) -> Result<AxNode, String> {
     if depth > MAX_DEPTH {
         return Ok(AxNode::new("AXGroup"));
@@ -228,6 +321,13 @@ fn read_node(element: CFTypeRef, depth: u32, enable_electron: bool) -> Result<Ax
     }
     if let Some(value) = copy_string(element, "AXValue")? {
         node = node.valued(value);
+    }
+    if let Some(dom_id) = copy_string(element, "AXDOMIdentifier")? {
+        node = node.id(dom_id);
+    }
+    let classes = copy_string_array(element, "AXDOMClassList")?;
+    if !classes.is_empty() {
+        node = node.classes(classes);
     }
     let (width, height) = copy_size(element)?;
     node = node.frame(width, height);

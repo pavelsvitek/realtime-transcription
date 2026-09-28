@@ -104,6 +104,22 @@ fn read_zoom(pid: i32) -> Result<BTreeSet<String>, String> {
 #[cfg(target_os = "macos")]
 fn read_teams(pid: i32) -> Result<BTreeSet<String>, String> {
     let tree = ax::application_tree(pid, true)?;
+    if teams::needs_roster_open(&tree) {
+        match ax::press_dom_id(pid, "roster-button") {
+            Ok(true) => tracing::info!("Opened Teams participants pane; video gallery was not in the tree"),
+            Ok(false) => tracing::debug!("Teams roster-button was not in the tree"),
+            Err(error) => tracing::warn!(%error, "Could not open Teams participants pane"),
+        }
+    } else if teams::needs_roster_close(&tree) {
+        static CLOSED: AtomicBool = AtomicBool::new(false);
+        if !CLOSED.swap(true, Ordering::Relaxed) {
+            match ax::press_titled(pid, "Close participants pane") {
+                Ok(true) => tracing::info!("Closed Teams participants pane; using video gallery"),
+                Ok(false) => tracing::debug!("Teams close-participants control was not in the tree"),
+                Err(error) => tracing::warn!(%error, "Could not close Teams participants pane"),
+            }
+        }
+    }
     let read = teams::read(&tree);
     if read.requested_manual_accessibility && read.speakers.is_empty() {
         return Err("Teams accessibility tree is still closed".into());

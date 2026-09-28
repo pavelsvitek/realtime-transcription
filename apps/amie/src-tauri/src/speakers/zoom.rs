@@ -73,14 +73,17 @@ mod tests {
     }
 
     #[test]
-    fn two_speakers_only_self_and_no_suffix_resolve_to_nothing() {
+    fn two_speakers_join_and_only_self_and_no_suffix_resolve_to_nothing() {
         let both = AxNode::new("AXWindow")
             .child(menu("Ada Lovelace, speaking"))
             .child(menu("Bob, speaking"));
         assert!(speaking_names(&both).len() != 1);
         let mut timeline = SpeakerTimeline::new();
         timeline.push(0, speaking_names(&both));
-        assert!(timeline.resolve(0, 1_000).is_none());
+        assert_eq!(
+            timeline.resolve(0, 1_000).as_deref(),
+            Some("Ada Lovelace; Bob")
+        );
 
         let only_self = AxNode::new("AXWindow").child(menu("Pavel (You), speaking"));
         let mut timeline = SpeakerTimeline::new();

@@ -40,4 +40,14 @@ mod tests {
             "User"
         );
     }
+
+    #[test]
+    fn simultaneous_remote_names_are_joined() {
+        let mut timeline = SpeakerTimeline::new();
+        timeline.push(0, ["Bob", "Ada Lovelace"]);
+        assert_eq!(
+            speaker_for_segment(SYSTEM_STREAM, REMOTE, 0, 1_000, &timeline),
+            "Ada Lovelace; Bob"
+        );
+    }
 }

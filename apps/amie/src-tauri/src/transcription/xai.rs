@@ -244,6 +244,10 @@ impl StreamingAsr for XaiWsPipeline {
         self.drain_events()
     }
 
+    fn cut_utterance(&mut self) -> Result<Option<AsrOutput>> {
+        Ok(None)
+    }
+
     fn finish(&mut self) -> Result<AsrOutput> {
         if !self.pcm_buffer.is_empty() {
             let remaining = std::mem::take(&mut self.pcm_buffer);

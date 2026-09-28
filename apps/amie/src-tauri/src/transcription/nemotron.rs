@@ -80,6 +80,8 @@ enum HelperResponse {
     Error { message: String },
     #[serde(rename = "finished")]
     Finished,
+    #[serde(rename = "boundary-done")]
+    BoundaryDone,
     #[allow(dead_code)]
     #[serde(rename = "downloaded")]
     Downloaded {
@@ -192,6 +194,11 @@ impl NemotronPipeline {
         self.collect_until_finished()
     }
 
+    pub fn cut_utterance(&mut self) -> anyhow::Result<Option<AsrOutput>> {
+        self.send(&BasicRequest { kind: "boundary" })?;
+        self.collect_until_boundary()
+    }
+
     fn send<T: Serialize>(&mut self, payload: &T) -> anyhow::Result<()> {
         let raw = serde_json::to_vec(payload)?;
         self.stdin.write_all(&raw)?;
@@ -221,7 +228,7 @@ impl NemotronPipeline {
                     output.tentative.push(asr_segment(text, start_ms, end_ms));
                 }
                 HelperResponse::Error { message } => anyhow::bail!(message),
-                HelperResponse::Finished => break,
+                HelperResponse::Finished | HelperResponse::BoundaryDone => break,
                 HelperResponse::Ready { .. }
                 | HelperResponse::Loading { .. }
                 | HelperResponse::Downloaded { .. } => {}
@@ -245,7 +252,7 @@ impl NemotronPipeline {
                     end_ms,
                 })) => output.committed.push(asr_segment(text, start_ms, end_ms)),
                 Ok(Ok(HelperResponse::Partial { .. })) => {}
-                Ok(Ok(HelperResponse::Finished)) => break,
+                Ok(Ok(HelperResponse::Finished | HelperResponse::BoundaryDone)) => break,
                 Ok(Ok(HelperResponse::Error { message })) => anyhow::bail!(message),
                 Ok(Ok(
                     HelperResponse::Ready { .. }
@@ -257,6 +264,41 @@ impl NemotronPipeline {
             }
         }
         Ok(output)
+    }
+
+    /// Wait until the helper finishes a speaker-change cut.
+    ///
+    /// A commit is optional: silence has nothing to emit, and `boundary-done`
+    /// is what unblocks that case. The timeout is only a stuck-helper guard.
+    fn collect_until_boundary(&mut self) -> anyhow::Result<Option<AsrOutput>> {
+        let mut output = AsrOutput::default();
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        loop {
+            let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+            if remaining.is_zero() {
+                tracing::warn!("Timed out waiting for Nemotron speaker boundary");
+                break;
+            }
+            match self.responses.recv_timeout(remaining) {
+                Ok(Ok(message)) => match apply_boundary_response(message, &mut output)? {
+                    BoundaryStep::KeepGoing => {}
+                    BoundaryStep::Done => break,
+                },
+                Ok(Err(error)) => return Err(error),
+                Err(mpsc::RecvTimeoutError::Timeout) => {
+                    tracing::warn!("Timed out waiting for Nemotron speaker boundary");
+                    break;
+                }
+                Err(mpsc::RecvTimeoutError::Disconnected) => {
+                    anyhow::bail!("Nemotron helper closed during speaker boundary");
+                }
+            }
+        }
+        if output.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(output))
+        }
     }
 }
 
@@ -275,6 +317,10 @@ impl StreamingAsr for NemotronPipeline {
 
     fn finish(&mut self) -> anyhow::Result<AsrOutput> {
         NemotronPipeline::finish(self)
+    }
+
+    fn cut_utterance(&mut self) -> anyhow::Result<Option<AsrOutput>> {
+        NemotronPipeline::cut_utterance(self)
     }
 }
 
@@ -344,6 +390,34 @@ fn asr_segment(text: String, start_ms: u64, end_ms: u64) -> AsrWord {
     }
 }
 
+enum BoundaryStep {
+    KeepGoing,
+    Done,
+}
+
+/// Fold one helper message while waiting for a speaker-change cut.
+fn apply_boundary_response(
+    message: HelperResponse,
+    output: &mut AsrOutput,
+) -> anyhow::Result<BoundaryStep> {
+    match message {
+        HelperResponse::Commit {
+            text,
+            start_ms,
+            end_ms,
+        } => {
+            output.committed.push(asr_segment(text, start_ms, end_ms));
+            Ok(BoundaryStep::KeepGoing)
+        }
+        HelperResponse::Partial { .. }
+        | HelperResponse::Ready { .. }
+        | HelperResponse::Loading { .. }
+        | HelperResponse::Downloaded { .. } => Ok(BoundaryStep::KeepGoing),
+        HelperResponse::BoundaryDone | HelperResponse::Finished => Ok(BoundaryStep::Done),
+        HelperResponse::Error { message } => anyhow::bail!(message),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -377,5 +451,38 @@ mod tests {
         )
         .unwrap_err();
         assert!(error.contains("setup-nemotron.sh"));
+    }
+
+    #[test]
+    fn boundary_request_names_the_cut() {
+        let value = serde_json::to_value(BasicRequest { kind: "boundary" }).unwrap();
+        assert_eq!(value["type"], "boundary");
+    }
+
+    #[test]
+    fn boundary_done_with_no_commit_finishes_empty() {
+        let mut output = AsrOutput::default();
+        let step = apply_boundary_response(HelperResponse::BoundaryDone, &mut output).unwrap();
+        assert!(matches!(step, BoundaryStep::Done));
+        assert!(output.is_empty());
+    }
+
+    #[test]
+    fn boundary_commit_is_kept_until_done() {
+        let mut output = AsrOutput::default();
+        let step = apply_boundary_response(
+            HelperResponse::Commit {
+                text: "from ada".into(),
+                start_ms: 0,
+                end_ms: 1_000,
+            },
+            &mut output,
+        )
+        .unwrap();
+        assert!(matches!(step, BoundaryStep::KeepGoing));
+        assert_eq!(output.committed.len(), 1);
+        let step = apply_boundary_response(HelperResponse::BoundaryDone, &mut output).unwrap();
+        assert!(matches!(step, BoundaryStep::Done));
+        assert_eq!(output.committed[0].text, "from ada");
     }
 }

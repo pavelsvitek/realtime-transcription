@@ -70,6 +70,10 @@ private struct FinishedMessage: Encodable {
     let type = "finished"
 }
 
+private struct BoundaryDoneMessage: Encodable {
+    let type = "boundary-done"
+}
+
 private enum BridgeError: Error, LocalizedError {
     case invalidMessage(String)
     case incompleteModel(String)
@@ -129,6 +133,8 @@ struct NemotronBridgeApp {
             case "audio":
                 let message = try JSONDecoder().decode(AudioMessage.self, from: Data(line.utf8))
                 try session.pushAudio(base64PCM16: message.pcm16Base64)
+            case "boundary":
+                try session.boundary()
             case "finish":
                 try session.finish()
                 emit(FinishedMessage())
@@ -219,6 +225,14 @@ private final class BridgeSession {
 
     func finish() throws {
         try commitCurrentUtterance(force: true, resetSession: false)
+    }
+
+    /// Speaker change. Same finalize-and-reset as a silence boundary.
+    /// `boundary-done` is always emitted so an empty utterance does not leave
+    /// the Rust side waiting for a commit that will never arrive.
+    func boundary() throws {
+        try commitCurrentUtterance()
+        emit(BoundaryDoneMessage())
     }
 
     private func emitLatestPartial(

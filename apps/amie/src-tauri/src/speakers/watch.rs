@@ -43,10 +43,11 @@ pub fn start(
     captured_samples: Arc<AtomicU64>,
     sample_rate: u32,
     stop: Arc<AtomicBool>,
+    speaker_cut: Arc<AtomicU64>,
 ) -> SpeakerWatch {
     let handle = std::thread::Builder::new()
         .name("speaker-watch".into())
-        .spawn(move || poll_loop(timeline, captured_samples, sample_rate, stop))
+        .spawn(move || poll_loop(timeline, captured_samples, sample_rate, stop, speaker_cut))
         .inspect_err(|error| tracing::error!(%error, "Failed to start speaker watch"))
         .ok();
     SpeakerWatch { handle }
@@ -57,6 +58,7 @@ fn poll_loop(
     captured_samples: Arc<AtomicU64>,
     sample_rate: u32,
     stop: Arc<AtomicBool>,
+    speaker_cut: Arc<AtomicU64>,
 ) {
     let mut warned = false;
     let mut hold = SpeakerHold::default();
@@ -67,8 +69,14 @@ fn poll_loop(
                 if let Some(names) = hold.publish(app_running, names) {
                     let at_ms =
                         samples_to_ms(captured_samples.load(Ordering::Relaxed), sample_rate);
-                    if let Ok(mut timeline) = timeline.lock() {
-                        timeline.push(at_ms, names);
+                    let changed = timeline
+                        .lock()
+                        .map(|mut timeline| timeline.push(at_ms, names.iter().cloned()))
+                        .unwrap_or(false);
+                    // A different non-empty set is a speaker change. Holding the
+                    // last name across a failed read, or clearing to nobody, is not.
+                    if changed && !names.is_empty() {
+                        speaker_cut.fetch_add(1, Ordering::Release);
                     }
                 }
             }
