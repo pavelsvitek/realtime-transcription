@@ -108,6 +108,15 @@ export function SettingsPage() {
               {speakerStatus ? (speakerStatus.trusted ? "On" : "Off") : "Loading…"}
             </span>
           </div>
+          <div className="settings-row">
+            <span className="settings-label">This build</span>
+            <span className="settings-value">
+              {speakerStatus?.buildLabel ?? "Loading…"}
+            </span>
+          </div>
+          {speakerStatus?.bundlePath && (
+            <p className="settings-copy">{speakerStatus.bundlePath}</p>
+          )}
           {speakerStatus?.meetingApp === "zoom" && (
             <p className="settings-copy">Zoom is open.</p>
           )}
@@ -120,8 +129,9 @@ export function SettingsPage() {
               onClick={() =>
                 void run(async () => {
                   await invoke("request_accessibility_permission");
+                  const label = speakerStatus?.buildLabel ?? "this Amie build";
                   setStatus(
-                    "System Settings is open on the Accessibility list. Turn Amie on there.",
+                    `System Settings is open on the Accessibility list. Turn on ${label}.`,
                   );
                 })
               }

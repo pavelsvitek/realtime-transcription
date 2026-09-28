@@ -300,7 +300,9 @@ export function TranscribePage({
       {(speakerError || (speakerStatus && !speakerStatus.trusted)) && (
         <div className="speaker-prompt">
           <p>
-            Speaker names need Accessibility. Turn Amie on in the Privacy &amp; Security list.
+            Speaker names need Accessibility for{" "}
+            {speakerStatus?.buildLabel ?? "this Amie build"}. Turn that name on
+            in Privacy &amp; Security → Accessibility.
             {speakerError ? ` ${speakerError}` : ""}
           </p>
           <button

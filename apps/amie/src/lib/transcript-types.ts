@@ -82,4 +82,6 @@ export type MeetingApp = "zoom" | "teams";
 export type SpeakerTagsStatus = {
   trusted: boolean;
   meetingApp: MeetingApp | null;
+  buildLabel: string;
+  bundlePath: string | null;
 };

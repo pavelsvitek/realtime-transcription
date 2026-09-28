@@ -3,6 +3,10 @@
 # Launches via `open` from a dev .app bundle so LaunchServices attributes
 # system-audio TCC to com.pavel.amie (exec from a terminal does not).
 #
+# The binary lives at Contents/MacOS/amie, matching CFBundleExecutable, so
+# Accessibility TCC applies to this process. A shell wrapper that exec'd
+# amie-bin was a different executable than the bundle claimed.
+#
 # Do not `exec open -n`: LaunchServices then owns the window, Cargo's SIGTERM
 # only kills this launcher, and `-n` stacks another instance on every rebuild.
 set -euo pipefail
@@ -19,24 +23,29 @@ APP="$ROOT/src-tauri/target/debug/amie-dev.app"
 MACOS_DIR="$APP/Contents/MacOS"
 RESOURCES_DIR="$APP/Contents/Resources"
 INFO_PLIST="$APP/Contents/Info.plist"
-WRAPPER="$MACOS_DIR/amie"
-REAL_BINARY="$MACOS_DIR/amie-bin"
-ENV_FILE="$RESOURCES_DIR/dev-runner.env"
+REAL_BINARY="$MACOS_DIR/amie"
 PIDFILE="$ROOT/src-tauri/target/debug/amie-dev.runner.pid"
 
-kill_bundle_bins() {
+kill_matching() {
+  local pattern="$1"
   local pids
-  pids="$(pgrep -f "$REAL_BINARY" || true)"
+  pids="$(pgrep -f "$pattern" || true)"
   if [[ -n "$pids" ]]; then
     # shellcheck disable=SC2086
     kill $pids 2>/dev/null || true
     sleep 0.2
-    pids="$(pgrep -f "$REAL_BINARY" || true)"
+    pids="$(pgrep -f "$pattern" || true)"
     if [[ -n "$pids" ]]; then
       # shellcheck disable=SC2086
       kill -9 $pids 2>/dev/null || true
     fi
   fi
+}
+
+kill_bundle_bins() {
+  kill_matching "$REAL_BINARY"
+  # Previous runner used a wrapper plus amie-bin.
+  kill_matching "$MACOS_DIR/amie-bin"
 }
 
 owns_pidfile() {
@@ -64,43 +73,53 @@ install_if_changed() {
   return 0
 }
 
+write_dev_plist() {
+  local dest="$1"
+  python3 - "$ROOT/src-tauri/Info.plist" "$dest" <<'PY'
+import os
+import plistlib
+import sys
+
+src, dest = sys.argv[1], sys.argv[2]
+with open(src, "rb") as handle:
+    plist = plistlib.load(handle)
+plist["CFBundleDisplayName"] = "Amie Dev"
+plist["CFBundleName"] = "Amie Dev"
+keys = (
+    "DEBUG_SAVE",
+    "RUST_LOG",
+    "NEMOTRON_BRIDGE_PATH",
+    "NEMOTRON_SPEECH_RMS_THRESHOLD",
+    "NEMOTRON_EOU_SILENCE_MS",
+    "NEMOTRON_MIN_SPEECH_MS",
+    "TRANSCRIPTION_AUDIO_SOURCE",
+    "GENERATE_ALL_MEETING_SUMMARIES",
+)
+env = {key: os.environ[key] for key in keys if os.environ.get(key)}
+if env:
+    plist["LSEnvironment"] = env
+else:
+    plist.pop("LSEnvironment", None)
+with open(dest, "wb") as handle:
+    plistlib.dump(plist, handle)
+PY
+}
+
 mkdir -p "$MACOS_DIR" "$RESOURCES_DIR" "$(dirname "$PIDFILE")"
 CHANGED=0
-if install_if_changed "$ROOT/src-tauri/Info.plist" "$INFO_PLIST"; then
+
+PLIST_SRC="$(mktemp)"
+write_dev_plist "$PLIST_SRC"
+if install_if_changed "$PLIST_SRC" "$INFO_PLIST"; then
   CHANGED=1
 fi
+rm -f "$PLIST_SRC"
+
 if install_if_changed "$BINARY" "$REAL_BINARY"; then
   CHANGED=1
 fi
 chmod +x "$REAL_BINARY"
-
-{
-  for var in DEBUG_SAVE RUST_LOG NEMOTRON_BRIDGE_PATH NEMOTRON_SPEECH_RMS_THRESHOLD NEMOTRON_EOU_SILENCE_MS NEMOTRON_MIN_SPEECH_MS TRANSCRIPTION_AUDIO_SOURCE GENERATE_ALL_MEETING_SUMMARIES; do
-    if [[ -n "${!var:-}" ]]; then
-      printf 'export %s=%q\n' "$var" "${!var}"
-    fi
-  done
-} >"$ENV_FILE"
-
-WRAPPER_SRC="$(mktemp)"
-cat >"$WRAPPER_SRC" <<'EOF'
-#!/bin/bash
-set -euo pipefail
-HERE="$(cd "$(dirname "$0")" && pwd)"
-RES="$(cd "$HERE/../Resources" && pwd)"
-if [[ -f "$RES/dev-runner.env" ]]; then
-  set -a
-  # shellcheck source=/dev/null
-  source "$RES/dev-runner.env"
-  set +a
-fi
-exec "$HERE/amie-bin" "$@"
-EOF
-if install_if_changed "$WRAPPER_SRC" "$WRAPPER"; then
-  CHANGED=1
-fi
-rm -f "$WRAPPER_SRC"
-chmod +x "$WRAPPER"
+rm -f "$MACOS_DIR/amie-bin" "$RESOURCES_DIR/dev-runner.env"
 
 # Ad-hoc --force signing mints a new cdhash. Accessibility TCC follows that
 # hash, so a re-sign on every launch asks again even when the binary is the same.
