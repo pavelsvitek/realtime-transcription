@@ -38,6 +38,9 @@ type AmieWindowProps = {
   localSpeaker?: string;
   remoteSpeakerHint?: string;
   onListeningChange?: (listening: boolean) => void;
+  chrome?: "full" | "content";
+  hideFollowUpBanner?: boolean;
+  revealPreviousSummary?: boolean;
 };
 
 const NAV: { id: AppPage; label: string; icon: ReactNode }[] = [
@@ -62,6 +65,9 @@ export function AmieWindow({
   localSpeaker,
   remoteSpeakerHint,
   onListeningChange,
+  chrome = "full",
+  hideFollowUpBanner = false,
+  revealPreviousSummary = false,
 }: AmieWindowProps) {
   const initial = initialState(scene);
   const [page, setPage] = useState<AppPage>(initial.page);
@@ -101,6 +107,7 @@ export function AmieWindow({
   }, [autoPlay, scene, start]);
 
   useEffect(() => {
+    if (!autoPlay) return;
     const onKey = (event: KeyboardEvent) => {
       if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "n") return;
       event.preventDefault();
@@ -109,7 +116,7 @@ export function AmieWindow({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [listening, start]);
+  }, [autoPlay, listening, start]);
 
   useEffect(() => {
     if (!listening) return;
@@ -122,10 +129,25 @@ export function AmieWindow({
   }, [listening, visible]);
 
   const dark = appearance === "dark";
+  const compact = chrome === "content";
   const named = namedSpeakers || scene === "speakers";
   const transcriptLines = (named ? DEMO_NAMED_LINES : DEMO_LINES).map((line) =>
     localSpeaker && line.stream === "mic" ? { ...line, speaker: localSpeaker } : line,
   );
+  const title =
+    page === "home"
+      ? "Home"
+      : page === "meetings"
+        ? "Meetings"
+        : page === "settings"
+          ? "Settings"
+          : scene === "followup"
+            ? "New meeting"
+            : scene === "finished"
+              ? "Hiring plan"
+              : listening
+                ? "Live meeting"
+                : "New chat";
 
   return (
     <div
@@ -138,6 +160,7 @@ export function AmieWindow({
         className,
       )}
     >
+      {compact ? null : (
       <aside
         className={cn(
           "flex w-[200px] shrink-0 flex-col px-3 pb-3 max-[720px]:hidden",
@@ -196,29 +219,21 @@ export function AmieWindow({
           System
         </p>
       </aside>
+      )}
 
       <section
         className={cn(
-          "flex min-w-0 flex-1 flex-col overflow-hidden rounded-tl-[12px]",
+          "flex min-w-0 flex-1 flex-col overflow-hidden",
+          !compact && "rounded-tl-[12px]",
           dark ? "bg-[#111113]" : "bg-white",
         )}
       >
-        <header className="flex h-12 shrink-0 items-center gap-3 px-4 max-[720px]:pl-4">
-          <div className="hidden max-[720px]:block">
+        <header className="flex h-12 shrink-0 items-center gap-3 px-4">
+          <div className={cn(!compact && "hidden max-[720px]:block")}>
             <MacTrafficLights />
           </div>
-          <p className="text-[13px] font-medium">
-            {page === "home" && "Home"}
-            {page === "transcribe" &&
-              (scene === "followup"
-                ? "New meeting"
-                : listening
-                  ? "Live meeting"
-                  : "New chat")}
-            {page === "meetings" && "Meetings"}
-            {page === "settings" && "Settings"}
-          </p>
-          {page === "transcribe" ? (
+          <p className="text-[13px] font-medium">{title}</p>
+          {page === "transcribe" && scene !== "finished" && scene !== "followup" ? (
             <div className="ml-auto flex items-center gap-2">
               <button
                 type="button"
@@ -230,7 +245,11 @@ export function AmieWindow({
             </div>
           ) : (
             <div className="ml-auto hidden text-[12px] text-[color:var(--amie-muted)] sm:block">
-              {scene === "followup" ? "⌘⇧N" : "⌘N start"}
+              {scene === "followup"
+                ? "⌘⇧N"
+                : scene === "finished"
+                  ? "Today · 24 min"
+                  : "⌘N start"}
             </div>
           )}
         </header>
@@ -248,6 +267,8 @@ export function AmieWindow({
               lines={transcriptLines}
               remoteSpeakerHint={remoteSpeakerHint}
               followUp={scene === "followup"}
+              hideFollowUpBanner={hideFollowUpBanner}
+              revealPreviousSummary={revealPreviousSummary}
               contextText={
                 scene === "followup" ? DEMO_FOLLOW_UP_CONTEXT : DEMO_CONTEXT
               }
@@ -299,6 +320,116 @@ function initialState(scene: WindowScene) {
   }
 }
 
+function useRevealedContext(fullText: string, reveal: boolean) {
+  const [text, setText] = useState(() =>
+    reveal ? DEMO_CONTEXT : fullText,
+  );
+
+  useEffect(() => {
+    if (!reveal) {
+      setText(fullText);
+      return;
+    }
+    if (prefersReducedMotion()) {
+      setText(fullText);
+      return;
+    }
+    setText(DEMO_CONTEXT);
+    const id = window.setTimeout(() => setText(fullText), 400);
+    return () => window.clearTimeout(id);
+  }, [fullText, reveal]);
+
+  return text;
+}
+
+function SummaryNote({ markdown }: { markdown: string }) {
+  const blocks = markdown.trim().split(/\n{2,}/);
+  return (
+    <div className="flex flex-col gap-3 text-[13px] leading-6 text-[color:var(--amie-ink)]">
+      {blocks.map((block, index) => {
+        const lines = block.split("\n");
+        const heading = lines[0]?.match(/^(#{2,3})\s+(.*)$/);
+        if (heading) {
+          const level = heading[1].length;
+          const rest = lines.slice(1);
+          return (
+            <div key={index} className="flex flex-col gap-1.5">
+              <p
+                className={cn(
+                  "font-semibold",
+                  level === 2
+                    ? "text-[12px] tracking-[0.12em] text-amie uppercase"
+                    : "text-[13px]",
+                )}
+              >
+                {heading[2]}
+              </p>
+              {rest.length > 0 ? <SummaryList lines={rest} /> : null}
+            </div>
+          );
+        }
+        if (lines.some((line) => /^\s*[-*]\s+/.test(line))) {
+          return <SummaryList key={index} lines={lines} />;
+        }
+        return (
+          <p key={index}>
+            <InlineMark text={block} />
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
+function SummaryList({ lines }: { lines: string[] }) {
+  return (
+    <ul className="flex flex-col gap-1.5">
+      {lines
+        .filter((line) => line.trim().length > 0)
+        .map((line, index) => {
+          const indent = (line.match(/^\s*/)?.[0].length ?? 0) > 2;
+          const text = line.replace(/^\s*[-*]\s+/, "");
+          return (
+            <li
+              key={index}
+              className={cn(indent && "ml-4 text-[12px] text-[color:var(--amie-muted)]")}
+            >
+              <span className="mr-2 text-amie">·</span>
+              <InlineMark text={text} />
+            </li>
+          );
+        })}
+    </ul>
+  );
+}
+
+function InlineMark({ text }: { text: string }) {
+  const parts = text.split(/(\*\*[^*]+\*\*|_[^_\n]+_)/g).filter(Boolean);
+  return (
+    <>
+      {parts.map((part, index) => {
+        const bold = part.match(/^\*\*([^*]+)\*\*$/);
+        if (bold) {
+          return (
+            <strong key={index} className="font-semibold">
+              {bold[1]}
+            </strong>
+          );
+        }
+        const italic = part.match(/^_([^_]+)_$/);
+        if (italic) {
+          return (
+            <em key={index} className="italic">
+              {italic[1]}
+            </em>
+          );
+        }
+        return <span key={index}>{part}</span>;
+      })}
+    </>
+  );
+}
+
 function HomePane({ onStart }: { onStart: () => void }) {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-4 px-8 text-center">
@@ -325,6 +456,8 @@ function TranscribePane({
   lines: allLines,
   remoteSpeakerHint,
   followUp = false,
+  hideFollowUpBanner = false,
+  revealPreviousSummary = false,
   contextText = DEMO_CONTEXT,
 }: {
   tab: MeetingTab;
@@ -334,9 +467,12 @@ function TranscribePane({
   lines: typeof DEMO_LINES | typeof DEMO_NAMED_LINES;
   remoteSpeakerHint?: string;
   followUp?: boolean;
+  hideFollowUpBanner?: boolean;
+  revealPreviousSummary?: boolean;
   contextText?: string;
 }) {
   const lines = allLines.slice(0, visible);
+  const seededContext = useRevealedContext(contextText, revealPreviousSummary && followUp);
   const tabs: { id: MeetingTab; label: string }[] = [
     { id: "summary", label: "Summary" },
     { id: "context", label: "Context" },
@@ -363,7 +499,7 @@ function TranscribePane({
         ))}
       </div>
       <div className="min-h-0 flex-1 overflow-auto px-6 py-5">
-        {followUp ? (
+        {followUp && !hideFollowUpBanner ? (
           <p className="mb-4 rounded-md border border-[color:var(--amie-line)] bg-[color:var(--amie-shell)] px-3 py-2 text-[12px] leading-5 text-[color:var(--amie-muted)]">
             <kbd className="mr-1.5 font-mono font-semibold text-amie">⌘⇧N</kbd>
             Last meeting’s context and summary are already here.
@@ -412,19 +548,19 @@ function TranscribePane({
                 Summary writes after you stop. Same meeting, same disk.
               </p>
             ) : (
-              <p className="text-[15px] leading-7">{DEMO_SUMMARY}</p>
+              <SummaryNote markdown={DEMO_SUMMARY} />
             )}
           </div>
         )}
         {tab === "context" && (
-          <label className="block max-w-xl text-[12px] text-[color:var(--amie-muted)]">
+          <label className="block text-[12px] text-[color:var(--amie-muted)]">
             Context for this meeting
             <textarea
               readOnly
-              value={contextText}
+              value={seededContext}
               className={cn(
-                "mt-2 block w-full resize-none rounded-md border border-[color:var(--amie-line)] bg-transparent p-3 text-[13px] leading-5 text-[color:var(--amie-ink)]",
-                followUp ? "h-56" : "h-40",
+                "mt-2 block w-full resize-none rounded-md border border-[color:var(--amie-line)] bg-transparent p-3 font-mono text-[12px] leading-5 text-[color:var(--amie-ink)]",
+                followUp ? "min-h-[16rem] h-[calc(100%-1.5rem)]" : "h-40",
               )}
             />
           </label>
