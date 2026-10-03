@@ -1,9 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import {
   DEMO_CONTEXT,
+  DEMO_FOLLOW_UP_CONTEXT,
   DEMO_LINES,
   DEMO_MEETINGS,
   DEMO_NAMED_LINES,
@@ -23,7 +25,8 @@ export type WindowScene =
   | "files"
   | "privacy"
   | "context"
-  | "speakers";
+  | "speakers"
+  | "followup";
 
 type AmieWindowProps = {
   scene?: WindowScene;
@@ -32,6 +35,8 @@ type AmieWindowProps = {
   className?: string;
   autoPlay?: boolean;
   namedSpeakers?: boolean;
+  localSpeaker?: string;
+  remoteSpeakerHint?: string;
   onListeningChange?: (listening: boolean) => void;
 };
 
@@ -54,6 +59,8 @@ export function AmieWindow({
   className,
   autoPlay = false,
   namedSpeakers = false,
+  localSpeaker,
+  remoteSpeakerHint,
   onListeningChange,
 }: AmieWindowProps) {
   const initial = initialState(scene);
@@ -84,7 +91,8 @@ export function AmieWindow({
       scene === "files" ||
       scene === "privacy" ||
       scene === "context" ||
-      scene === "speakers"
+      scene === "speakers" ||
+      scene === "followup"
     ) {
       return;
     }
@@ -114,6 +122,10 @@ export function AmieWindow({
   }, [listening, visible]);
 
   const dark = appearance === "dark";
+  const named = namedSpeakers || scene === "speakers";
+  const transcriptLines = (named ? DEMO_NAMED_LINES : DEMO_LINES).map((line) =>
+    localSpeaker && line.stream === "mic" ? { ...line, speaker: localSpeaker } : line,
+  );
 
   return (
     <div
@@ -197,7 +209,12 @@ export function AmieWindow({
           </div>
           <p className="text-[13px] font-medium">
             {page === "home" && "Home"}
-            {page === "transcribe" && (listening ? "Live meeting" : "New chat")}
+            {page === "transcribe" &&
+              (scene === "followup"
+                ? "New meeting"
+                : listening
+                  ? "Live meeting"
+                  : "New chat")}
             {page === "meetings" && "Meetings"}
             {page === "settings" && "Settings"}
           </p>
@@ -213,7 +230,7 @@ export function AmieWindow({
             </div>
           ) : (
             <div className="ml-auto hidden text-[12px] text-[color:var(--amie-muted)] sm:block">
-              ⌘N start
+              {scene === "followup" ? "⌘⇧N" : "⌘N start"}
             </div>
           )}
         </header>
@@ -228,10 +245,11 @@ export function AmieWindow({
               onTab={setTab}
               visible={visible}
               listening={listening}
-              lines={
-                namedSpeakers || scene === "speakers"
-                  ? DEMO_NAMED_LINES
-                  : DEMO_LINES
+              lines={transcriptLines}
+              remoteSpeakerHint={remoteSpeakerHint}
+              followUp={scene === "followup"}
+              contextText={
+                scene === "followup" ? DEMO_FOLLOW_UP_CONTEXT : DEMO_CONTEXT
               }
             />
           )}
@@ -269,6 +287,13 @@ function initialState(scene: WindowScene) {
         listening: false,
         visible: DEMO_NAMED_LINES.length,
       };
+    case "followup":
+      return {
+        page: "transcribe" as const,
+        tab: "context" as const,
+        listening: false,
+        visible: 0,
+      };
     default:
       return { page: "transcribe" as const, tab: "transcript" as const, listening: false, visible: 0 };
   }
@@ -298,12 +323,18 @@ function TranscribePane({
   visible,
   listening,
   lines: allLines,
+  remoteSpeakerHint,
+  followUp = false,
+  contextText = DEMO_CONTEXT,
 }: {
   tab: MeetingTab;
   onTab: (tab: MeetingTab) => void;
   visible: number;
   listening: boolean;
   lines: typeof DEMO_LINES | typeof DEMO_NAMED_LINES;
+  remoteSpeakerHint?: string;
+  followUp?: boolean;
+  contextText?: string;
 }) {
   const lines = allLines.slice(0, visible);
   const tabs: { id: MeetingTab; label: string }[] = [
@@ -332,6 +363,12 @@ function TranscribePane({
         ))}
       </div>
       <div className="min-h-0 flex-1 overflow-auto px-6 py-5">
+        {followUp ? (
+          <p className="mb-4 rounded-md border border-[color:var(--amie-line)] bg-[color:var(--amie-shell)] px-3 py-2 text-[12px] leading-5 text-[color:var(--amie-muted)]">
+            <kbd className="mr-1.5 font-mono font-semibold text-amie">⌘⇧N</kbd>
+            Last meeting’s context and summary are already here.
+          </p>
+        ) : null}
         {tab === "transcript" && (
           <div>
             {lines.length === 0 ? (
@@ -352,14 +389,11 @@ function TranscribePane({
                       <span className="w-10 shrink-0 tabular-nums text-[color:var(--amie-faint)]">
                         {line.time}
                       </span>
-                      <span
-                        className={cn(
-                          "min-w-14 max-w-28 shrink-0 font-semibold",
-                          line.stream === "mic" ? "text-amie" : "text-amie-remote",
-                        )}
-                      >
-                        {line.speaker}
-                      </span>
+                      <SpeakerName
+                        speaker={line.speaker}
+                        stream={line.stream}
+                        hint={line.stream === "sys" ? remoteSpeakerHint : undefined}
+                      />
                       <span>
                         {line.text}
                         {last ? <span className="amie-cursor" /> : null}
@@ -387,8 +421,11 @@ function TranscribePane({
             Context for this meeting
             <textarea
               readOnly
-              value={DEMO_CONTEXT}
-              className="mt-2 block h-40 w-full resize-none rounded-md border border-[color:var(--amie-line)] bg-transparent p-3 text-[13px] leading-5 text-[color:var(--amie-ink)]"
+              value={contextText}
+              className={cn(
+                "mt-2 block w-full resize-none rounded-md border border-[color:var(--amie-line)] bg-transparent p-3 text-[13px] leading-5 text-[color:var(--amie-ink)]",
+                followUp ? "h-56" : "h-40",
+              )}
             />
           </label>
         )}
@@ -469,6 +506,69 @@ function SettingsPane({
         </p>
       </div>
     </div>
+  );
+}
+
+function SpeakerName({
+  speaker,
+  stream,
+  hint,
+}: {
+  speaker: string;
+  stream: "mic" | "sys";
+  hint?: string;
+}) {
+  const tooltipId = useId();
+  const anchorRef = useRef<HTMLSpanElement>(null);
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+
+  function show() {
+    const rect = anchorRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setPos({ top: rect.bottom + 8, left: rect.left });
+    setOpen(true);
+  }
+
+  return (
+    <span
+      className={cn(
+        "min-w-14 max-w-28 shrink-0 font-semibold",
+        stream === "mic" ? "text-amie" : "text-amie-remote",
+      )}
+    >
+      {hint ? (
+        <>
+          <span
+            ref={anchorRef}
+            tabIndex={0}
+            aria-describedby={open ? tooltipId : undefined}
+            className="cursor-help decoration-dotted underline-offset-2 hover:underline focus-visible:underline"
+            onMouseEnter={show}
+            onMouseLeave={() => setOpen(false)}
+            onFocus={show}
+            onBlur={() => setOpen(false)}
+          >
+            {speaker}
+          </span>
+          {open
+            ? createPortal(
+                <span
+                  id={tooltipId}
+                  role="tooltip"
+                  className="pointer-events-none fixed z-50 max-w-64 rounded-md bg-zinc-900 px-2.5 py-1.5 text-[11px] font-normal leading-4 text-white shadow-lg"
+                  style={{ top: pos.top, left: Math.min(pos.left, window.innerWidth - 280) }}
+                >
+                  {hint}
+                </span>,
+                document.body,
+              )
+            : null}
+        </>
+      ) : (
+        speaker
+      )}
+    </span>
   );
 }
 

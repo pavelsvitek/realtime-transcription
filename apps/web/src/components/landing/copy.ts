@@ -95,6 +95,11 @@ export const DEMO_CONTEXT = `Participants: Alex Chen, Jordan Blake
 Topic: Q3 hiring for the Mac app
 Keep the candidate off the record from third-party bots.`;
 
+export const DEMO_FOLLOW_UP_CONTEXT = `${DEMO_CONTEXT}
+
+## Previous meeting summary
+${DEMO_SUMMARY}`;
+
 export const DEMO_MEETINGS = [
   { when: "Today", title: "Hiring plan", duration: "24 min" },
   { when: "Yesterday", title: "Design critique", duration: "41 min" },

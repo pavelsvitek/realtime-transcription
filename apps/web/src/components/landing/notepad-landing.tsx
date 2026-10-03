@@ -28,6 +28,11 @@ const PREVIEW_DARK =
 
 const BENEFITS = [
   {
+    title: "Smart follow-up meetings",
+    body: "⌘⇧N opens the next call with the last summary and context already filled in. No re-brief.",
+    scene: "followup" as const,
+  },
+  {
     kicker: "On this Mac",
     title: "Real-time transcription, on device",
     body: "Words appear as you talk. Amie runs a voice model on your Mac — not a wait-until-the-call-ends upload.",
@@ -44,12 +49,6 @@ const BENEFITS = [
     body: "Allow Accessibility in System Settings. Amie reads the active speaker from Zoom or Microsoft Teams and labels the transcript in real time.",
     scene: "speakers" as const,
     reverse: true,
-  },
-  {
-    kicker: "Follow-up",
-    title: "The next meeting already knows this one",
-    body: "Start a follow-up and Amie copies the previous summary and context. No re-brief. ⌘⇧N.",
-    scene: "files" as const,
   },
   {
     kicker: "Keyboard",
@@ -170,6 +169,9 @@ export function NotepadLanding({
             scene="idle"
             autoPlay
             appearance={windowAppearance}
+            namedSpeakers
+            localSpeaker="User"
+            remoteSpeakerHint="The name is taken from a call in MS Teams or other supported apps"
             onListeningChange={setListening}
             className="h-[min(540px,68vh)] min-h-[440px] w-full min-w-0"
           />
@@ -299,10 +301,10 @@ function BenefitRow({
   appearance = "light",
   previewClass,
 }: {
-  kicker: string;
+  kicker?: string;
   title: string;
   body: string;
-  scene?: "context" | "speakers" | "files";
+  scene?: "context" | "speakers" | "files" | "followup";
   keys?: boolean;
   reverse?: boolean;
   appearance?: "light" | "dark";
@@ -335,10 +337,12 @@ function BenefitRow({
 
   const copy = (
       <div>
-        <p className="text-[12px] font-semibold tracking-[0.16em] text-amie uppercase">
-          {kicker}
-        </p>
-        <h2 className="amie-display mt-3 text-[clamp(1.7rem,3vw,2.35rem)]">
+        {kicker ? (
+          <p className="text-[12px] font-semibold tracking-[0.16em] text-amie uppercase">
+            {kicker}
+          </p>
+        ) : null}
+        <h2 className={cn("amie-display text-[clamp(1.7rem,3vw,2.35rem)]", kicker && "mt-3")}>
           {title}
         </h2>
         <p className="mt-3 max-w-md text-[16px] leading-7 text-[color:var(--amie-muted)]">
