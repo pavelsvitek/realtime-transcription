@@ -6,6 +6,7 @@ import {
   DEMO_CONTEXT,
   DEMO_LINES,
   DEMO_MEETINGS,
+  DEMO_NAMED_LINES,
   DEMO_SUMMARY,
   STORE_PATH,
 } from "./copy";
@@ -15,7 +16,14 @@ import { cn } from "@/lib/utils";
 
 export type AppPage = "home" | "transcribe" | "meetings" | "settings";
 export type MeetingTab = "transcript" | "summary" | "context";
-export type WindowScene = "idle" | "live" | "finished" | "files" | "privacy";
+export type WindowScene =
+  | "idle"
+  | "live"
+  | "finished"
+  | "files"
+  | "privacy"
+  | "context"
+  | "speakers";
 
 type AmieWindowProps = {
   scene?: WindowScene;
@@ -23,6 +31,7 @@ type AmieWindowProps = {
   poster?: boolean;
   className?: string;
   autoPlay?: boolean;
+  namedSpeakers?: boolean;
   onListeningChange?: (listening: boolean) => void;
 };
 
@@ -44,6 +53,7 @@ export function AmieWindow({
   poster = false,
   className,
   autoPlay = false,
+  namedSpeakers = false,
   onListeningChange,
 }: AmieWindowProps) {
   const initial = initialState(scene);
@@ -68,7 +78,14 @@ export function AmieWindow({
   }, [onListeningChange]);
 
   useEffect(() => {
-    if (!autoPlay || scene === "finished" || scene === "files" || scene === "privacy") {
+    if (
+      !autoPlay ||
+      scene === "finished" ||
+      scene === "files" ||
+      scene === "privacy" ||
+      scene === "context" ||
+      scene === "speakers"
+    ) {
       return;
     }
     const id = window.setTimeout(start, 400);
@@ -211,6 +228,11 @@ export function AmieWindow({
               onTab={setTab}
               visible={visible}
               listening={listening}
+              lines={
+                namedSpeakers || scene === "speakers"
+                  ? DEMO_NAMED_LINES
+                  : DEMO_LINES
+              }
             />
           )}
           {page === "meetings" && <MeetingsPane />}
@@ -233,6 +255,20 @@ function initialState(scene: WindowScene) {
       return { page: "meetings" as const, tab: "transcript" as const, listening: false, visible: DEMO_LINES.length };
     case "privacy":
       return { page: "settings" as const, tab: "transcript" as const, listening: false, visible: DEMO_LINES.length };
+    case "context":
+      return {
+        page: "transcribe" as const,
+        tab: "context" as const,
+        listening: false,
+        visible: DEMO_LINES.length,
+      };
+    case "speakers":
+      return {
+        page: "transcribe" as const,
+        tab: "transcript" as const,
+        listening: false,
+        visible: DEMO_NAMED_LINES.length,
+      };
     default:
       return { page: "transcribe" as const, tab: "transcript" as const, listening: false, visible: 0 };
   }
@@ -261,13 +297,15 @@ function TranscribePane({
   onTab,
   visible,
   listening,
+  lines: allLines,
 }: {
   tab: MeetingTab;
   onTab: (tab: MeetingTab) => void;
   visible: number;
   listening: boolean;
+  lines: typeof DEMO_LINES | typeof DEMO_NAMED_LINES;
 }) {
-  const lines = DEMO_LINES.slice(0, visible);
+  const lines = allLines.slice(0, visible);
   const tabs: { id: MeetingTab; label: string }[] = [
     { id: "summary", label: "Summary" },
     { id: "context", label: "Context" },
@@ -316,8 +354,8 @@ function TranscribePane({
                       </span>
                       <span
                         className={cn(
-                          "w-14 shrink-0 font-semibold",
-                          line.speaker === "User" ? "text-amie" : "text-amie-remote",
+                          "min-w-14 max-w-28 shrink-0 font-semibold",
+                          line.stream === "mic" ? "text-amie" : "text-amie-remote",
                         )}
                       >
                         {line.speaker}
@@ -335,7 +373,7 @@ function TranscribePane({
         )}
         {tab === "summary" && (
           <div className="max-w-xl">
-            {visible < DEMO_LINES.length && listening ? (
+            {visible < allLines.length && listening ? (
               <p className="text-[14px] text-[color:var(--amie-muted)]">
                 Summary writes after you stop. Same meeting, same disk.
               </p>

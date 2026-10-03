@@ -23,6 +23,39 @@ export const BEATS = [
   },
 ] as const;
 
+export const DEMO_NAMED_LINES = [
+  {
+    time: "00:12",
+    speaker: "You",
+    stream: "mic" as const,
+    text: "Let’s walk the hiring plan before Friday.",
+  },
+  {
+    time: "00:18",
+    speaker: "Alex Chen",
+    stream: "sys" as const,
+    text: "We still need a designer who can sit with the Mac app.",
+  },
+  {
+    time: "00:29",
+    speaker: "You",
+    stream: "mic" as const,
+    text: "Amie is capturing this, so we don’t take notes in the call.",
+  },
+  {
+    time: "00:36",
+    speaker: "Alex Chen",
+    stream: "sys" as const,
+    text: "Good. No bot to explain to the candidate.",
+  },
+  {
+    time: "00:44",
+    speaker: "You",
+    stream: "mic" as const,
+    text: "We’ll leave with a transcript and a summary on disk.",
+  },
+];
+
 export const DEMO_LINES = [
   {
     time: "00:12",
@@ -58,8 +91,9 @@ export const DEMO_LINES = [
 
 export const DEMO_SUMMARY = `Hiring plan before Friday. Need a Mac-native designer. Capture stays on this Mac — no meeting bot in the call.`;
 
-export const DEMO_CONTEXT =
-  "Q3 hiring. Candidate should not see a third-party notetaker join the Zoom.";
+export const DEMO_CONTEXT = `Participants: Alex Chen, Jordan Blake
+Topic: Q3 hiring for the Mac app
+Keep the candidate off the record from third-party bots.`;
 
 export const DEMO_MEETINGS = [
   { when: "Today", title: "Hiring plan", duration: "24 min" },
@@ -74,7 +108,7 @@ export const VARIANTS = [
     href: "/landing/notepad",
     slug: "notepad",
     title: "Notepad",
-    story: "The notepad for meetings. No bot on the call.",
+    story: "The notepad for Zoom, Meet, and Teams.",
   },
   {
     href: "/landing/shortcut",
