@@ -42,6 +42,7 @@ type AmieWindowProps = {
   chrome?: "full" | "content";
   hideFollowUpBanner?: boolean;
   revealPreviousSummary?: boolean;
+  accentSpeaker?: string;
 };
 
 const NAV: { id: AppPage; label: string; icon: ReactNode }[] = [
@@ -69,6 +70,7 @@ export function AmieWindow({
   chrome = "full",
   hideFollowUpBanner = false,
   revealPreviousSummary = false,
+  accentSpeaker,
 }: AmieWindowProps) {
   const initial = initialState(scene);
   const [page, setPage] = useState<AppPage>(initial.page);
@@ -270,6 +272,7 @@ export function AmieWindow({
               followUp={scene === "followup"}
               hideFollowUpBanner={hideFollowUpBanner}
               revealPreviousSummary={revealPreviousSummary}
+              accentSpeaker={accentSpeaker}
               contextText={
                 scene === "followup" ? DEMO_FOLLOW_UP_CONTEXT : DEMO_CONTEXT
               }
@@ -452,6 +455,7 @@ function TranscribePane({
   followUp = false,
   hideFollowUpBanner = false,
   revealPreviousSummary = false,
+  accentSpeaker,
   contextText = DEMO_CONTEXT,
 }: {
   tab: MeetingTab;
@@ -463,6 +467,7 @@ function TranscribePane({
   followUp?: boolean;
   hideFollowUpBanner?: boolean;
   revealPreviousSummary?: boolean;
+  accentSpeaker?: string;
   contextText?: string;
 }) {
   const lines = allLines.slice(0, visible);
@@ -525,6 +530,7 @@ function TranscribePane({
                         speaker={line.speaker}
                         stream={line.stream}
                         hint={line.stream === "sys" ? remoteSpeakerHint : undefined}
+                        accent={Boolean(accentSpeaker && line.speaker === accentSpeaker)}
                       />
                       <span>
                         {line.text}
@@ -657,10 +663,12 @@ function SpeakerName({
   speaker,
   stream,
   hint,
+  accent = false,
 }: {
   speaker: string;
   stream: "mic" | "sys";
   hint?: string;
+  accent?: boolean;
 }) {
   const tooltipId = useId();
   const anchorRef = useRef<HTMLSpanElement>(null);
@@ -679,6 +687,7 @@ function SpeakerName({
       className={cn(
         "min-w-14 max-w-28 shrink-0 font-semibold",
         stream === "mic" ? "text-amie" : "text-amie-remote",
+        accent && "amie-name-match",
       )}
     >
       {hint ? (

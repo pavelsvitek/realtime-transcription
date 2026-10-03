@@ -2,6 +2,8 @@
 
 import "./landing.css";
 import { AmieWindow } from "./amie-window";
+import { FollowUpStory } from "./follow-up-story";
+import { SpeakerStory } from "./speaker-story";
 import { FinePrint, DownloadCta } from "./download-cta";
 import { CloseCta, LandingNav } from "./nav";
 import { MenuBarPill } from "./chrome";
@@ -26,14 +28,6 @@ const PREVIEW_LIGHT =
 const PREVIEW_DARK =
   "h-[min(400px,52vh)] min-h-[320px] w-full min-w-0 shadow-[0_24px_60px_rgba(0,0,0,0.45)]";
 
-const FOLLOW_UP = {
-  title: "Smart follow-up meetings",
-  body: "⌘⇧N opens the next call with the last summary and context already filled in. No re-brief.",
-};
-
-const DIPTYCH =
-  "h-[min(440px,58vh)] min-h-[360px] w-full min-w-0";
-
 const BENEFITS = [
   {
     kicker: "On this Mac",
@@ -45,13 +39,6 @@ const BENEFITS = [
     title: "Brief the summary before you hang up",
     body: "Add participants, the topic, anything the recap should know. The summary uses that context instead of a generic dump of the transcript.",
     scene: "context" as const,
-  },
-  {
-    kicker: "Speakers",
-    title: "Names from Zoom and Teams",
-    body: "Allow Accessibility in System Settings. Amie reads the active speaker from Zoom or Microsoft Teams and labels the transcript in real time.",
-    scene: "speakers" as const,
-    reverse: true,
   },
   {
     kicker: "Keyboard",
@@ -182,13 +169,17 @@ export function NotepadLanding({
       </main>
 
       <div className="mx-auto flex max-w-[1180px] flex-col gap-24 px-6 py-20 lg:px-8">
-        <FollowUpDiptych
-          title={FOLLOW_UP.title}
-          body={FOLLOW_UP.body}
-          appearance={windowAppearance}
-          previewClass={dark ? `${DIPTYCH} shadow-[0_24px_60px_rgba(0,0,0,0.45)]` : `${DIPTYCH} shadow-[0_16px_40px_rgba(15,23,42,0.10)]`}
-        />
-        {BENEFITS.map((benefit) => (
+        <FollowUpStory appearance={windowAppearance} />
+        {BENEFITS.filter((benefit) => !benefit.keys).map((benefit) => (
+          <BenefitRow
+            key={benefit.title}
+            {...benefit}
+            appearance={windowAppearance}
+            previewClass={previewClass}
+          />
+        ))}
+        <SpeakerStory appearance={windowAppearance} />
+        {BENEFITS.filter((benefit) => benefit.keys).map((benefit) => (
           <BenefitRow
             key={benefit.title}
             {...benefit}
@@ -275,57 +266,6 @@ function WorksWith() {
       </span>
       <span>and others</span>
     </p>
-  );
-}
-
-function FollowUpDiptych({
-  title,
-  body,
-  appearance,
-  previewClass,
-}: {
-  title: string;
-  body: string;
-  appearance: "light" | "dark";
-  previewClass: string;
-}) {
-  return (
-    <article className="flex flex-col gap-8">
-      <div className="grid grid-cols-12">
-        <div
-          className={cn(
-            "col-span-11 row-start-1 origin-top-left scale-[0.85] opacity-70 saturate-50 transition-opacity duration-300 hover:opacity-100 hover:saturate-100 motion-reduce:transition-none lg:col-span-7",
-            appearance === "dark" && "brightness-90",
-          )}
-        >
-          <AmieWindow
-            scene="finished"
-            chrome="content"
-            appearance={appearance}
-            className={cn(DIPTYCH, "shadow-none")}
-          />
-        </div>
-        <div className="relative z-10 col-span-11 col-start-2 row-start-1 mt-48 lg:col-span-8 lg:col-start-5 lg:mt-20">
-          <kbd className="absolute -top-4 -left-4 z-20 rounded-[10px] border border-[color:var(--amie-line)] bg-[color:var(--amie-card)] px-3 py-2 font-mono text-[13px] font-semibold tracking-tight text-amie shadow-[0_8px_24px_rgba(0,0,0,0.18)]">
-            ⌘⇧N
-          </kbd>
-          <AmieWindow
-            scene="followup"
-            chrome="content"
-            hideFollowUpBanner
-            revealPreviousSummary
-            appearance={appearance}
-            className={previewClass}
-          />
-        </div>
-      </div>
-      <div className="mx-auto max-w-xl text-center">
-        <h2 className="amie-display text-[clamp(1.7rem,3vw,2.35rem)]">{title}</h2>
-        <p className="mt-3 text-[16px] leading-7 text-[color:var(--amie-muted)]">
-          {body}
-        </p>
-      </div>
-    </article>
   );
 }
 

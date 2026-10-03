@@ -102,6 +102,12 @@ export const DEMO_CONTEXT = `Participants: Alex Chen, Jordan Blake
 Topic: Q3 hiring for the Mac app
 Keep the candidate off the record from third-party bots.`;
 
+export const DEMO_HANDOFF = [
+  { kind: "Decided", text: "No meeting bot on candidate calls." },
+  { kind: "Decided", text: "Jordan Blake stays off the record until an offer is out." },
+  { kind: "Next", text: "You send the designer brief to Alex Chen by Thursday." },
+] as const;
+
 export const DEMO_CARRIED_SUMMARY = `## From last call · Hiring plan
 - **Decided:** no meeting bot on candidate calls.
 - **Decided:** Jordan Blake stays off the record until an offer is out.
