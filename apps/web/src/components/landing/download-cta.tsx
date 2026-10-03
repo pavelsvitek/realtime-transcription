@@ -1,16 +1,15 @@
-import { DOWNLOAD_HREF } from "./copy";
 import { cn } from "@/lib/utils";
+import { DOWNLOAD_HREF } from "./copy";
 
 export function DownloadCta({
   className,
-  children = "Download for Mac",
+  children = "Download for Mac &mdash; For Free",
 }: {
   className?: string;
   children?: string;
 }) {
   return (
-    <a href={DOWNLOAD_HREF} className={cn("amie-cta", className)}>
-      {children}
+    <a href={DOWNLOAD_HREF} className={cn("amie-cta", className)} dangerouslySetInnerHTML={{ __html: children }}>
     </a>
   );
 }
