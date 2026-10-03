@@ -135,7 +135,6 @@ export function NotepadLanding({
     >
       <div className="relative z-10">
         <LandingNav
-          active="notepad"
           tone={dark ? "dark" : "light"}
           onToggleTheme={toggleTheme}
         />

@@ -5,24 +5,6 @@ export const DOWNLOAD_HREF = "#download";
 export const FINE_PRINT =
   "macOS 13+ · Apple silicon · on-device SQLite. Download is a placeholder until a release URL exists.";
 
-export const BEATS = [
-  {
-    key: "Start",
-    title: "Start",
-    body: "⌘N starts a meeting. Nothing joins the call.",
-  },
-  {
-    key: "Listen",
-    title: "Listen",
-    body: "Mic + system audio. You are User; they are Remote.",
-  },
-  {
-    key: "Keep",
-    title: "Keep",
-    body: "Transcript and summary stay on this Mac.",
-  },
-] as const;
-
 export const DEMO_NAMED_LINES = [
   {
     time: "00:12",
@@ -107,36 +89,3 @@ export const DEMO_MEETINGS = [
 ];
 
 export const STORE_PATH = "~/Library/Application Support/com.pavel.amie/";
-
-export const VARIANTS = [
-  {
-    href: "/landing/notepad",
-    slug: "notepad",
-    title: "Notepad",
-    story: "The notepad for Zoom, Meet, and Teams.",
-  },
-  {
-    href: "/landing/shortcut",
-    slug: "shortcut",
-    title: "Shortcut",
-    story: "Start a meeting with ⌘N.",
-  },
-  {
-    href: "/landing/trust",
-    slug: "trust",
-    title: "Trust",
-    story: "Your meetings stay on this Mac.",
-  },
-  {
-    href: "/landing/craft",
-    slug: "craft",
-    title: "Craft",
-    story: "Meetings, transcribed on your Mac.",
-  },
-  {
-    href: "/landing/live",
-    slug: "live",
-    title: "Live",
-    story: "User / Remote, as it happens.",
-  },
-] as const;

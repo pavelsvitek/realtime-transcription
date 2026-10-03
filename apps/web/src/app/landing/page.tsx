@@ -1,11 +1,5 @@
-import type { Metadata } from "next";
-import { IndexLanding } from "@/components/landing/index-landing";
-
-export const metadata: Metadata = {
-  title: "Landing variants",
-  description: "Five Amie marketing landing page variants.",
-};
+import { redirect } from "next/navigation";
 
 export default function LandingIndexPage() {
-  return <IndexLanding />;
+  redirect("/");
 }
