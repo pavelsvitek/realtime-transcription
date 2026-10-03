@@ -162,10 +162,45 @@
   }
 }
 
+.amie-sticky-peel {
+  transform: rotate(-9deg);
+}
+
+.amie-punch-key {
+  font-size: clamp(3.4rem, 8vw, 6.4rem);
+  line-height: 0.9;
+  letter-spacing: -0.04em;
+  mix-blend-mode: multiply;
+  opacity: 0.92;
+}
+
+.amie-landing-dark .amie-punch-key {
+  mix-blend-mode: screen;
+}
+
+.amie-envelope-flap {
+  clip-path: polygon(0 100%, 50% 12%, 100% 100%);
+}
+
+.amie-timeline-thread {
+  transform-origin: top;
+  animation: amie-thread 800ms cubic-bezier(0.16, 1, 0.3, 1) 120ms both;
+}
+
+@keyframes amie-thread {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .amie-eq-bar,
   .amie-cursor,
-  .amie-carry-line {
+  .amie-carry-line,
+  .amie-timeline-thread {
     animation: none;
   }
 

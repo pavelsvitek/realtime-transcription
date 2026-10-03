@@ -43,6 +43,7 @@ type AmieWindowProps = {
   hideFollowUpBanner?: boolean;
   revealPreviousSummary?: boolean;
   accentSpeaker?: string;
+  contextText?: string;
 };
 
 const NAV: { id: AppPage; label: string; icon: ReactNode }[] = [
@@ -71,6 +72,7 @@ export function AmieWindow({
   hideFollowUpBanner = false,
   revealPreviousSummary = false,
   accentSpeaker,
+  contextText,
 }: AmieWindowProps) {
   const initial = initialState(scene);
   const [page, setPage] = useState<AppPage>(initial.page);
@@ -274,7 +276,8 @@ export function AmieWindow({
               revealPreviousSummary={revealPreviousSummary}
               accentSpeaker={accentSpeaker}
               contextText={
-                scene === "followup" ? DEMO_FOLLOW_UP_CONTEXT : DEMO_CONTEXT
+                contextText ??
+                (scene === "followup" ? DEMO_FOLLOW_UP_CONTEXT : DEMO_CONTEXT)
               }
             />
           )}
