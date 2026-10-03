@@ -185,8 +185,7 @@ export function AmieWindow({
             {page === "settings" && "Settings"}
           </p>
           {page === "transcribe" ? (
-            <div className="ml-auto flex items-center gap-2 text-[12px] text-[color:var(--amie-muted)]">
-              <span className="hidden sm:inline">Mic + system</span>
+            <div className="ml-auto flex items-center gap-2">
               <button
                 type="button"
                 className="rounded-[10px] bg-amie px-2.5 py-1 text-[12px] font-semibold text-white hover:bg-amie-hover"
