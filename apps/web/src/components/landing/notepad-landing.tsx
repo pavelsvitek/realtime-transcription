@@ -4,6 +4,7 @@ import "./landing.css";
 import { AmieWindow } from "./amie-window";
 import { FinePrint, DownloadCta } from "./download-cta";
 import { CloseCta, LandingNav } from "./nav";
+import { MenuBarPill } from "./chrome";
 import { WaveformMark } from "./mark";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
@@ -98,6 +99,7 @@ export function NotepadLanding({
   initialTheme?: "light" | "dark";
 }) {
   const [theme, setTheme] = useState<"light" | "dark">(initialTheme);
+  const [listening, setListening] = useState(false);
   const dark = theme === "dark";
   const windowAppearance = dark ? "dark" : "light";
   const previewClass = dark ? PREVIEW_DARK : PREVIEW_LIGHT;
@@ -128,15 +130,22 @@ export function NotepadLanding({
   return (
     <div
       className={cn(
-        "amie-landing min-h-dvh",
+        "amie-landing relative min-h-dvh",
         dark && "amie-landing-dark",
       )}
     >
-      <LandingNav
-        active="notepad"
-        tone={dark ? "dark" : "light"}
-        onToggleTheme={toggleTheme}
-      />
+      <div className="relative z-10">
+        <LandingNav
+          active="notepad"
+          tone={dark ? "dark" : "light"}
+          onToggleTheme={toggleTheme}
+        />
+      </div>
+      <div className="pointer-events-none absolute inset-x-0 top-3 z-20 flex justify-center max-md:hidden">
+        <div className="pointer-events-none">
+          <MenuBarPill listening={listening} />
+        </div>
+      </div>
       <main className="mx-auto grid w-full max-w-[1360px] items-center gap-10 px-6 pb-8 pt-6 lg:grid-cols-[minmax(280px,0.42fr)_minmax(0,0.85fr)] lg:px-8 lg:pt-10">
         <div className="flex max-w-lg flex-col items-start gap-6">
           <p className="flex items-center gap-2 text-[12px] font-semibold tracking-[0.16em] text-amie uppercase">
@@ -161,6 +170,7 @@ export function NotepadLanding({
             scene="idle"
             autoPlay
             appearance={windowAppearance}
+            onListeningChange={setListening}
             className="h-[min(540px,68vh)] min-h-[440px] w-full min-w-0"
           />
           <WorksWith />
