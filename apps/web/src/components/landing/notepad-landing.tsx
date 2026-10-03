@@ -6,6 +6,7 @@ import { FinePrint, DownloadCta } from "./download-cta";
 import { CloseCta, LandingNav } from "./nav";
 import { WaveformMark } from "./mark";
 import { cn } from "@/lib/utils";
+import Image from "next/image";
 import type { ReactNode } from "react";
 
 /**
@@ -110,11 +111,14 @@ export function NotepadLanding() {
           <DownloadCta />
           <FinePrint />
         </div>
-        <AmieWindow
-          scene="idle"
-          autoPlay
-          className="h-[min(540px,68vh)] min-h-[440px] w-full min-w-0"
-        />
+        <div className="flex min-w-0 flex-col gap-4">
+          <AmieWindow
+            scene="idle"
+            autoPlay
+            className="h-[min(540px,68vh)] min-h-[440px] w-full min-w-0"
+          />
+          <WorksWith />
+        </div>
       </main>
 
       <div className="mx-auto flex max-w-[1180px] flex-col gap-24 px-6 py-20 lg:px-8">
@@ -179,6 +183,48 @@ export function NotepadLanding() {
 
       <CloseCta headline="Leave the call with notes. Not a bot." />
     </div>
+  );
+}
+
+function WorksWith() {
+  return (
+    <p className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-[13px] leading-5 text-[color:var(--amie-muted)]">
+      <span>Works with:</span>
+      <span className="inline-flex items-center gap-1.5">
+        <Image
+          src="/landing/logo-zoom.svg"
+          alt=""
+          width={17}
+          height={18}
+          unoptimized
+          className="h-[18px] w-[17px] shrink-0 object-contain"
+        />
+        Zoom,
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <Image
+          src="/landing/logo-teams.svg"
+          alt=""
+          width={19}
+          height={20}
+          unoptimized
+          className="h-[20px] w-[19px] shrink-0 object-contain"
+        />
+        MS Teams and
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <Image
+          src="/landing/logo-meet.svg"
+          alt=""
+          width={22}
+          height={18}
+          unoptimized
+          className="h-[18px] w-[22px] shrink-0 object-contain"
+        />
+        Google Meet
+      </span>
+      <span>and others</span>
+    </p>
   );
 }
 
