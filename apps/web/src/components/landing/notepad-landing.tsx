@@ -22,8 +22,8 @@ export function NotepadLanding() {
   return (
     <div className="amie-landing min-h-dvh bg-[#f4efe8]">
       <LandingNav active="notepad" />
-      <main className="mx-auto grid max-w-[1180px] items-center gap-12 px-6 pb-8 pt-6 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] lg:px-8 lg:pt-10">
-        <div className="flex flex-col items-start gap-6">
+      <main className="mx-auto grid w-full max-w-[1360px] items-center gap-10 px-6 pb-8 pt-6 lg:grid-cols-[minmax(260px,0.34fr)_minmax(560px,1fr)] lg:px-8 lg:pt-10">
+        <div className="flex max-w-md flex-col items-start gap-6">
           <p className="flex items-center gap-2 text-[12px] font-semibold tracking-[0.16em] text-amie uppercase">
             <WaveformMark />
             Mac meeting recorder
@@ -41,7 +41,11 @@ export function NotepadLanding() {
           <DownloadCta />
           <FinePrint />
         </div>
-        <AmieWindow scene="idle" autoPlay />
+        <AmieWindow
+          scene="idle"
+          autoPlay
+          className="h-[min(540px,68vh)] min-h-[440px] w-full min-w-0"
+        />
       </main>
       <section className="mx-auto max-w-[1180px] px-6 py-16 lg:px-8">
         <p className="mb-8 text-[12px] font-semibold tracking-[0.16em] text-amie uppercase">
