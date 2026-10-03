@@ -6,8 +6,8 @@ import { FinePrint, DownloadCta } from "./download-cta";
 import { CloseCta, LandingNav } from "./nav";
 import { MenuBarPill } from "./chrome";
 import { WaveformMark } from "./mark";
+import { MeetMark, TeamsMark, ZoomMark } from "./works-with-icons";
 import { cn } from "@/lib/utils";
-import Image from "next/image";
 import { useEffect, useState, type ReactNode } from "react";
 
 /**
@@ -253,36 +253,15 @@ function WorksWith() {
     <p className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-[13px] leading-5 text-[color:var(--amie-muted)]">
       <span>Works with:</span>
       <span className="inline-flex items-center gap-1.5">
-        <Image
-          src="/landing/logo-zoom.svg"
-          alt=""
-          width={17}
-          height={18}
-          unoptimized
-          className="h-[18px] w-[17px] shrink-0 object-contain"
-        />
+        <ZoomMark className="h-[18px] w-[17px]" />
         Zoom,
       </span>
       <span className="inline-flex items-center gap-1.5">
-        <Image
-          src="/landing/logo-teams.svg"
-          alt=""
-          width={19}
-          height={20}
-          unoptimized
-          className="h-[20px] w-[19px] shrink-0 object-contain"
-        />
+        <TeamsMark className="h-[20px] w-[19px]" />
         MS Teams and
       </span>
       <span className="inline-flex items-center gap-1.5">
-        <Image
-          src="/landing/logo-meet.svg"
-          alt=""
-          width={22}
-          height={18}
-          unoptimized
-          className="h-[18px] w-[22px] shrink-0 object-contain"
-        />
+        <MeetMark className="h-[18px] w-[22px]" />
         Google Meet
       </span>
       <span>and others</span>
