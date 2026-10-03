@@ -26,12 +26,15 @@ const PREVIEW_LIGHT =
 const PREVIEW_DARK =
   "h-[min(400px,52vh)] min-h-[320px] w-full min-w-0 shadow-[0_24px_60px_rgba(0,0,0,0.45)]";
 
+const FOLLOW_UP = {
+  title: "Smart follow-up meetings",
+  body: "⌘⇧N opens the next call with the last summary and context already filled in. No re-brief.",
+};
+
+const DIPTYCH =
+  "h-[min(440px,58vh)] min-h-[360px] w-full min-w-0";
+
 const BENEFITS = [
-  {
-    title: "Smart follow-up meetings",
-    body: "⌘⇧N opens the next call with the last summary and context already filled in. No re-brief.",
-    scene: "followup" as const,
-  },
   {
     kicker: "On this Mac",
     title: "Real-time transcription, on device",
@@ -179,6 +182,12 @@ export function NotepadLanding({
       </main>
 
       <div className="mx-auto flex max-w-[1180px] flex-col gap-24 px-6 py-20 lg:px-8">
+        <FollowUpDiptych
+          title={FOLLOW_UP.title}
+          body={FOLLOW_UP.body}
+          appearance={windowAppearance}
+          previewClass={dark ? `${DIPTYCH} shadow-[0_24px_60px_rgba(0,0,0,0.45)]` : `${DIPTYCH} shadow-[0_16px_40px_rgba(15,23,42,0.10)]`}
+        />
         {BENEFITS.map((benefit) => (
           <BenefitRow
             key={benefit.title}
@@ -287,6 +296,52 @@ function WorksWith() {
       </span>
       <span>and others</span>
     </p>
+  );
+}
+
+function FollowUpDiptych({
+  title,
+  body,
+  appearance,
+  previewClass,
+}: {
+  title: string;
+  body: string;
+  appearance: "light" | "dark";
+  previewClass: string;
+}) {
+  return (
+    <article className="flex flex-col gap-8">
+      <div className="grid items-end gap-4 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:gap-3">
+        <div className="lg:translate-y-6">
+          <AmieWindow
+            scene="finished"
+            chrome="content"
+            appearance={appearance}
+            className={previewClass}
+          />
+        </div>
+        <p className="flex items-center justify-center py-1">
+          <kbd className="rounded-[10px] border border-[color:var(--amie-line)] bg-[color:var(--amie-card)] px-3 py-2 font-mono text-[13px] font-semibold tracking-tight text-amie shadow-[0_8px_24px_rgba(0,0,0,0.12)]">
+            ⌘⇧N
+          </kbd>
+        </p>
+        <AmieWindow
+          scene="followup"
+          chrome="content"
+          hideFollowUpBanner
+          revealPreviousSummary
+          appearance={appearance}
+          className={previewClass}
+        />
+      </div>
+      <div className="mx-auto max-w-xl text-center">
+        <h2 className="amie-display text-[clamp(1.7rem,3vw,2.35rem)]">{title}</h2>
+        <p className="mt-3 text-[16px] leading-7 text-[color:var(--amie-muted)]">
+          {body}
+        </p>
+      </div>
+    </article>
   );
 }
 

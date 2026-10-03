@@ -71,7 +71,32 @@ export const DEMO_LINES = [
   },
 ];
 
-export const DEMO_SUMMARY = `Hiring plan before Friday. Need a Mac-native designer. Capture stays on this Mac — no meeting bot in the call.`;
+export const DEMO_SUMMARY = `## Executive Summary
+
+- **Hire a Mac-native designer before Friday.** **Alex Chen** said the Mac app still has no one who can sit with the product day to day.
+- **No meeting bot on candidate calls.** The room agreed a third-party notetaker would leak the search and force an explanation in the interview.
+- **Jordan Blake** stays off the record for this search until an offer is out.
+- _Amie_ capture stays on this Mac — transcript and summary write to disk when the call ends.
+- **Next step:** **You** send the designer brief to **Alex Chen** by Thursday; shortlist Friday.
+
+## Full Summary
+
+### Designer role
+
+- **Alex Chen** needs someone who can sit with the Mac app, not a web-only hire.
+    - Friday is the hard stop for the Q3 plan.
+    - The brief should name _Amie_ and the desktop stack, not a generic product-design role.
+
+### Privacy on the search
+
+- The candidate must not see a bot in Zoom or Teams.
+- Notes stay on this Mac so the search does not leave the room.
+
+### Next steps
+
+- **You:** designer brief to **Alex Chen** by Thursday.
+- **Alex Chen:** three names before Friday.
+- Sync again once the shortlist is in.`;
 
 export const DEMO_CONTEXT = `Participants: Alex Chen, Jordan Blake
 Topic: Q3 hiring for the Mac app
