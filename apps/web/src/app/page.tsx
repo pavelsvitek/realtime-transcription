@@ -1,5 +1,5 @@
-import { SessionPage } from "@/components/session/session-page";
+import { IndexLanding } from "@/components/landing/index-landing";
 
 export default function Home() {
-  return <SessionPage />;
+  return <IndexLanding />;
 }
