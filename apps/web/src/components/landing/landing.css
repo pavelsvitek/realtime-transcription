@@ -6,12 +6,16 @@
   --amie-remote: #c45d4a;
   --amie-shell: #f5f5f5;
   --amie-content: #ffffff;
+  --amie-page: #f4efe8;
+  --amie-band: #fbf8f3;
+  --amie-card: #ffffff;
   --amie-ink: #1a1a1a;
   --amie-muted: #72727a;
   --amie-faint: #9ca3af;
   --amie-line: #e5e5e5;
   --amie-hover: #eaeaeb;
   color: var(--amie-ink);
+  background: var(--amie-page);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
 
@@ -59,13 +63,20 @@
   --amie-remote: #f0a090;
   --amie-shell: #161617;
   --amie-content: #1c1c1e;
+  --amie-page: #0c0c0d;
+  --amie-band: #121214;
+  --amie-card: #1c1c1e;
   --amie-ink: #f5f5f5;
   --amie-muted: #a1a1aa;
   --amie-faint: #71717a;
   --amie-line: rgba(255, 255, 255, 0.1);
   --amie-hover: #2a2a2c;
+  --color-amie: #e27888;
+  --color-amie-hover: #ee99a4;
+  --color-amie-remote: #f0a090;
   color: var(--amie-ink);
-  background: #0c0c0d;
+  background: var(--amie-page);
+  color-scheme: dark;
 }
 
 .amie-eq {

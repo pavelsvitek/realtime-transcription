@@ -7,7 +7,7 @@ import { CloseCta, LandingNav } from "./nav";
 import { WaveformMark } from "./mark";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 /**
  * Spec — notepad
@@ -18,8 +18,12 @@ import type { ReactNode } from "react";
  * Refuse: Before/During/After filler; unlabeled fake quotes; invented Pro tier.
  */
 
-const PREVIEW =
+const THEME_COOKIE = "amie-notepad-theme";
+
+const PREVIEW_LIGHT =
   "h-[min(400px,52vh)] min-h-[320px] w-full min-w-0 shadow-[0_16px_40px_rgba(15,23,42,0.10)]";
+const PREVIEW_DARK =
+  "h-[min(400px,52vh)] min-h-[320px] w-full min-w-0 shadow-[0_24px_60px_rgba(0,0,0,0.45)]";
 
 const BENEFITS = [
   {
@@ -88,10 +92,51 @@ const FAQS = [
   },
 ];
 
-export function NotepadLanding() {
+export function NotepadLanding({
+  initialTheme = "dark",
+}: {
+  initialTheme?: "light" | "dark";
+}) {
+  const [theme, setTheme] = useState<"light" | "dark">(initialTheme);
+  const dark = theme === "dark";
+  const windowAppearance = dark ? "dark" : "light";
+  const previewClass = dark ? PREVIEW_DARK : PREVIEW_LIGHT;
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const body = document.body;
+    const previousRoot = root.style.backgroundColor;
+    const previousBody = body.style.backgroundColor;
+    const previousScheme = root.style.colorScheme;
+    const color = dark ? "#0c0c0d" : "#f4efe8";
+    root.style.backgroundColor = color;
+    body.style.backgroundColor = color;
+    root.style.colorScheme = dark ? "dark" : "light";
+    return () => {
+      root.style.backgroundColor = previousRoot;
+      body.style.backgroundColor = previousBody;
+      root.style.colorScheme = previousScheme;
+    };
+  }, [dark]);
+
+  function toggleTheme() {
+    const next = dark ? "light" : "dark";
+    document.cookie = `${THEME_COOKIE}=${next}; Path=/; Max-Age=31536000; SameSite=Lax`;
+    setTheme(next);
+  }
+
   return (
-    <div className="amie-landing min-h-dvh bg-[#f4efe8]">
-      <LandingNav active="notepad" />
+    <div
+      className={cn(
+        "amie-landing min-h-dvh",
+        dark && "amie-landing-dark",
+      )}
+    >
+      <LandingNav
+        active="notepad"
+        tone={dark ? "dark" : "light"}
+        onToggleTheme={toggleTheme}
+      />
       <main className="mx-auto grid w-full max-w-[1360px] items-center gap-10 px-6 pb-8 pt-6 lg:grid-cols-[minmax(280px,0.42fr)_minmax(0,0.85fr)] lg:px-8 lg:pt-10">
         <div className="flex max-w-lg flex-col items-start gap-6">
           <p className="flex items-center gap-2 text-[12px] font-semibold tracking-[0.16em] text-amie uppercase">
@@ -115,6 +160,7 @@ export function NotepadLanding() {
           <AmieWindow
             scene="idle"
             autoPlay
+            appearance={windowAppearance}
             className="h-[min(540px,68vh)] min-h-[440px] w-full min-w-0"
           />
           <WorksWith />
@@ -123,11 +169,16 @@ export function NotepadLanding() {
 
       <div className="mx-auto flex max-w-[1180px] flex-col gap-24 px-6 py-20 lg:px-8">
         {BENEFITS.map((benefit) => (
-          <BenefitRow key={benefit.title} {...benefit} />
+          <BenefitRow
+            key={benefit.title}
+            {...benefit}
+            appearance={windowAppearance}
+            previewClass={previewClass}
+          />
         ))}
       </div>
 
-      <section className="border-y border-[color:var(--amie-line)] bg-[#fbf8f3]">
+      <section className="border-y border-[color:var(--amie-line)] bg-[color:var(--amie-band)]">
         <div className="mx-auto grid max-w-[1180px] gap-12 px-6 py-20 sm:grid-cols-2 lg:px-8">
           {QUOTES.map((item) => (
             <figure key={item.quote}>
@@ -235,6 +286,8 @@ function BenefitRow({
   scene,
   keys,
   reverse = false,
+  appearance = "light",
+  previewClass,
 }: {
   kicker: string;
   title: string;
@@ -242,13 +295,15 @@ function BenefitRow({
   scene?: "context" | "speakers" | "files";
   keys?: boolean;
   reverse?: boolean;
+  appearance?: "light" | "dark";
+  previewClass: string;
 }) {
   const visual: ReactNode = keys ? (
     <ul className="grid gap-3 sm:grid-cols-2">
       {SHORTCUTS.map((item) => (
         <li
           key={item.keys}
-          className="flex items-center gap-3 rounded-[12px] border border-[color:var(--amie-line)] bg-white px-4 py-3"
+          className="flex items-center gap-3 rounded-[12px] border border-[color:var(--amie-line)] bg-[color:var(--amie-card)] px-4 py-3"
         >
           <kbd className="font-mono text-[13px] font-semibold tracking-tight text-amie">
             {item.keys}
@@ -260,7 +315,12 @@ function BenefitRow({
       ))}
     </ul>
   ) : scene ? (
-    <AmieWindow scene={scene} namedSpeakers={scene === "speakers"} className={PREVIEW} />
+    <AmieWindow
+      scene={scene}
+      namedSpeakers={scene === "speakers"}
+      appearance={appearance}
+      className={previewClass}
+    />
   ) : null;
 
   const copy = (

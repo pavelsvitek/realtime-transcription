@@ -10,10 +10,12 @@ export function LandingNav({
   active,
   tone = "light",
   showVariants = true,
+  onToggleTheme,
 }: {
   active?: string;
   tone?: "light" | "dark";
   showVariants?: boolean;
+  onToggleTheme?: () => void;
 }) {
   const dark = tone === "dark";
   return (
@@ -50,6 +52,21 @@ export function LandingNav({
           <div className="flex-1" />
         )}
         <div className="ml-auto flex items-center gap-3">
+          {onToggleTheme ? (
+            <button
+              type="button"
+              onClick={onToggleTheme}
+              aria-label={dark ? "Switch to light theme" : "Switch to dark theme"}
+              className={cn(
+                "inline-flex size-8 items-center justify-center rounded-md",
+                dark
+                  ? "text-zinc-400 hover:bg-white/10 hover:text-zinc-100"
+                  : "text-[color:var(--amie-muted)] hover:bg-black/5 hover:text-[color:var(--amie-ink)]",
+              )}
+            >
+              {dark ? <SunIcon /> : <MoonIcon />}
+            </button>
+          ) : null}
           <Link
             href="/session"
             className={cn(
@@ -106,5 +123,22 @@ export function CloseCta({
       </h2>
       <DownloadCta />
     </section>
+  );
+}
+
+function SunIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+    </svg>
+  );
+}
+
+function MoonIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path d="M21 14.5A8.5 8.5 0 1 1 9.5 3 7 7 0 0 0 21 14.5Z" />
+    </svg>
   );
 }
