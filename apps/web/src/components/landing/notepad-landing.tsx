@@ -170,6 +170,7 @@ export function NotepadLanding({
 
       <div className="mx-auto flex max-w-[1180px] flex-col gap-24 px-6 py-20 lg:px-8">
         <FollowUpStory appearance={windowAppearance} />
+        <SpeakerStory appearance={windowAppearance} />
         {BENEFITS.filter((benefit) => !benefit.keys).map((benefit) => (
           <BenefitRow
             key={benefit.title}
@@ -178,7 +179,6 @@ export function NotepadLanding({
             previewClass={previewClass}
           />
         ))}
-        <SpeakerStory appearance={windowAppearance} />
         {BENEFITS.filter((benefit) => benefit.keys).map((benefit) => (
           <BenefitRow
             key={benefit.title}
