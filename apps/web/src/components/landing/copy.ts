@@ -102,7 +102,16 @@ export const DEMO_CONTEXT = `Participants: Alex Chen, Jordan Blake
 Topic: Q3 hiring for the Mac app
 Keep the candidate off the record from third-party bots.`;
 
+export const DEMO_CARRIED_SUMMARY = `## From last call · Hiring plan
+- **Decided:** no meeting bot on candidate calls.
+- **Decided:** Jordan Blake stays off the record until an offer is out.
+- **Next step:** You send the designer brief to Alex Chen by Thursday.`;
+
 export const DEMO_FOLLOW_UP_CONTEXT = `${DEMO_CONTEXT}
+
+${DEMO_CARRIED_SUMMARY}`;
+
+export const DEMO_FOLLOW_UP_CONTEXT_FULL = `${DEMO_CONTEXT}
 
 ## Previous meeting summary
 ${DEMO_SUMMARY}`;

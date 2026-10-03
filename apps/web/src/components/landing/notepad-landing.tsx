@@ -291,28 +291,33 @@ function FollowUpDiptych({
 }) {
   return (
     <article className="flex flex-col gap-8">
-      <div className="grid items-end gap-4 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:gap-3">
-        <div className="lg:translate-y-6">
+      <div className="grid grid-cols-12">
+        <div
+          className={cn(
+            "col-span-11 row-start-1 origin-top-left scale-[0.85] opacity-70 saturate-50 transition-opacity duration-300 hover:opacity-100 hover:saturate-100 motion-reduce:transition-none lg:col-span-7",
+            appearance === "dark" && "brightness-90",
+          )}
+        >
           <AmieWindow
             scene="finished"
             chrome="content"
             appearance={appearance}
+            className={cn(DIPTYCH, "shadow-none")}
+          />
+        </div>
+        <div className="relative z-10 col-span-11 col-start-2 row-start-1 mt-48 lg:col-span-8 lg:col-start-5 lg:mt-20">
+          <kbd className="absolute -top-4 -left-4 z-20 rounded-[10px] border border-[color:var(--amie-line)] bg-[color:var(--amie-card)] px-3 py-2 font-mono text-[13px] font-semibold tracking-tight text-amie shadow-[0_8px_24px_rgba(0,0,0,0.18)]">
+            ⌘⇧N
+          </kbd>
+          <AmieWindow
+            scene="followup"
+            chrome="content"
+            hideFollowUpBanner
+            revealPreviousSummary
+            appearance={appearance}
             className={previewClass}
           />
         </div>
-        <p className="flex items-center justify-center py-1">
-          <kbd className="rounded-[10px] border border-[color:var(--amie-line)] bg-[color:var(--amie-card)] px-3 py-2 font-mono text-[13px] font-semibold tracking-tight text-amie shadow-[0_8px_24px_rgba(0,0,0,0.12)]">
-            ⌘⇧N
-          </kbd>
-        </p>
-        <AmieWindow
-          scene="followup"
-          chrome="content"
-          hideFollowUpBanner
-          revealPreviousSummary
-          appearance={appearance}
-          className={previewClass}
-        />
       </div>
       <div className="mx-auto max-w-xl text-center">
         <h2 className="amie-display text-[clamp(1.7rem,3vw,2.35rem)]">{title}</h2>

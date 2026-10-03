@@ -6,6 +6,7 @@ import Image from "next/image";
 import {
   DEMO_CONTEXT,
   DEMO_FOLLOW_UP_CONTEXT,
+  DEMO_FOLLOW_UP_CONTEXT_FULL,
   DEMO_LINES,
   DEMO_MEETINGS,
   DEMO_NAMED_LINES,
@@ -321,25 +322,18 @@ function initialState(scene: WindowScene) {
 }
 
 function useRevealedContext(fullText: string, reveal: boolean) {
-  const [text, setText] = useState(() =>
-    reveal ? DEMO_CONTEXT : fullText,
-  );
+  const [revealed, setRevealed] = useState(false);
 
   useEffect(() => {
-    if (!reveal) {
-      setText(fullText);
-      return;
-    }
-    if (prefersReducedMotion()) {
-      setText(fullText);
-      return;
-    }
-    setText(DEMO_CONTEXT);
-    const id = window.setTimeout(() => setText(fullText), 400);
+    if (!reveal) return;
+    const id = window.setTimeout(
+      () => setRevealed(true),
+      prefersReducedMotion() ? 0 : 400,
+    );
     return () => window.clearTimeout(id);
-  }, [fullText, reveal]);
+  }, [reveal]);
 
-  return text;
+  return !reveal || revealed ? fullText : DEMO_CONTEXT;
 }
 
 function SummaryNote({ markdown }: { markdown: string }) {
@@ -472,7 +466,9 @@ function TranscribePane({
   contextText?: string;
 }) {
   const lines = allLines.slice(0, visible);
-  const seededContext = useRevealedContext(contextText, revealPreviousSummary && followUp);
+  const [fullSummary, setFullSummary] = useState(false);
+  const revealedContext = useRevealedContext(contextText, revealPreviousSummary && followUp);
+  const seededContext = followUp && fullSummary ? DEMO_FOLLOW_UP_CONTEXT_FULL : revealedContext;
   const tabs: { id: MeetingTab; label: string }[] = [
     { id: "summary", label: "Summary" },
     { id: "context", label: "Context" },
@@ -553,17 +549,29 @@ function TranscribePane({
           </div>
         )}
         {tab === "context" && (
-          <label className="block text-[12px] text-[color:var(--amie-muted)]">
-            Context for this meeting
-            <textarea
-              readOnly
-              value={seededContext}
-              className={cn(
-                "mt-2 block w-full resize-none rounded-md border border-[color:var(--amie-line)] bg-transparent p-3 font-mono text-[12px] leading-5 text-[color:var(--amie-ink)]",
-                followUp ? "min-h-[16rem] h-[calc(100%-1.5rem)]" : "h-40",
-              )}
-            />
-          </label>
+          <div>
+            <label className="block text-[12px] text-[color:var(--amie-muted)]">
+              Context for this meeting
+              <textarea
+                readOnly
+                value={seededContext}
+                className={cn(
+                  "mt-2 block w-full resize-none rounded-md border border-[color:var(--amie-line)] bg-transparent p-3 font-mono text-[12px] leading-5 text-[color:var(--amie-ink)]",
+                  followUp && fullSummary ? "h-[22rem]" : followUp ? "h-48" : "h-40",
+                )}
+              />
+            </label>
+            {followUp ? (
+              <button
+                type="button"
+                aria-expanded={fullSummary}
+                onClick={() => setFullSummary((open) => !open)}
+                className="mt-2 text-[12px] font-medium text-amie"
+              >
+                {fullSummary ? "− full summary" : "+ full summary"}
+              </button>
+            ) : null}
+          </div>
         )}
       </div>
     </div>
