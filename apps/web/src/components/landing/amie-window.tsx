@@ -186,19 +186,6 @@ export function AmieWindow({
           </p>
           {page === "transcribe" ? (
             <div className="ml-auto flex items-center gap-2 text-[12px] text-[color:var(--amie-muted)]">
-              <label className="hidden items-center gap-1 sm:flex">
-                ASR
-                <select
-                  value={backend}
-                  onChange={(e) =>
-                    setBackend(e.target.value === "xai" ? "xai" : "local")
-                  }
-                  className="rounded-md border border-[color:var(--amie-line)] bg-transparent px-1.5 py-0.5 text-[12px]"
-                >
-                  <option value="local">Local (Nemotron)</option>
-                  <option value="xai">xAI</option>
-                </select>
-              </label>
               <span className="hidden sm:inline">Mic + system</span>
               <button
                 type="button"
