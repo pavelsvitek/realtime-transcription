@@ -159,7 +159,6 @@ export function NotepadLanding({
             autoPlay
             appearance={windowAppearance}
             namedSpeakers
-            localSpeaker="User"
             remoteSpeakerHint="The name is taken from a call in MS Teams or other supported apps"
             onListeningChange={setListening}
             className="h-[min(540px,68vh)] min-h-[440px] w-full min-w-0"

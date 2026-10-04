@@ -79,21 +79,28 @@ export function AmieWindow({
   const [tab, setTab] = useState<MeetingTab>(initial.tab);
   const [listening, setListening] = useState(initial.listening);
   const [visible, setVisible] = useState(initial.visible);
+  const [spokenWords, setSpokenWords] = useState(0);
   const [backend, setBackend] = useState<"local" | "xai">("local");
+  const named = namedSpeakers || scene === "speakers";
+  const sourceLines = named ? DEMO_NAMED_LINES : DEMO_LINES;
+  const lineCount = sourceLines.length;
 
   const start = useCallback(() => {
     setPage("transcribe");
     setTab("transcript");
     setListening(true);
-    setVisible(prefersReducedMotion() ? DEMO_LINES.length : 0);
+    const complete = prefersReducedMotion();
+    setVisible(complete ? lineCount : 0);
+    setSpokenWords(0);
     onListeningChange?.(true);
-  }, [onListeningChange]);
+  }, [lineCount, onListeningChange]);
 
   const stop = useCallback(() => {
     setListening(false);
-    setVisible(DEMO_LINES.length);
+    setVisible(lineCount);
+    setSpokenWords(0);
     onListeningChange?.(false);
-  }, [onListeningChange]);
+  }, [lineCount, onListeningChange]);
 
   useEffect(() => {
     if (
@@ -125,18 +132,26 @@ export function AmieWindow({
 
   useEffect(() => {
     if (!listening) return;
-    if (visible >= DEMO_LINES.length) return;
+    if (visible >= lineCount) return;
+    const words = sourceLines[visible].text.trim().split(/\s+/);
+    const lineDone = spokenWords >= words.length;
     const id = window.setTimeout(
-      () => setVisible((n) => Math.min(DEMO_LINES.length, n + 1)),
-      900,
+      () => {
+        if (lineDone) {
+          setVisible((n) => Math.min(lineCount, n + 1));
+          setSpokenWords(0);
+          return;
+        }
+        setSpokenWords((n) => n + 1);
+      },
+      lineDone ? 320 : 130,
     );
     return () => window.clearTimeout(id);
-  }, [listening, visible]);
+  }, [lineCount, listening, sourceLines, spokenWords, visible]);
 
   const dark = appearance === "dark";
   const compact = chrome === "content";
-  const named = namedSpeakers || scene === "speakers";
-  const transcriptLines = (named ? DEMO_NAMED_LINES : DEMO_LINES).map((line) =>
+  const transcriptLines = sourceLines.map((line) =>
     localSpeaker && line.stream === "mic" ? { ...line, speaker: localSpeaker } : line,
   );
   const title =
@@ -268,6 +283,7 @@ export function AmieWindow({
               tab={tab}
               onTab={setTab}
               visible={visible}
+              spokenWords={spokenWords}
               listening={listening}
               lines={transcriptLines}
               remoteSpeakerHint={remoteSpeakerHint}
@@ -448,10 +464,15 @@ function HomePane({ onStart }: { onStart: () => void }) {
   );
 }
 
+function wordsOf(text: string) {
+  return text.trim().split(/\s+/).filter(Boolean);
+}
+
 function TranscribePane({
   tab,
   onTab,
   visible,
+  spokenWords = 0,
   listening,
   lines: allLines,
   remoteSpeakerHint,
@@ -464,6 +485,7 @@ function TranscribePane({
   tab: MeetingTab;
   onTab: (tab: MeetingTab) => void;
   visible: number;
+  spokenWords?: number;
   listening: boolean;
   lines: typeof DEMO_LINES | typeof DEMO_NAMED_LINES;
   remoteSpeakerHint?: string;
@@ -473,7 +495,14 @@ function TranscribePane({
   accentSpeaker?: string;
   contextText?: string;
 }) {
-  const lines = allLines.slice(0, visible);
+  const complete = allLines.slice(0, visible);
+  const current = listening && visible < allLines.length
+    ? {
+        ...allLines[visible],
+        text: wordsOf(allLines[visible].text).slice(0, spokenWords).join(" "),
+      }
+    : null;
+  const lines = current && spokenWords > 0 ? [...complete, current] : complete;
   const [fullSummary, setFullSummary] = useState(false);
   const revealedContext = useRevealedContext(contextText, revealPreviousSummary && followUp);
   const seededContext = followUp && fullSummary ? DEMO_FOLLOW_UP_CONTEXT_FULL : revealedContext;

@@ -41,7 +41,7 @@ export const DEMO_NAMED_LINES = [
 export const DEMO_LINES = [
   {
     time: "00:12",
-    speaker: "User" as const,
+    speaker: "You" as const,
     stream: "mic" as const,
     text: "Let’s walk the hiring plan before Friday.",
   },
@@ -53,7 +53,7 @@ export const DEMO_LINES = [
   },
   {
     time: "00:29",
-    speaker: "User" as const,
+    speaker: "You" as const,
     stream: "mic" as const,
     text: "Amie is capturing this, so we don’t take notes in the call.",
   },
@@ -65,7 +65,7 @@ export const DEMO_LINES = [
   },
   {
     time: "00:44",
-    speaker: "User" as const,
+    speaker: "You" as const,
     stream: "mic" as const,
     text: "We’ll leave with a transcript and a summary on disk.",
   },
