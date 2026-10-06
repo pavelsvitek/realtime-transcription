@@ -9,6 +9,8 @@
     "dev:server": "pnpm --filter server dev",
     "deploy:server": "pnpm --filter server deploy",
     "test:desktop": "pnpm --filter amie test",
-    "setup:signing": "pnpm --filter amie setup:signing"
+    "setup:signing": "pnpm --filter amie setup:signing",
+    "fake-zoom": "bash apps/fake-zoom-app/scripts/run.sh",
+    "fake-zoom:transcript": "bash apps/fake-zoom-app/scripts/show-transcript.sh"
   }
 }
