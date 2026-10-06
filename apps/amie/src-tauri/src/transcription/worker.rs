@@ -127,16 +127,18 @@ pub fn run_worker<E>(
                         samples = system_samples_seen,
                         "System audio loopback is silent — likely missing AudioCapture permission"
                     );
+                    let identity = crate::speakers::app_identity();
                     emit(TranscriptEvent::Status(TranscriptionStatus {
                         active: true,
                         loading: None,
                         model: None,
-                        error: Some(
+                        error: Some(format!(
                             "System audio capture is silent. Open System Settings → Privacy & Security \
-                             and allow system audio recording for Amie, then restart. \
-                             Reset: tccutil reset AudioCapture com.pavel.amie"
-                                .into(),
-                        ),
+                             and allow system audio recording for {}, then restart. \
+                             Reset: tccutil reset AudioCapture {}",
+                            identity.label,
+                            identity.bundle_id.as_deref().unwrap_or("com.pavel.amie"),
+                        )),
                     }));
                 }
             }

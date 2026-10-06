@@ -21,16 +21,19 @@ fn pid_for_teams_path() -> Option<i32> {
     const MAX_PIDS: usize = 2048;
     const PATH_MAX: usize = 4096;
     let mut pids = vec![0i32; MAX_PIDS];
-    let byte_len = unsafe {
+    // The buffer size is in bytes, but the return value is a pid count (not
+    // bytes, despite the header). Dividing it again scanned only the lowest
+    // quarter of pids, so a Teams started later was never found.
+    let listed = unsafe {
         libc::proc_listallpids(
             pids.as_mut_ptr().cast(),
             (pids.len() * std::mem::size_of::<i32>()) as libc::c_int,
         )
     };
-    if byte_len <= 0 {
+    if listed <= 0 {
         return None;
     }
-    let count = (byte_len as usize / std::mem::size_of::<i32>()).min(pids.len());
+    let count = (listed as usize).min(pids.len());
     let mut buf = vec![0u8; PATH_MAX];
     for &pid in &pids[..count] {
         if pid <= 0 {

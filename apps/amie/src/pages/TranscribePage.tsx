@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { useQueryClient } from "@tanstack/react-query";
+import { SpeakerNamesPrompt } from "../components/SpeakerNamesPrompt";
 import {
   MeetingContextEditor,
   type MeetingContextEditorHandle,
@@ -24,7 +24,7 @@ import {
   followUpContextFromSeed,
   meetingSkipsAutoSummary,
 } from "../lib/meetings";
-import type { AsrBackend, AudioSource, SpeakerTagsStatus } from "../lib/transcript-types";
+import type { AsrBackend, AudioSource } from "../lib/transcript-types";
 import {
   getLiveMeeting,
   getMeeting,
@@ -63,8 +63,6 @@ export function TranscribePage({
   onMeetingFinished,
 }: TranscribePageProps) {
   const [audioSource, setAudioSource] = useState<AudioSource>("both");
-  const [speakerStatus, setSpeakerStatus] = useState<SpeakerTagsStatus | null>(null);
-  const [speakerError, setSpeakerError] = useState<string | null>(null);
   const [backend, setBackend] = useState<AsrBackend>(loadBackend);
   const {
     segments,
@@ -95,29 +93,6 @@ export function TranscribePage({
   useEffect(() => {
     localStorage.setItem(BACKEND_STORAGE_KEY, backend);
   }, [backend]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const load = () => {
-      void invoke<SpeakerTagsStatus>("get_speaker_tags_status")
-        .then((next) => {
-          if (cancelled) return;
-          setSpeakerStatus(next);
-          setSpeakerError(null);
-        })
-        .catch((err: unknown) => {
-          if (cancelled) return;
-          setSpeakerStatus(null);
-          setSpeakerError(String(err));
-        });
-    };
-    load();
-    const id = window.setInterval(load, 4000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(id);
-    };
-  }, []);
 
   useEffect(() => {
     if (sessionSource) {
@@ -297,30 +272,7 @@ export function TranscribePage({
         </div>
       )}
 
-      {(speakerError || (speakerStatus && !speakerStatus.trusted)) && (
-        <div className="speaker-prompt">
-          <p>
-            Speaker names need Accessibility for{" "}
-            {speakerStatus?.buildLabel ?? "this Amie build"}. Turn that name on
-            in Privacy &amp; Security → Accessibility.
-            {speakerError ? ` ${speakerError}` : ""}
-          </p>
-          <button
-            className="btn btn-clear"
-            type="button"
-            onClick={() => {
-              void invoke<SpeakerTagsStatus>("request_accessibility_permission")
-                .then((next) => {
-                  setSpeakerStatus(next);
-                  setSpeakerError(null);
-                })
-                .catch((err: unknown) => setSpeakerError(String(err)));
-            }}
-          >
-            Allow Accessibility
-          </button>
-        </div>
-      )}
+      <SpeakerNamesPrompt />
 
       <div className="transcribe-tabs-bar">
         <MeetingTabs

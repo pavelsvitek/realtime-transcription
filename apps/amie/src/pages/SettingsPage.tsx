@@ -1,12 +1,9 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import type {
-  AsrSettings,
-  SpeakerTagsStatus,
-  SummaryProvider,
-  SummarySettings,
-} from "../lib/transcript-types";
+import type { AsrSettings, SummaryProvider, SummarySettings } from "../lib/transcript-types";
 import { summaryProviderHasKey } from "../lib/summary-providers";
+import { useSpeakerTagsStatus } from "../hooks/useSpeakerTagsStatus";
+import { signatureLabel } from "../lib/speaker-tags";
 
 const KEY_MASK = "•".repeat(24);
 
@@ -25,18 +22,16 @@ export function SettingsPage() {
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [speakerStatus, setSpeakerStatus] = useState<SpeakerTagsStatus | null>(null);
+  const { status: speakerStatus, requestAccess, requesting } = useSpeakerTagsStatus();
 
   const refresh = useCallback(async () => {
     try {
-      const [next, summary, speakers] = await Promise.all([
+      const [next, summary] = await Promise.all([
         invoke<AsrSettings>("get_asr_settings"),
         invoke<SummarySettings>("get_summary_settings"),
-        invoke<SpeakerTagsStatus>("get_speaker_tags_status"),
       ]);
       setSettings(next);
       setSummarySettings(summary);
-      setSpeakerStatus(speakers);
       setError(null);
     } catch (e) {
       setError(String(e));
@@ -114,6 +109,15 @@ export function SettingsPage() {
               {speakerStatus?.buildLabel ?? "Loading…"}
             </span>
           </div>
+          <div className="settings-row">
+            <span className="settings-label">Signature</span>
+            <span className="settings-value">
+              {speakerStatus ? signatureLabel(speakerStatus) : "Loading…"}
+            </span>
+          </div>
+          {speakerStatus?.bundleId && (
+            <p className="settings-copy">{speakerStatus.bundleId}</p>
+          )}
           {speakerStatus?.bundlePath && (
             <p className="settings-copy">{speakerStatus.bundlePath}</p>
           )}
@@ -126,16 +130,19 @@ export function SettingsPage() {
           <div className="settings-actions">
             <button
               className="btn btn-start"
-              onClick={() =>
-                void run(async () => {
-                  await invoke("request_accessibility_permission");
-                  const label = speakerStatus?.buildLabel ?? "this Amie build";
-                  setStatus(
-                    `System Settings is open on the Accessibility list. Turn on ${label}.`,
-                  );
-                })
-              }
-              disabled={saving || speakerStatus?.trusted === true}
+              onClick={() => {
+                setStatus(null);
+                requestAccess(undefined, {
+                  onSuccess: () =>
+                    setStatus(
+                      `System Settings is open on the Accessibility list. Turn on ${
+                        speakerStatus?.buildLabel ?? "this Amie build"
+                      }.`,
+                    ),
+                  onError: (e) => setError(String(e)),
+                });
+              }}
+              disabled={saving || requesting || speakerStatus?.trusted === true}
             >
               Allow Accessibility
             </button>

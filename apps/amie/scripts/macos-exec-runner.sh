@@ -1,7 +1,15 @@
 #!/usr/bin/env bash
 # Cargo target runner: receives the built binary path as $1.
 # Launches via `open` from a dev .app bundle so LaunchServices attributes
-# system-audio TCC to com.pavel.amie (exec from a terminal does not).
+# microphone / system-audio / Accessibility TCC to the app, not the terminal.
+#
+# Identity, which is what TCC keys every grant on:
+#   - bundle id com.pavel.amie.dev, so the dev build never shares a TCC row
+#     with the release app (com.pavel.amie). Same id, different signatures
+#     made each overwrite the other's grant.
+#   - signed with a real certificate (see lib/macos-signing.sh). An ad-hoc
+#     signature changes with every build, and TCC then quietly stops matching
+#     while System Settings still shows the old row as allowed.
 #
 # The binary lives at Contents/MacOS/amie, matching CFBundleExecutable, so
 # Accessibility TCC applies to this process. A shell wrapper that exec'd
@@ -19,12 +27,19 @@ if [[ "$BINARY" != /* ]]; then
 fi
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=lib/macos-signing.sh
+source "$ROOT/scripts/lib/macos-signing.sh"
+
+DEV_BUNDLE_ID="com.pavel.amie.dev"
 APP="$ROOT/src-tauri/target/debug/amie-dev.app"
 MACOS_DIR="$APP/Contents/MacOS"
 RESOURCES_DIR="$APP/Contents/Resources"
 INFO_PLIST="$APP/Contents/Info.plist"
 REAL_BINARY="$MACOS_DIR/amie"
 PIDFILE="$ROOT/src-tauri/target/debug/amie-dev.runner.pid"
+# Digest of what the bundle was built from (see below). Not derived from the
+# installed binary: codesign rewrites that copy, so it never equals the build.
+STATE_FILE="$ROOT/src-tauri/target/debug/amie-dev.state"
 
 kill_matching() {
   local pattern="$1"
@@ -64,18 +79,9 @@ trap cleanup EXIT INT TERM HUP
 # Drop leftover windows from a previous cargo run / Ctrl-C before we replace the binary.
 kill_bundle_bins
 
-install_if_changed() {
-  local src="$1" dest="$2"
-  if [[ -f "$dest" ]] && cmp -s "$src" "$dest"; then
-    return 1
-  fi
-  cp "$src" "$dest"
-  return 0
-}
-
 write_dev_plist() {
   local dest="$1"
-  python3 - "$ROOT/src-tauri/Info.plist" "$dest" <<'PY'
+  python3 - "$ROOT/src-tauri/Info.plist" "$dest" "$DEV_BUNDLE_ID" <<'PY'
 import os
 import plistlib
 import sys
@@ -85,6 +91,7 @@ with open(src, "rb") as handle:
     plist = plistlib.load(handle)
 plist["CFBundleDisplayName"] = "Amie Dev"
 plist["CFBundleName"] = "Amie Dev"
+plist["CFBundleIdentifier"] = sys.argv[3]
 keys = (
     "DEBUG_SAVE",
     "RUST_LOG",
@@ -105,31 +112,61 @@ with open(dest, "wb") as handle:
 PY
 }
 
+digest() {
+  shasum -a 256 "$1" | cut -d' ' -f1
+}
+
+sign_dev_app() {
+  local entitlements="$ROOT/src-tauri/Entitlements.plist"
+  SIGNED_WITH="-"
+  if [[ "$SIGN_ID" != "-" ]]; then
+    if amie_codesign "$APP" "$DEV_BUNDLE_ID" "$entitlements"; then
+      SIGNED_WITH="$SIGN_ID"
+      echo "amie-dev.app signed as \"$SIGN_NAME\"; Accessibility will persist across rebuilds." >&2
+      return 0
+    fi
+    echo "warning: signing with \"$SIGN_NAME\" failed (keychain locked or key access denied?); falling back to ad-hoc." >&2
+  else
+    echo "warning: $AMIE_NO_IDENTITY_HELP" >&2
+  fi
+  AMIE_IDENTITY_HASH="-"
+  amie_codesign "$APP" "$DEV_BUNDLE_ID" "$entitlements" ||
+    codesign --force --sign - --identifier "$DEV_BUNDLE_ID" "$APP"
+}
+
 mkdir -p "$MACOS_DIR" "$RESOURCES_DIR" "$(dirname "$PIDFILE")"
-CHANGED=0
 
 PLIST_SRC="$(mktemp)"
 write_dev_plist "$PLIST_SRC"
-if install_if_changed "$PLIST_SRC" "$INFO_PLIST"; then
-  CHANGED=1
-fi
-rm -f "$PLIST_SRC"
 
-if install_if_changed "$BINARY" "$REAL_BINARY"; then
-  CHANGED=1
+if amie_resolve_signing_identity; then
+  SIGN_ID="$AMIE_IDENTITY_HASH"
+  SIGN_NAME="$AMIE_IDENTITY_NAME"
+else
+  SIGN_ID="-"
+  SIGN_NAME="ad-hoc"
 fi
-chmod +x "$REAL_BINARY"
-rm -f "$MACOS_DIR/amie-bin" "$RESOURCES_DIR/dev-runner.env"
 
-# Ad-hoc --force signing mints a new cdhash. Accessibility TCC follows that
-# hash, so a re-sign on every launch asks again even when the binary is the same.
-if [[ "$CHANGED" -eq 1 ]] || [[ ! -e "$APP/Contents/_CodeSignature" ]]; then
+# Rebuild the bundle only when its inputs changed: the compiled binary, the
+# Info.plist (bundle id, env), or the identity. An unchanged bundle keeps its
+# signature, and a new identity re-signs it even when the code is the same.
+WANT_STATE="$(digest "$BINARY") $(digest "$PLIST_SRC") $SIGN_ID"
+if [[ -e "$APP/Contents/_CodeSignature" ]] &&
+  [[ "$(cat "$STATE_FILE" 2>/dev/null || true)" == "$WANT_STATE" ]]; then
+  :
+else
+  cp "$PLIST_SRC" "$INFO_PLIST"
+  cp "$BINARY" "$REAL_BINARY"
+  chmod +x "$REAL_BINARY"
+  rm -f "$MACOS_DIR/amie-bin" "$RESOURCES_DIR/dev-runner.env"
   if command -v codesign >/dev/null 2>&1; then
-    codesign -s - --force --deep --identifier com.pavel.amie \
-      --entitlements "$ROOT/src-tauri/Entitlements.plist" \
-      "$APP" 2>/dev/null || codesign -s - --force --deep "$APP"
+    sign_dev_app
+    # Record what was actually used: a failed identity falls back to "-",
+    # so the next launch retries the identity.
+    echo "$(digest "$BINARY") $(digest "$PLIST_SRC") $SIGNED_WITH" >"$STATE_FILE"
   fi
 fi
+rm -f "$PLIST_SRC"
 
 echo $$ >"$PIDFILE"
 

@@ -1,3 +1,4 @@
+mod identity;
 mod label;
 mod meeting;
 mod parse;
@@ -9,8 +10,9 @@ mod tree;
 mod watch;
 mod zoom;
 
+pub use identity::app_identity;
 pub use label::speaker_for_segment;
-pub use permission::{is_main_thread, open_privacy_settings, prompt};
-pub use status::{request_permission, status, SpeakerTagsStatus};
+pub use permission::{is_main_thread, is_trusted, open_privacy_settings, prompt};
+pub use status::{status, SpeakerTagsStatus};
 pub use timeline::SpeakerTimeline;
 pub use watch::{start as start_speaker_watch, SpeakerWatch};
