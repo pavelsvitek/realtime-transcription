@@ -1,0 +1,13 @@
+{
+  "name": "Two people take turns",
+  "description": "Needs --participants 3 or more. Expect the lines to alternate between Ada Lovelace and Alan Turing.",
+  "steps": [
+    { "speak": "Ada Lovelace", "text": "Alan, did you get a chance to look at the latency numbers?" },
+    { "pause": 1.2 },
+    { "speak": "Alan Turing", "text": "Yes. The median is under two seconds, but the tail is still too long." },
+    { "pause": 1.2 },
+    { "speak": "Ada Lovelace", "text": "Good. Let's focus on the tail next week." },
+    { "pause": 1.2 },
+    { "speak": "Alan Turing", "text": "Agreed. I will send a summary after the call." }
+  ]
+}

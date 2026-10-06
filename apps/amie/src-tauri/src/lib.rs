@@ -7,6 +7,7 @@ mod ipc;
 mod llm;
 pub mod mcp;
 mod meetings;
+mod speakers;
 mod state;
 pub mod transcription;
 
@@ -91,6 +92,8 @@ pub fn run() {
             commands::meetings::set_gemini_api_key,
             commands::meetings::clear_gemini_api_key,
             commands::meetings::delete_meeting,
+            commands::speakers::get_speaker_tags_status,
+            commands::speakers::request_accessibility_permission,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

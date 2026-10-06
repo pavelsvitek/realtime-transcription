@@ -56,11 +56,14 @@ Or from this package:
 pnpm tauri dev
 ```
 
+Run `pnpm setup:signing` once first (see [Permissions and code signing](#permissions-and-code-signing)); without it macOS forgets the permissions on every rebuild.
+
 On first launch, grant permissions when prompted by macOS:
+- **Accessibility** — optional, for speaker names from Zoom / Teams. Click **Allow Accessibility** in the app (banner on New chat, or Settings).
 - **Microphone** — when using the Mic input source
 - **System Audio Recording** — when using Chrome / system audio. macOS may prompt the first time you start system-audio capture. If capture is silent, open **System Settings → Privacy & Security → System Audio Recording Only** (or **Screen & System Audio Recording** on some macOS versions) and enable **Amie**, then quit and restart the app.
 
-`pnpm tauri dev` launches via a dev `.app` bundle (`src-tauri/target/debug/amie-dev.app`) using `open`, so macOS can attribute system-audio permission to `com.pavel.amie`. Running the raw `target/debug/amie` binary from a terminal will not trigger the permission prompt and loopback will be silent.
+`pnpm tauri dev` launches via a dev `.app` bundle (`src-tauri/target/debug/amie-dev.app`, **Amie Dev**, bundle id `com.pavel.amie.dev`) using `open`, so macOS attributes microphone, system-audio and Accessibility permission to the app instead of the terminal. Running the raw `target/debug/amie` binary from a terminal will not trigger the permission prompt and loopback will be silent.
 
 Stopping `pnpm tauri dev` (or a Cargo rebuild) quits that window. The runner kills the previous `amie-dev.app` process before launching so you do not stack extra instances.
 
@@ -107,13 +110,44 @@ That writes:
 - `apps/amie/src-tauri/target/release/bundle/macos/Amie.app`
 - `apps/amie/src-tauri/target/release/bundle/dmg/Amie_0.1.0_aarch64.dmg`
 
-Drag **Amie.app** into `/Applications`. First launch may need **Right-click → Open** because the build is ad-hoc signed.
+`pnpm tauri build` refuses to run without a signing identity (see below), signs the bundle with it, and checks the result. Drag **Amie.app** into `/Applications`.
 
-To reset system-audio permission during development:
+## Permissions and code signing
+
+macOS keeps each privacy grant (Accessibility, Microphone, System Audio) under the app's **bundle id plus its code requirement**. Two things follow:
+
+| Build | Name | Bundle id |
+| --- | --- | --- |
+| `pnpm tauri dev` | Amie Dev | `com.pavel.amie.dev` |
+| `pnpm tauri build` | Amie | `com.pavel.amie` |
+
+They have separate rows in System Settings, so enabling one never disturbs the other.
+
+An **ad-hoc** signature (`codesign -s -`, the default when nothing else is configured) has the requirement `cdhash H"…"`, which changes with every build. After a rebuild the old row still shows as allowed in System Settings, but macOS no longer matches it to the new binary, so `AXIsProcessTrusted` says no. That is what makes Amie ask again on every run. A **certificate** signature has a requirement derived from the certificate, which survives rebuilds and updates.
+
+So both builds are signed with a certificate:
 
 ```bash
+pnpm setup:signing
+```
+
+It uses the first of: `Developer ID Application`, `Apple Development` (Xcode → Settings → Accounts → Manage Certificates), or a local self-signed `Amie Local Signing` certificate that it creates (macOS asks for your password once to trust it for code signing). It finishes with a self-test: two different binaries must get the same requirement. Set `AMIE_SIGN_IDENTITY` to force a specific identity, or `APPLE_SIGNING_IDENTITY` for `pnpm tauri build` in CI.
+
+- **Dev:** `scripts/macos-exec-runner.sh` signs `amie-dev.app` on each rebuild. With no identity it falls back to ad-hoc and warns.
+- **Release:** `scripts/tauri.sh` passes the identity to Tauri and verifies the finished `Amie.app`. Without an identity it stops; `AMIE_ALLOW_ADHOC=1 pnpm tauri build` overrides that, and the grants then will not persist.
+
+Swapping to a different certificate (for example local → Developer ID) counts as a different app: grant Accessibility once more.
+
+**Accessibility shows Off although an Amie entry is on.** First check it is the right entry: the dev build and the release app are listed separately, as **Amie Dev** and **Amie**, and `pnpm tauri dev` needs **Amie Dev**. The banner and Settings → Speaker names name the entry this build needs. If the right entry is on and the app still says Off, the entry was recorded for an older signature (typically a pre-certificate ad-hoc build): select it in the list, remove it with **−**, quit and reopen the app so it registers itself again, then click **Allow Accessibility**. Amie never deletes the entry itself, because a running app caches its answer and cannot put a deleted entry back until it is relaunched.
+
+To reset permissions by hand:
+
+```bash
+tccutil reset Accessibility com.pavel.amie.dev   # or com.pavel.amie for the release app
+# then quit and reopen the app: it re-adds its entry to the list on launch
+
 # Correct TCC service name for Core Audio loopback (not SystemAudioCapture):
-tccutil reset AudioCapture com.pavel.amie
+tccutil reset AudioCapture com.pavel.amie.dev
 
 # Or reset all apps' audio-capture grants:
 tccutil reset AudioCapture

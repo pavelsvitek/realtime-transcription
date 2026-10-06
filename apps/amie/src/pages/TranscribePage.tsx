@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { SpeakerNamesPrompt } from "../components/SpeakerNamesPrompt";
 import {
   MeetingContextEditor,
   type MeetingContextEditorHandle,
@@ -270,6 +271,8 @@ export function TranscribePage({
           {error}
         </div>
       )}
+
+      <SpeakerNamesPrompt />
 
       <div className="transcribe-tabs-bar">
         <MeetingTabs

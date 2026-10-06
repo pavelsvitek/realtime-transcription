@@ -23,6 +23,12 @@ impl CaptureCounters {
             self.dropped_frames.load(Ordering::Relaxed),
         )
     }
+
+    /// Samples queued on this stream. Speaker polls use this clock, not the
+    /// process-wide `CAPTURED_SAMPLES` counter.
+    pub fn captured_counter(&self) -> Arc<AtomicU64> {
+        Arc::clone(&self.captured)
+    }
 }
 
 /// Reset capture counters (call before each golden E2E run).
@@ -60,7 +66,14 @@ pub fn open_input_stream(
 
     let channels = supported.channels();
     let sample_format = supported.sample_format();
-    open_stream_with_config(device, &device_name, supported.into(), channels, sample_format, sender)
+    open_stream_with_config(
+        device,
+        &device_name,
+        supported.into(),
+        channels,
+        sample_format,
+        sender,
+    )
 }
 
 /// Opens a loopback stream on the default output device (macOS 15+).
@@ -75,7 +88,14 @@ pub fn open_loopback_stream(
 
     let channels = supported.channels();
     let sample_format = supported.sample_format();
-    open_stream_with_config(device, &device_name, supported.into(), channels, sample_format, sender)
+    open_stream_with_config(
+        device,
+        &device_name,
+        supported.into(),
+        channels,
+        sample_format,
+        sender,
+    )
 }
 
 fn open_stream_with_config(
@@ -162,16 +182,11 @@ where
             if sender.try_send(mono).is_err() {
                 DROPPED_FRAMES.fetch_add(1, Ordering::Relaxed);
                 DROPPED_SAMPLES.fetch_add(sample_count, Ordering::Relaxed);
-                counters
-                    .dropped_frames
-                    .fetch_add(1, Ordering::Relaxed);
+                counters.dropped_frames.fetch_add(1, Ordering::Relaxed);
                 counters
                     .dropped_samples
                     .fetch_add(sample_count, Ordering::Relaxed);
-                tracing::warn!(
-                    samples = sample_count,
-                    "Audio channel full, dropping frame"
-                );
+                tracing::warn!(samples = sample_count, "Audio channel full, dropping frame");
             } else {
                 CAPTURED_SAMPLES.fetch_add(sample_count, Ordering::Relaxed);
                 counters.captured.fetch_add(sample_count, Ordering::Relaxed);
@@ -190,15 +205,15 @@ where
     f32: FromSample<T>,
 {
     if channels <= 1 {
-        return data.iter().map(|sample| sample.to_sample::<f32>()).collect();
+        return data
+            .iter()
+            .map(|sample| sample.to_sample::<f32>())
+            .collect();
     }
 
     let mut mono = Vec::with_capacity(data.len() / channels);
     for frame in data.chunks_exact(channels) {
-        let sum: f32 = frame
-            .iter()
-            .map(|sample| sample.to_sample::<f32>())
-            .sum();
+        let sum: f32 = frame.iter().map(|sample| sample.to_sample::<f32>()).sum();
         mono.push(sum / channels as f32);
     }
     mono

@@ -82,7 +82,7 @@ export function applyCommit(
   if (idx <= 0) return sorted;
 
   const previous = findPreviousCommittedSameStream(sorted, idx, stream);
-  if (previous) {
+  if (previous && previous.speaker === newSegment.speaker) {
     const gapMs = newSegment.startMs - previous.endMs;
     // Coalesce only on a deliberate refinement window. Tiny positive gaps (≤100 ms)
     // are adjacent ASR chunks; zero gap is back-to-back chunks; negative = overlap.
