@@ -1,0 +1,16 @@
+{
+  "name": "Speaking marks without any audio",
+  "description": "Needs --participants 4 or more. Marks only, no speech: for checking what Accessibility reports without making a sound.",
+  "steps": [
+    { "speak": "Ada Lovelace", "duration": 3 },
+    { "pause": 1 },
+    { "speak": "Grace Hopper", "duration": 3 },
+    { "pause": 1 },
+    { "overlap": [
+      { "speak": "Ada Lovelace", "duration": 3 },
+      { "speak": "Alan Turing", "duration": 3 }
+    ] },
+    { "pause": 1 },
+    { "speak": "me", "duration": 2 }
+  ]
+}

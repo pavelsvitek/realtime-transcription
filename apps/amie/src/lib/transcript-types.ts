@@ -76,3 +76,21 @@ export type AudioDeviceInfo = {
 export type AudioDevicePayload = {
   device: AudioDeviceInfo;
 };
+
+export type MeetingApp = "zoom" | "teams";
+
+/**
+ * `identity`: signed with a certificate, so the Accessibility grant survives
+ * rebuilds. `adHoc`/`unsigned`: macOS treats every build as a new app.
+ */
+export type SignatureKind = "identity" | "adHoc" | "unsigned" | "unknown";
+
+export type SpeakerTagsStatus = {
+  trusted: boolean;
+  meetingApp: MeetingApp | null;
+  buildLabel: string;
+  bundlePath: string | null;
+  bundleId: string | null;
+  signature: SignatureKind;
+  signer: string | null;
+};

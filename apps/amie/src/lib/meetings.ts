@@ -21,7 +21,7 @@ export type MeetingSegment = {
   startMs: number;
   endMs: number;
   text: string;
-  /** "User" or "Remote". Empty when the row was saved before this was stored. */
+  /** Display name from the meeting app, or "User" / "Remote". Empty on older rows. */
   speaker: string;
   /** "mic" or "system". Empty when the row was saved before this was stored. */
   stream: string;
