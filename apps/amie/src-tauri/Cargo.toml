@@ -46,3 +46,4 @@ objc2-core-audio = { version = "0.3", features = ["std", "AudioHardware", "objc2
 
 [dev-dependencies]
 serial_test = "3"
+rmcp = { version = "3.4", features = ["client"] }

@@ -92,6 +92,8 @@ Cursor or Codex (`~/.cursor/mcp.json` / `~/.codex/config.toml`):
 }
 ```
 
+The server reads meetings and can edit a meeting's title, context and summary and archive or unarchive it. It cannot delete meetings, edit transcripts, or change a meeting while it is being recorded. Add `--read-only` (or set `AMIE_MCP_READ_ONLY=1`) to drop the editing and archive tools. It never creates or migrates the database: launch Amie once first, and again after upgrading it.
+
 Set `AMIE_DB_PATH` to point at a different `meetings.db`. The default is `~/Library/Application Support/com.pavel.amie/meetings.db`. Tool list: [docs/research/amie-local-mcp.md](../../docs/research/amie-local-mcp.md).
 
 ## Production build
