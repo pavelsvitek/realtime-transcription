@@ -67,6 +67,12 @@ type MeetingsPageProps = {
   onFollowUpMeeting?: (seed: FollowUpSeed) => void;
 };
 
+function meetingTranscriptLineClass(stream: string): string {
+  const speakerClass =
+    stream === "mic" ? "transcript-line--user" : "transcript-line--remote";
+  return `meeting-transcript-line ${speakerClass}`;
+}
+
 function applyGeneratedTitle(
   queryClient: ReturnType<typeof useQueryClient>,
   meetingId: string,
@@ -650,10 +656,18 @@ export function MeetingsPage({
                 {record && record.segments.length > 0 ? (
                   <ol className="meeting-transcript">
                     {record.segments.map((segment) => (
-                      <li key={segment.id} className="meeting-transcript-line">
+                      <li
+                        key={segment.id}
+                        className={meetingTranscriptLineClass(segment.stream)}
+                      >
                         <span className="transcript-time">
                           {formatTime(segment.startMs)}
                         </span>
+                        {segment.speaker ? (
+                          <span className="transcript-speaker">
+                            {segment.speaker}
+                          </span>
+                        ) : null}
                         <span className="transcript-text">{segment.text}</span>
                       </li>
                     ))}

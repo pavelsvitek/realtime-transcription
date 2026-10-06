@@ -732,6 +732,10 @@ body,
   min-width: 48px;
 }
 
+.meeting-transcript .transcript-speaker {
+  min-width: 0;
+}
+
 .transcript-line--user .transcript-speaker {
   color: var(--brand-speaker-user);
 }
