@@ -23,6 +23,14 @@ impl AsrOutput {
 pub trait StreamingAsr: Send {
     fn push_mono(&mut self, samples: &[f32]) -> Result<Option<AsrOutput>>;
     fn finish(&mut self) -> Result<AsrOutput>;
+
+    /// Finalize the in-flight utterance without ending the session.
+    ///
+    /// Used when the remote speaker set changes. Backends that cannot cut
+    /// client-side return no output.
+    fn cut_utterance(&mut self) -> Result<Option<AsrOutput>> {
+        Ok(None)
+    }
 }
 
 pub struct StreamingPipeline {
@@ -40,5 +48,9 @@ impl StreamingPipeline {
 
     pub fn finish(&mut self) -> Result<AsrOutput> {
         self.inner.finish()
+    }
+
+    pub fn cut_utterance(&mut self) -> Result<Option<AsrOutput>> {
+        self.inner.cut_utterance()
     }
 }

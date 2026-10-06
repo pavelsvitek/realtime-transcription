@@ -21,5 +21,11 @@ case "$(uname -m)" in
 esac
 
 mkdir -p "$TARGET_DIR"
-cp "$SOURCE" "$TARGET_DIR/nemotron-bridge-$TARGET_TRIPLE"
-chmod +x "$TARGET_DIR/nemotron-bridge-$TARGET_TRIPLE"
+DEST="$TARGET_DIR/nemotron-bridge-$TARGET_TRIPLE"
+# A copy updates mtime. tauri-build watches this file, so a no-op copy
+# rebuilds the Rust crate on every `pnpm tauri` and re-signs amie-dev.app.
+if [[ -f "$DEST" ]] && cmp -s "$SOURCE" "$DEST"; then
+  exit 0
+fi
+cp "$SOURCE" "$DEST"
+chmod +x "$DEST"

@@ -369,8 +369,18 @@ fn collect_summary_targets(
 fn format_transcript(segments: &[crate::ipc::meetings::MeetingSegment]) -> String {
     segments
         .iter()
-        .map(|s| s.text.trim())
-        .filter(|text| !text.is_empty())
+        .filter_map(|segment| {
+            let text = segment.text.trim();
+            if text.is_empty() {
+                return None;
+            }
+            let speaker = segment.speaker.trim();
+            if speaker.is_empty() {
+                Some(text.to_string())
+            } else {
+                Some(format!("{speaker}: {text}"))
+            }
+        })
         .collect::<Vec<_>>()
         .join("\n")
 }
@@ -573,7 +583,20 @@ mod tests {
                 stream: "system".into(),
             },
         ];
-        assert_eq!(format_transcript(&segments), "hello\nworld");
+        assert_eq!(format_transcript(&segments), "User: hello\nRemote: world");
+    }
+
+    #[test]
+    fn format_transcript_keeps_unlabeled_text() {
+        let segments = vec![MeetingSegment {
+            id: "s1".into(),
+            start_ms: 0,
+            end_ms: 10,
+            text: "hello".into(),
+            speaker: String::new(),
+            stream: "mic".into(),
+        }];
+        assert_eq!(format_transcript(&segments), "hello");
     }
 
     #[test]
@@ -626,7 +649,7 @@ mod tests {
         assert!(
             user.starts_with("Meeting context:\n\nParticipants: Pavel, Igor\n\nTranscript:\n\n")
         );
-        assert!(user.contains("Switzerland POC scope"));
+        assert!(user.contains("User: Switzerland POC scope"));
     }
 
     struct CaptureClient {

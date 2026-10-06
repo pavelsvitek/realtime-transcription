@@ -12,6 +12,7 @@ use crate::ipc::transcript::*;
 use crate::llm::service::meeting_skips_auto_summary;
 use crate::llm::{emitter_from_app, SummaryService};
 use crate::meetings::{now_ms, MeetingStore};
+use crate::speakers::{speaker_for_segment, start_speaker_watch, SpeakerTimeline, SpeakerWatch};
 use crate::transcription::asr::LoadedEngine;
 use crate::transcription::audio_source::AudioSource;
 use crate::transcription::backend::AsrBackend;
@@ -31,6 +32,7 @@ struct StreamPair {
     _capture: capture::OpenedCapture,
     stream: String,
     counters: CaptureCounters,
+    sample_rate: u32,
 }
 
 struct RunningState {
@@ -42,6 +44,7 @@ struct RunningState {
     system: Option<StreamPair>,
     debug: Option<Arc<DebugSession>>,
     meeting_id: Option<String>,
+    speaker_watch: Option<SpeakerWatch>,
 }
 
 pub struct TranscriptionService {
@@ -182,12 +185,7 @@ impl TranscriptionService {
 
         let meeting_id = if let Some(store) = &self.meetings {
             let id = uuid::Uuid::new_v4().to_string();
-            store.insert_live_meeting_with_context(
-                &id,
-                now_ms(),
-                "Untitled meeting",
-                context,
-            )?;
+            store.insert_live_meeting_with_context(&id, now_ms(), "Untitled meeting", context)?;
             Some(id)
         } else {
             None
@@ -202,6 +200,13 @@ impl TranscriptionService {
         let stop_flag = Arc::new(AtomicBool::new(false));
         let counter = self.segment_counter.clone();
         let transcript = self.transcript.clone();
+        let speakers = match source {
+            AudioSource::Mic => None,
+            AudioSource::SystemAudio | AudioSource::Both => {
+                Some(Arc::new(Mutex::new(SpeakerTimeline::new())))
+            }
+        };
+        let speaker_cut = Arc::new(AtomicU64::new(0));
 
         let (mic, system) = match source {
             AudioSource::Both => {
@@ -215,6 +220,8 @@ impl TranscriptionService {
                     debug_session.clone(),
                     self.meetings.clone(),
                     meeting_id.clone(),
+                    None,
+                    None,
                 )?;
                 let system = spawn_stream_worker(
                     AudioSource::SystemAudio,
@@ -226,6 +233,8 @@ impl TranscriptionService {
                     debug_session.clone(),
                     self.meetings.clone(),
                     meeting_id.clone(),
+                    speakers.clone(),
+                    Some(speaker_cut.clone()),
                 )?;
                 (Some(mic), Some(system))
             }
@@ -240,6 +249,8 @@ impl TranscriptionService {
                     debug_session.clone(),
                     self.meetings.clone(),
                     meeting_id.clone(),
+                    None,
+                    None,
                 )?;
                 (Some(pair), None)
             }
@@ -254,10 +265,24 @@ impl TranscriptionService {
                     debug_session.clone(),
                     self.meetings.clone(),
                     meeting_id.clone(),
+                    speakers.clone(),
+                    Some(speaker_cut.clone()),
                 )?;
                 (None, Some(pair))
             }
         };
+
+        let speaker_watch = system.as_ref().and_then(|pair| {
+            speakers.map(|timeline| {
+                start_speaker_watch(
+                    timeline,
+                    pair.counters.captured_counter(),
+                    pair.sample_rate,
+                    stop_flag.clone(),
+                    speaker_cut,
+                )
+            })
+        });
 
         *running = Some(RunningState {
             stop_flag,
@@ -266,6 +291,7 @@ impl TranscriptionService {
             system,
             debug: debug_session,
             meeting_id,
+            speaker_watch,
         });
 
         drop(models_guard);
@@ -344,6 +370,9 @@ impl TranscriptionService {
         tracing::info!("Stopping transcription");
 
         state.stop_flag.store(true, Ordering::Relaxed);
+        if let Some(watch) = state.speaker_watch {
+            watch.stop();
+        }
 
         // Drop captures first to close audio channels, then join workers.
         // Both captures must be closed before either join so workers can drain and exit.
@@ -531,6 +560,8 @@ fn spawn_stream_worker(
     debug_session: Option<Arc<DebugSession>>,
     meetings: Option<MeetingStore>,
     meeting_id: Option<String>,
+    speakers: Option<Arc<Mutex<SpeakerTimeline>>>,
+    speaker_cut: Option<Arc<AtomicU64>>,
 ) -> Result<StreamPair, AppError> {
     super::cpal_capture::reset_capture_stats();
     let (audio_tx, audio_rx) = mpsc::sync_channel::<Vec<f32>>(AUDIO_CHANNEL_BOUND);
@@ -538,6 +569,7 @@ fn spawn_stream_worker(
         capture::open_capture(source, audio_tx).map_err(|e| AppError::Capture(format!("{e:#}")))?;
     let stream_name = source.as_str().to_string();
     let counters = opened.counters.clone();
+    let sample_rate = opened.sample_rate;
     let observer = debug_session.as_ref().and_then(|session| {
         session.open_stream_observer(
             source.as_str(),
@@ -553,7 +585,12 @@ fn spawn_stream_worker(
     let worker_handle = std::thread::Builder::new()
         .name(format!("transcription-worker-{}", source.as_str()))
         .spawn(move || {
-            let emit = |event: TranscriptEvent| {
+            let emit = move |mut event: TranscriptEvent| {
+                if let Some(timeline) = &speakers {
+                    if let Ok(timeline) = timeline.lock() {
+                        label_event(&mut event, &timeline);
+                    }
+                }
                 if let TranscriptEvent::Commit(c) = &event {
                     transcript.append_commit(&c.text);
                     if let (Some(store), Some(meeting_id)) = (&meetings, &meeting_id) {
@@ -588,6 +625,7 @@ fn spawn_stream_worker(
                 stop_flag,
                 segment_counter,
                 observer,
+                speaker_cut,
             );
         })
         .map_err(|e| AppError::Capture(format!("Failed to spawn worker: {e}")))?;
@@ -597,7 +635,32 @@ fn spawn_stream_worker(
         _capture: opened,
         stream: stream_name,
         counters,
+        sample_rate,
     })
+}
+
+fn label_event(event: &mut TranscriptEvent, timeline: &SpeakerTimeline) {
+    match event {
+        TranscriptEvent::Commit(commit) => {
+            commit.speaker = speaker_for_segment(
+                &commit.stream,
+                &commit.speaker,
+                commit.start_ms,
+                commit.end_ms,
+                timeline,
+            );
+        }
+        TranscriptEvent::Partial(partial) => {
+            partial.speaker = speaker_for_segment(
+                &partial.stream,
+                &partial.speaker,
+                partial.start_ms,
+                partial.end_ms,
+                timeline,
+            );
+        }
+        TranscriptEvent::Status(_) | TranscriptEvent::MicLevel(_) | TranscriptEvent::Device(_) => {}
+    }
 }
 
 fn emit_to_app(app_handle: &AppHandle, event: TranscriptEvent) {

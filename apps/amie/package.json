@@ -13,7 +13,8 @@
     "test:golden": "bash scripts/run-golden-test.sh",
     "test:golden:e2e": "bash scripts/run-golden-test.sh --e2e",
     "test:golden:baseline": "bash scripts/run-golden-test.sh --update-baseline",
-    "test:notsofar": "python3 scripts/eval_notsofar.py"
+    "test:notsofar": "python3 scripts/eval_notsofar.py",
+    "setup:signing": "bash scripts/setup-signing.sh"
   },
   "dependencies": {
     "@tanstack/react-hotkeys": "^0.10.0",

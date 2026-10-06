@@ -658,6 +658,24 @@ body,
   flex-shrink: 0;
 }
 
+.speaker-prompt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--surface-hover);
+  color: var(--text-primary);
+  font-size: 13px;
+  border-bottom: 1px solid var(--border-input);
+  flex-shrink: 0;
+}
+
+.speaker-prompt p {
+  margin: 0;
+  line-height: 1.45;
+}
+
 /* Transcript feed */
 .transcript-feed {
   flex: 1;
@@ -712,6 +730,10 @@ body,
   font-size: 13px;
   flex-shrink: 0;
   min-width: 48px;
+}
+
+.meeting-transcript .transcript-speaker {
+  min-width: 0;
 }
 
 .transcript-line--user .transcript-speaker {

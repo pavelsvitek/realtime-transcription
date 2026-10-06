@@ -24,11 +24,16 @@ pub fn run_worker<E>(
     stop: Arc<AtomicBool>,
     segment_counter: Arc<AtomicU64>,
     mut observer: Option<Box<dyn StreamObserver>>,
+    speaker_cut: Option<Arc<AtomicU64>>,
 ) where
     E: Fn(TranscriptEvent),
 {
     tracing::info!("Transcription worker started");
     let mut chunks_processed: u64 = 0;
+    let mut seen_cut = speaker_cut
+        .as_ref()
+        .map(|flag| flag.load(Ordering::Acquire))
+        .unwrap_or(0);
 
     // Optional diagnostics for denied macOS capture permission: the stream opens but
     // delivers digital silence (~-91 dB). Mic is checked quickly; system audio waits
@@ -53,13 +58,34 @@ pub fn run_worker<E>(
         } else {
             match audio_rx.recv_timeout(std::time::Duration::from_millis(100)) {
                 Ok(chunk) => chunk,
-                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => continue,
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                    flush_speaker_cut(
+                        &mut pipeline,
+                        &speaker_cut,
+                        &mut seen_cut,
+                        labels,
+                        &emit,
+                        &segment_counter,
+                        observer.as_mut(),
+                    );
+                    continue;
+                }
                 Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
                     tracing::debug!("Audio channel closed, draining remaining");
                     break;
                 }
             }
         };
+
+        flush_speaker_cut(
+            &mut pipeline,
+            &speaker_cut,
+            &mut seen_cut,
+            labels,
+            &emit,
+            &segment_counter,
+            observer.as_mut(),
+        );
 
         // Only the mic stream drives the mic-level indicator.
         if labels.stream == crate::transcription::labels::MIC_STREAM {
@@ -101,16 +127,18 @@ pub fn run_worker<E>(
                         samples = system_samples_seen,
                         "System audio loopback is silent — likely missing AudioCapture permission"
                     );
+                    let identity = crate::speakers::app_identity();
                     emit(TranscriptEvent::Status(TranscriptionStatus {
                         active: true,
                         loading: None,
                         model: None,
-                        error: Some(
+                        error: Some(format!(
                             "System audio capture is silent. Open System Settings → Privacy & Security \
-                             and allow system audio recording for Amie, then restart. \
-                             Reset: tccutil reset AudioCapture com.pavel.amie"
-                                .into(),
-                        ),
+                             and allow system audio recording for {}, then restart. \
+                             Reset: tccutil reset AudioCapture {}",
+                            identity.label,
+                            identity.bundle_id.as_deref().unwrap_or("com.pavel.amie"),
+                        )),
                     }));
                 }
             }
@@ -164,6 +192,15 @@ pub fn run_worker<E>(
     }
 
     // Flush remaining audio
+    flush_speaker_cut(
+        &mut pipeline,
+        &speaker_cut,
+        &mut seen_cut,
+        labels,
+        &emit,
+        &segment_counter,
+        observer.as_mut(),
+    );
     match pipeline.finish() {
         Ok(output) if !output.is_empty() => {
             for commit in emit_process_output(
@@ -259,6 +296,51 @@ where
     }
 
     emitted_commits
+}
+
+/// Finalize the in-flight system utterance when the speaker set changed.
+fn flush_speaker_cut<E>(
+    pipeline: &mut StreamingPipeline,
+    speaker_cut: &Option<Arc<AtomicU64>>,
+    seen: &mut u64,
+    labels: StreamLabels,
+    emit: &E,
+    segment_counter: &Arc<AtomicU64>,
+    mut observer: Option<&mut Box<dyn StreamObserver>>,
+) where
+    E: Fn(TranscriptEvent),
+{
+    let Some(flag) = speaker_cut else {
+        return;
+    };
+    loop {
+        let current = flag.load(Ordering::Acquire);
+        if current == *seen {
+            return;
+        }
+        *seen = current;
+        match pipeline.cut_utterance() {
+            Ok(Some(output)) => {
+                for commit in emit_process_output(
+                    &output.committed,
+                    &output.tentative,
+                    labels,
+                    emit,
+                    segment_counter,
+                    false,
+                ) {
+                    if let Some(obs) = observer.as_mut() {
+                        obs.on_commit(&commit);
+                    }
+                }
+            }
+            Ok(None) => {}
+            Err(error) => {
+                tracing::warn!(error = %error, "Failed to cut utterance on speaker change");
+                return;
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -453,5 +535,81 @@ mod tests {
             TranscriptEvent::Commit(c) => assert_eq!(c.text, "done"),
             _ => panic!("Expected Commit only"),
         }
+    }
+
+    struct CutProbe {
+        cuts: Arc<AtomicU64>,
+    }
+
+    impl crate::transcription::pipeline::StreamingAsr for CutProbe {
+        fn push_mono(
+            &mut self,
+            _samples: &[f32],
+        ) -> anyhow::Result<Option<crate::transcription::pipeline::AsrOutput>> {
+            Ok(None)
+        }
+
+        fn finish(&mut self) -> anyhow::Result<crate::transcription::pipeline::AsrOutput> {
+            Ok(crate::transcription::pipeline::AsrOutput::default())
+        }
+
+        fn cut_utterance(
+            &mut self,
+        ) -> anyhow::Result<Option<crate::transcription::pipeline::AsrOutput>> {
+            self.cuts.fetch_add(1, Ordering::Relaxed);
+            Ok(Some(crate::transcription::pipeline::AsrOutput {
+                committed: vec![word("from ada", 0.0, 1.0)],
+                tentative: Vec::new(),
+            }))
+        }
+    }
+
+    #[test]
+    fn a_speaker_change_cuts_the_in_flight_utterance_once() {
+        let (tx, rx) = std::sync::mpsc::sync_channel::<Vec<f32>>(1);
+        let stop = Arc::new(AtomicBool::new(false));
+        let counter = Arc::new(AtomicU64::new(0));
+        let cuts = Arc::new(AtomicU64::new(0));
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let events_emit = events.clone();
+        let cut = Arc::new(AtomicU64::new(0));
+        let pipeline = StreamingPipeline::new(Box::new(CutProbe { cuts: cuts.clone() }));
+        let cut_flag = cut.clone();
+        let handle = std::thread::spawn(move || {
+            run_worker(
+                rx,
+                pipeline,
+                StreamLabels {
+                    speaker: labels::REMOTE,
+                    stream: labels::SYSTEM_STREAM,
+                },
+                move |event| events_emit.lock().unwrap().push(event),
+                stop,
+                counter,
+                None,
+                Some(cut_flag),
+            );
+        });
+
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        cut.store(1, Ordering::Release);
+        let started = std::time::Instant::now();
+        while cuts.load(Ordering::Relaxed) == 0 {
+            assert!(
+                started.elapsed() < std::time::Duration::from_secs(2),
+                "speaker cut was not applied"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        std::thread::sleep(std::time::Duration::from_millis(150));
+        assert_eq!(cuts.load(Ordering::Relaxed), 1);
+        drop(tx);
+        handle.join().unwrap();
+
+        let events = events.lock().unwrap();
+        assert!(events.iter().any(|event| matches!(
+            event,
+            TranscriptEvent::Commit(commit) if commit.text == "from ada"
+        )));
     }
 }

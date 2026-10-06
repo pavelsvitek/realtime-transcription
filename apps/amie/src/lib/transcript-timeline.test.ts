@@ -13,10 +13,11 @@ function commit(
   startMs: number,
   endMs: number,
   stream = "mic",
+  speaker?: string,
 ): TranscriptPayload {
   return {
     segmentId: id,
-    speaker: stream === "mic" ? "User" : "Remote",
+    speaker: speaker ?? (stream === "mic" ? "User" : "Remote"),
     stream,
     text,
     startMs,
@@ -106,6 +107,27 @@ describe("applyCommit coalesce guard", () => {
 
     expect(segments).toHaveLength(2);
     expect(segments.map((segment) => segment.stream)).toEqual(["mic", "system"]);
+  });
+
+  it("does not merge nearby commits from different speakers", () => {
+    let segments = applyCommit(
+      [],
+      commit("seg-0", "from ada", 0, 1_000, "system", "Ada Lovelace"),
+    );
+    segments = applyCommit(
+      segments,
+      commit("seg-1", "from bob", 1_200, 2_000, "system", "Bob"),
+    );
+
+    expect(segments).toHaveLength(2);
+    expect(segments.map((segment) => segment.speaker)).toEqual([
+      "Ada Lovelace",
+      "Bob",
+    ]);
+    expect(segments.map((segment) => segment.text)).toEqual([
+      "from ada",
+      "from bob",
+    ]);
   });
 
   it("keeps separate lines for many adjacent ASR commits (regression)", () => {
