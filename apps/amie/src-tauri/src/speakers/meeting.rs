@@ -23,17 +23,17 @@ use super::zoom;
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 pub enum MeetingApp {
     Zoom,
-    Teams,
+    MsTeams,
     /// Google Meet in a Chromium browser.
-    Meet,
+    GoogleMeet,
 }
 
 impl MeetingApp {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Zoom => "zoom",
-            Self::Teams => "ms-teams",
-            Self::Meet => "google-meet",
+            Self::MsTeams => "ms-teams",
+            Self::GoogleMeet => "google-meet",
         }
     }
 }
@@ -76,10 +76,10 @@ pub fn running_meeting_app() -> Option<MeetingApp> {
             return Some(MeetingApp::Zoom);
         }
         if process::teams_pid().is_some() {
-            return Some(MeetingApp::Teams);
+            return Some(MeetingApp::MsTeams);
         }
         if meet_browser_pid().is_some() {
-            return Some(MeetingApp::Meet);
+            return Some(MeetingApp::GoogleMeet);
         }
         None
     }
