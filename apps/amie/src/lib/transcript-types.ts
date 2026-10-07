@@ -77,7 +77,7 @@ export type AudioDevicePayload = {
   device: AudioDeviceInfo;
 };
 
-export type MeetingApp = "zoom" | "teams";
+export type MeetingApp = "zoom" | "teams" | "meet";
 
 /**
  * `identity`: signed with a certificate, so the Accessibility grant survives

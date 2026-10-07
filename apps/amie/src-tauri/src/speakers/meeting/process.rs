@@ -7,6 +7,16 @@ use objc2_foundation::NSString;
 pub const ZOOM_BUNDLE: &str = "us.zoom.xos";
 pub const TEAMS_BUNDLE: &str = "com.microsoft.teams2";
 const TEAMS_BUNDLES: &[&str] = &[TEAMS_BUNDLE, "com.microsoft.teams"];
+/// Chromium browsers whose page content Accessibility can read. Safari and
+/// Firefox expose a different tree and are not read.
+pub const BROWSER_BUNDLES: &[&str] = &[
+    "com.brave.Browser",
+    "com.google.Chrome",
+    "com.microsoft.edgemac",
+    "company.thebrowser.Browser",
+    "com.vivaldi.Vivaldi",
+    "com.operasoftware.Opera",
+];
 
 pub fn teams_pid() -> Option<i32> {
     TEAMS_BUNDLES

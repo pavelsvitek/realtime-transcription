@@ -127,6 +127,9 @@ export function SettingsPage() {
           {speakerStatus?.meetingApp === "teams" && (
             <p className="settings-copy">Microsoft Teams is open.</p>
           )}
+          {speakerStatus?.meetingApp === "meet" && (
+            <p className="settings-copy">Google Meet is open in your browser.</p>
+          )}
           <div className="settings-actions">
             <button
               className="btn btn-start"

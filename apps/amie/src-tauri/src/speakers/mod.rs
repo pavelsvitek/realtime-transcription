@@ -1,8 +1,10 @@
 mod identity;
 mod label;
 mod meeting;
+mod meet;
 mod parse;
 mod permission;
+mod print_ax;
 mod status;
 mod teams;
 mod timeline;
@@ -12,6 +14,7 @@ mod zoom;
 
 pub use identity::app_identity;
 pub use label::speaker_for_segment;
+pub use print_ax::run_if_requested as run_print_ax_if_requested;
 pub use permission::{is_main_thread, is_trusted, open_privacy_settings, prompt};
 pub use status::{status, SpeakerTagsStatus};
 pub use timeline::SpeakerTimeline;

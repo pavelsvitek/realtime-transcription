@@ -10,6 +10,7 @@ use core_foundation::base::{
 };
 use core_foundation::boolean::CFBoolean;
 use core_foundation::string::{CFString, CFStringRef};
+use core_foundation::url::CFURL;
 use std::ffi::c_void;
 
 use crate::speakers::tree::AxNode;
@@ -200,6 +201,16 @@ fn copy_string(element: CFTypeRef, name: &str) -> Result<Option<String>, String>
         .map(|text| text.to_string()))
 }
 
+/// `AXURL` is a `CFURL`, not a string.
+fn copy_url(element: CFTypeRef) -> Result<Option<String>, String> {
+    let Some(value) = copy_attribute(element, "AXURL")? else {
+        return Ok(None);
+    };
+    Ok(value
+        .downcast_into::<CFURL>()
+        .map(|url| url.get_string().to_string()))
+}
+
 fn copy_size(element: CFTypeRef) -> Result<(f64, f64), String> {
     if let Some((width, height)) = read_cgsize(element, "AXSize")? {
         if width > 0.0 || height > 0.0 {
@@ -324,6 +335,11 @@ fn read_node(element: CFTypeRef, depth: u32, enable_electron: bool) -> Result<Ax
     }
     if let Some(dom_id) = copy_string(element, "AXDOMIdentifier")? {
         node = node.id(dom_id);
+    }
+    if node.role == "AXWebArea" {
+        if let Some(url) = copy_url(element)? {
+            node = node.at_url(url);
+        }
     }
     let classes = copy_string_array(element, "AXDOMClassList")?;
     if !classes.is_empty() {

@@ -59,7 +59,7 @@ pnpm tauri dev
 Run `pnpm setup:signing` once first (see [Permissions and code signing](#permissions-and-code-signing)); without it macOS forgets the permissions on every rebuild.
 
 On first launch, grant permissions when prompted by macOS:
-- **Accessibility** — optional, for speaker names from Zoom / Teams. Click **Allow Accessibility** in the app (banner on New chat, or Settings).
+- **Accessibility** — optional, for speaker names from Zoom, Teams and Google Meet in a Chromium browser (see [meeting speaker detection](../../docs/technical/meeting-speaker-detection.md)). Click **Allow Accessibility** in the app (banner on New chat, or Settings).
 - **Microphone** — when using the Mic input source
 - **System Audio Recording** — when using Chrome / system audio. macOS may prompt the first time you start system-audio capture. If capture is silent, open **System Settings → Privacy & Security → System Audio Recording Only** (or **Screen & System Audio Recording** on some macOS versions) and enable **Amie**, then quit and restart the app.
 

@@ -1,12 +1,18 @@
 use std::collections::BTreeSet;
 #[cfg(target_os = "macos")]
 use std::sync::atomic::{AtomicBool, Ordering};
+#[cfg(target_os = "macos")]
+use std::sync::Mutex;
+#[cfg(target_os = "macos")]
+use std::time::{Duration, Instant};
 
 #[cfg(target_os = "macos")]
 mod ax;
 #[cfg(target_os = "macos")]
 mod process;
 
+#[cfg(target_os = "macos")]
+use super::meet;
 #[cfg(target_os = "macos")]
 use super::teams;
 #[cfg(target_os = "macos")]
@@ -18,6 +24,8 @@ use super::zoom;
 pub enum MeetingApp {
     Zoom,
     Teams,
+    /// Google Meet in a Chromium browser.
+    Meet,
 }
 
 impl MeetingApp {
@@ -25,6 +33,7 @@ impl MeetingApp {
         match self {
             Self::Zoom => "zoom",
             Self::Teams => "teams",
+            Self::Meet => "meet",
         }
     }
 }
@@ -69,6 +78,9 @@ pub fn running_meeting_app() -> Option<MeetingApp> {
         if process::teams_pid().is_some() {
             return Some(MeetingApp::Teams);
         }
+        if meet_browser_pid().is_some() {
+            return Some(MeetingApp::Meet);
+        }
         None
     }
     #[cfg(not(target_os = "macos"))]
@@ -77,23 +89,153 @@ pub fn running_meeting_app() -> Option<MeetingApp> {
     }
 }
 
+/// Accessibility tree of `target` (a pid or a bundle id). Chromium
+/// accessibility is switched on first, so browsers and Electron apps show
+/// their page content.
+pub fn read_tree(target: &str) -> Result<super::tree::AxNode, String> {
+    #[cfg(target_os = "macos")]
+    {
+        let pid = match target.parse::<i32>() {
+            Ok(pid) => pid,
+            Err(_) => process::pid_for(target)
+                .ok_or_else(|| format!("No running app with bundle id {target}"))?,
+        };
+        ax::application_tree(pid, true)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = target;
+        Err("Accessibility dumps are only available on macOS".into())
+    }
+}
+
 #[cfg(target_os = "macos")]
 fn read_speakers_macos() -> Result<BTreeSet<String>, String> {
     let zoom = process::pid_for(process::ZOOM_BUNDLE);
     let teams_pid = process::teams_pid();
-    match (zoom, teams_pid) {
-        (None, None) => Ok(BTreeSet::new()),
-        (Some(pid), None) => read_zoom(pid),
-        (None, Some(pid)) => read_teams(pid),
+    let native = match (zoom, teams_pid) {
+        (None, None) => BTreeSet::new(),
+        (Some(pid), None) => read_zoom(pid)?,
+        (None, Some(pid)) => read_teams(pid)?,
         (Some(zoom_pid), Some(teams_pid)) => {
             let zoom_names = read_zoom(zoom_pid)?;
             if !zoom_names.is_empty() {
-                Ok(zoom_names)
+                zoom_names
             } else {
-                read_teams(teams_pid)
+                read_teams(teams_pid)?
             }
         }
+    };
+    if !native.is_empty() {
+        return Ok(native);
     }
+    read_meet()
+}
+
+/// How often to look through every open browser for a Meet tab while none is
+/// known. One browser tree read takes about a second.
+#[cfg(target_os = "macos")]
+const MEET_SCAN_INTERVAL: Duration = Duration::from_secs(5);
+
+#[cfg(target_os = "macos")]
+struct MeetState {
+    /// Browser process showing a Meet call, once one was found.
+    pid: Option<i32>,
+    last_scan: Option<Instant>,
+    tracker: meet::MeetTracker,
+    started: Instant,
+}
+
+#[cfg(target_os = "macos")]
+static MEET: Mutex<Option<MeetState>> = Mutex::new(None);
+
+/// The macOS account's full name. Meet shows the signed-in Google name on the
+/// self tile, which usually matches. A mismatch only means the self tile is
+/// not filtered out.
+pub fn local_user_name() -> Option<String> {
+    #[cfg(not(target_os = "macos"))]
+    {
+        None
+    }
+    #[cfg(target_os = "macos")]
+    {
+        macos_user_name()
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn macos_user_name() -> Option<String> {
+    let entry = unsafe { libc::getpwuid(libc::getuid()) };
+    if entry.is_null() {
+        return None;
+    }
+    let gecos = unsafe { std::ffi::CStr::from_ptr((*entry).pw_gecos) };
+    let full = gecos.to_string_lossy().split(',').next()?.trim().to_string();
+    (!full.is_empty()).then_some(full)
+}
+
+#[cfg(target_os = "macos")]
+fn with_meet<T>(run: impl FnOnce(&mut MeetState) -> T) -> T {
+    let mut guard = MEET.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let state = guard.get_or_insert_with(|| MeetState {
+        pid: None,
+        last_scan: None,
+        tracker: meet::MeetTracker::with_self_name(local_user_name()),
+        started: Instant::now(),
+    });
+    run(state)
+}
+
+/// The browser showing a Meet call. A known pid is trusted until a read
+/// finds the page gone. Otherwise the browsers are scanned, at most once per
+/// `MEET_SCAN_INTERVAL`.
+#[cfg(target_os = "macos")]
+fn meet_browser_pid() -> Option<i32> {
+    with_meet(|state| {
+        if state.pid.is_some() {
+            return state.pid;
+        }
+        let due = state
+            .last_scan
+            .is_none_or(|at| at.elapsed() >= MEET_SCAN_INTERVAL);
+        if !due {
+            return None;
+        }
+        state.last_scan = Some(Instant::now());
+        state.pid = process::BROWSER_BUNDLES.iter().find_map(|bundle| {
+            let pid = process::pid_for(bundle)?;
+            let tree = ax::application_tree(pid, true).ok()?;
+            meet::find_page(&tree).map(|_| pid)
+        });
+        state.pid
+    })
+}
+
+#[cfg(target_os = "macos")]
+fn read_meet() -> Result<BTreeSet<String>, String> {
+    let Some(pid) = meet_browser_pid() else {
+        return Ok(BTreeSet::new());
+    };
+    let tree = match ax::application_tree(pid, true) {
+        Ok(tree) => tree,
+        Err(error) => {
+            with_meet(|state| state.pid = None);
+            return Err(error);
+        }
+    };
+    with_meet(|state| match meet::find_page(&tree) {
+        Some(page) => {
+            let at_ms = state.started.elapsed().as_millis() as u64;
+            Ok(state.tracker.observe(page, at_ms))
+        }
+        None => {
+            // Tab closed, call ended, or the tab is in the background and
+            // Chromium no longer exposes it. The tracker keeps its baselines
+            // and drops them itself after a long gap.
+            state.pid = None;
+            Ok(BTreeSet::new())
+        }
+    })
 }
 
 #[cfg(target_os = "macos")]

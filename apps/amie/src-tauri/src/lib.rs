@@ -29,6 +29,9 @@ fn greet(name: &str) -> String {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    if let Some(code) = speakers::run_print_ax_if_requested(std::env::args().skip(1)) {
+        std::process::exit(code);
+    }
     tracing_subscriber::fmt()
         .with_env_filter(
             EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("amie_lib=info")),

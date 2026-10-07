@@ -9,6 +9,8 @@ pub struct AxNode {
     pub description: Option<String>,
     pub value: Option<String>,
     pub dom_id: Option<String>,
+    /// Page address of an `AXWebArea`.
+    pub url: Option<String>,
     pub classes: Vec<String>,
     pub width: f64,
     pub height: f64,
@@ -23,6 +25,7 @@ impl AxNode {
             description: None,
             value: None,
             dom_id: None,
+            url: None,
             classes: Vec::new(),
             width: 0.0,
             height: 0.0,
@@ -50,6 +53,11 @@ impl AxNode {
         self
     }
 
+    pub fn at_url(mut self, url: impl Into<String>) -> Self {
+        self.url = Some(url.into());
+        self
+    }
+
     pub fn classes<I, S>(mut self, classes: I) -> Self
     where
         I: IntoIterator<Item = S>,
@@ -72,6 +80,42 @@ impl AxNode {
 
     pub fn has_tile_frame(&self) -> bool {
         self.width > 10.0 && self.height > 10.0
+    }
+
+    /// One indented line per node, for reading a live tree while debugging a
+    /// meeting app. Values are cut short so chat text cannot flood the dump.
+    pub fn dump(&self) -> String {
+        let mut out = String::new();
+        self.dump_into(0, &mut out);
+        out
+    }
+
+    fn dump_into(&self, depth: usize, out: &mut String) {
+        out.push_str(&"  ".repeat(depth));
+        out.push_str(&self.role);
+        if let Some(title) = &self.title {
+            out.push_str(&format!(" title={title:?}"));
+        }
+        if let Some(description) = &self.description {
+            out.push_str(&format!(" desc={description:?}"));
+        }
+        if let Some(value) = &self.value {
+            let short: String = value.chars().take(120).collect();
+            out.push_str(&format!(" value={short:?}"));
+        }
+        if let Some(dom_id) = &self.dom_id {
+            out.push_str(&format!(" id={dom_id}"));
+        }
+        if let Some(url) = &self.url {
+            out.push_str(&format!(" url={url}"));
+        }
+        if !self.classes.is_empty() {
+            out.push_str(&format!(" class={}", self.classes.join(".")));
+        }
+        out.push_str(&format!(" size={}x{}\n", self.width, self.height));
+        for child in &self.children {
+            child.dump_into(depth + 1, out);
+        }
     }
 }
 
