@@ -124,10 +124,10 @@ export function SettingsPage() {
           {speakerStatus?.meetingApp === "zoom" && (
             <p className="settings-copy">Zoom is open.</p>
           )}
-          {speakerStatus?.meetingApp === "teams" && (
+          {speakerStatus?.meetingApp === "ms-teams" && (
             <p className="settings-copy">Microsoft Teams is open.</p>
           )}
-          {speakerStatus?.meetingApp === "meet" && (
+          {speakerStatus?.meetingApp === "google-meet" && (
             <p className="settings-copy">Google Meet is open in your browser.</p>
           )}
           <div className="settings-actions">

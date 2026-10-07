@@ -32,8 +32,8 @@ impl MeetingApp {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Zoom => "zoom",
-            Self::Teams => "teams",
-            Self::Meet => "meet",
+            Self::Teams => "ms-teams",
+            Self::Meet => "google-meet",
         }
     }
 }

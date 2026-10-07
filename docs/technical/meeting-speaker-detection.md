@@ -156,7 +156,7 @@ Proposed shape (not implemented yet):
 ```rust
 /// One supported meeting app or web app.
 pub trait MeetingSource: Send {
-    /// Stable id: "zoom", "teams", "meet". Sent to the frontend as-is.
+    /// Stable id: "zoom", "ms-teams", "google-meet". Sent to the frontend as-is.
     fn id(&self) -> &'static str;
     /// Human name for the UI ("Google Meet").
     fn label(&self) -> &'static str;
