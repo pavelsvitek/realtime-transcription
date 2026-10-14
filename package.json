@@ -6,6 +6,7 @@
     "dev": "pnpm --filter amie tauri",
     "dev:desktop": "pnpm --filter amie tauri",
     "dev:web": "pnpm --filter web dev",
+    "dev:web-prototype": "pnpm --filter web-prototype dev",
     "dev:server": "pnpm --filter server dev",
     "deploy:server": "pnpm --filter server deploy",
     "test:desktop": "pnpm --filter amie test",
