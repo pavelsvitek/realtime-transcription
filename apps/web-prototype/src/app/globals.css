@@ -210,6 +210,25 @@ body {
   }
 }
 
+.mcp-stage {
+  transform: scale(min(1, calc((100svh - 56px) / 720)));
+}
+
+.summary-stage {
+  container-type: inline-size;
+  flex: 1 1 0%;
+  min-width: 0;
+  height: calc(680px * min(1, 100cqi / 1040px));
+  overflow: hidden;
+}
+
+.summary-stage-inner {
+  width: 1040px;
+  height: 680px;
+  transform-origin: top left;
+  transform: scale(min(1, calc(100cqi / 1040px)));
+}
+
 @media (prefers-reduced-motion: reduce) {
   .caret-blink,
   .listen-bar,

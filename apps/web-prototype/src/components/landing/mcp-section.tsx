@@ -1,44 +1,30 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef } from "react";
 import { ChatPopup } from "@/components/landing/chat-popup";
 import { DataFlow } from "@/components/landing/data-flow";
 import { DatabaseIcon } from "@/components/landing/database-icon";
-import { useMcpStory, type McpPhase } from "@/hooks/use-mcp-story";
+import { useMcpStory, type McpFlow } from "@/hooks/use-mcp-story";
 
-function engineGlow(phase: McpPhase): string {
-  if (phase === "lookup") {
-    return "0 0 0 2px var(--color-raycast-accent-blue), 0 0 48px #57C1FF59";
+function engineGlow(flow: McpFlow, progress: number): string {
+  if (flow === "lookup") {
+    const a = 0.15 + progress * 0.2;
+    return `0 0 0 2px var(--color-raycast-accent-blue), 0 0 48px rgba(87, 193, 255, ${a})`;
   }
-  if (phase === "request") {
-    return "0 0 32px #57C1FF38";
+  if (flow === "request") {
+    const a = progress * 0.22;
+    return a > 0.02 ? `0 0 32px rgba(87, 193, 255, ${a})` : "none";
   }
   return "none";
 }
 
 export function McpSection() {
-  const rootRef = useRef<HTMLElement>(null);
-  const [active, setActive] = useState(false);
-  const { phase, progress } = useMcpStory(active);
-
-  useEffect(() => {
-    const node = rootRef.current;
-    if (!node) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => setActive(entry.isIntersecting),
-      { threshold: 0.28 },
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const { phase, progress, scene, caption, flow } = useMcpStory(trackRef);
 
   return (
-    <section
-      id="local-mcp"
-      ref={rootRef}
-      className="relative w-full pt-24 pb-20"
-    >
-      <div className="flex w-[560px] flex-col gap-5 px-16">
+    <section id="local-mcp" className="relative w-full pt-24">
+      <div className="flex w-[560px] flex-col gap-5 px-16 pb-16">
         <div className="flex h-6 shrink-0 items-center self-start rounded bg-raycast-accent-blue-soft px-2.5">
           <span className="text-xs leading-3 font-medium tracking-[0.4px] text-raycast-accent-blue">
             Local MCP
@@ -58,29 +44,43 @@ export function McpSection() {
         </p>
       </div>
 
-      <div className="relative mt-[70px] h-[720px] w-full">
-        <div className="absolute top-0 left-12">
-          <ChatPopup phase={phase} />
-        </div>
-        <div className="absolute top-16 left-[448px]">
-          <DataFlow phase={phase} progress={progress} />
-        </div>
-        <div
-          className="absolute top-[266px] left-[780px] flex w-[200px] flex-col items-center gap-4"
-          style={{
-            transition: "filter 280ms ease, transform 280ms ease",
-            transform: phase === "lookup" ? "scale(1.03)" : "scale(1)",
-          }}
-        >
-          <div
-            className="size-40 shrink-0 rounded-[28px] transition-[box-shadow] duration-300"
-            style={{ boxShadow: engineGlow(phase) }}
-          >
-            <DatabaseIcon className="size-40" />
+      <div ref={trackRef} className="relative h-[800vh]">
+        <div className="sticky top-0 flex h-svh flex-col bg-raycast-canvas">
+          <div className="flex h-14 shrink-0 items-center justify-between border-b border-raycast-hairline-soft px-16">
+            <p className="text-xs font-medium tracking-[0.4px] text-raycast-accent-blue">
+              02 · LOCAL MCP
+            </p>
+            <p className="text-sm text-raycast-mute">{caption}</p>
           </div>
-          <span className="text-sm leading-[13px] font-medium tracking-[0.2px] text-raycast-mute">
-            Amie · this Mac
-          </span>
+          <div className="flex min-h-0 flex-1 items-center overflow-hidden">
+            <div className="mcp-stage relative h-[720px] w-full origin-left">
+              <div className="absolute top-0 left-12">
+                <ChatPopup phase={phase} progress={progress} />
+              </div>
+              <div className="absolute top-16 left-[448px]">
+                <DataFlow flow={flow} progress={progress} scene={scene} />
+              </div>
+              <div
+                className="absolute top-[266px] left-[780px] flex w-[200px] flex-col items-center gap-4"
+                style={{
+                  transform:
+                    flow === "lookup"
+                      ? `scale(${1 + progress * 0.03})`
+                      : "scale(1)",
+                }}
+              >
+                <div
+                  className="size-40 shrink-0 rounded-[28px]"
+                  style={{ boxShadow: engineGlow(flow, progress) }}
+                >
+                  <DatabaseIcon className="size-40" />
+                </div>
+                <span className="text-sm leading-[13px] font-medium tracking-[0.2px] text-raycast-mute">
+                  Amie · this Mac
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </section>

@@ -1,11 +1,12 @@
-const LIVE_WORDS = [
-  { word: "Sure,", opacity: 0.4 },
-  { word: "median", opacity: 0.55 },
-  { word: "was", opacity: 0.7 },
-  { word: "around", opacity: 0.85 },
-  { word: "two", opacity: 1 },
-  { word: "hundr", opacity: 1, ink: true },
-];
+import {
+  LIVE_WORDS,
+  SPEAKERS,
+  type SpeakerId,
+  liveLine,
+  settledLines,
+} from "@/data/roadmap-cut";
+
+const CROP_LINES = settledLines.slice(-3);
 
 export function WordByWord() {
   return (
@@ -62,32 +63,23 @@ export function WordByWord() {
         </div>
 
         <div className="flex shrink-0 flex-col gap-4 px-5 py-4">
-          <CropLine
-            time="0:08"
-            speaker="Alex"
-            you={false}
-            muted
-            text="So for the Q3 roadmap, what are we shipping first?"
-          />
-          <CropLine
-            time="0:15"
-            speaker="You"
-            you
-            text="We should prioritize the offline path — local ASR before cloud fallback."
-          />
-          <CropLine
-            time="0:22"
-            speaker="Alex"
-            you={false}
-            muted
-            text="Agreed. Keep speaker tags in the export so summaries stay readable."
-          />
+          {CROP_LINES.map((line) => (
+            <CropLine
+              key={line.time}
+              time={line.time}
+              speaker={line.speaker}
+              muted={line.speaker !== "sam"}
+              text={line.text}
+            />
+          ))}
           <div className="flex w-[780px] items-start gap-3">
             <span className="w-10 shrink-0 text-sm leading-6 text-dark-text-muted">
-              0:38
+              {liveLine.time}
             </span>
-            <span className="w-11 shrink-0 text-sm leading-6 font-semibold text-dark-speaker-user">
-              You
+            <span
+              className={`w-16 shrink-0 text-sm leading-6 font-semibold ${SPEAKERS[liveLine.speaker].className}`}
+            >
+              {SPEAKERS[liveLine.speaker].name}
             </span>
             <span className="flex flex-wrap items-center gap-1.5">
               {LIVE_WORDS.map((item) => (
@@ -119,27 +111,24 @@ export function WordByWord() {
 function CropLine({
   time,
   speaker,
-  you,
   text,
   muted,
 }: {
   time: string;
-  speaker: string;
-  you: boolean;
+  speaker: SpeakerId;
   text: string;
   muted?: boolean;
 }) {
+  const meta = SPEAKERS[speaker];
   return (
     <div className="flex w-[780px] items-start gap-3">
       <span className="w-10 shrink-0 text-sm leading-[22px] text-dark-text-muted">
         {time}
       </span>
       <span
-        className={`w-11 shrink-0 text-sm leading-[22px] font-semibold ${
-          you ? "text-dark-speaker-user" : "text-dark-speaker-remote"
-        }`}
+        className={`w-16 shrink-0 text-sm leading-[22px] font-semibold ${meta.className}`}
       >
-        {speaker}
+        {meta.name}
       </span>
       <span
         className={`text-md leading-[22px] ${

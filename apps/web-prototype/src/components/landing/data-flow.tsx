@@ -1,21 +1,21 @@
 "use client";
 
 import { useLayoutEffect, useRef, useState } from "react";
-import type { McpPhase } from "@/hooks/use-mcp-story";
+import type { McpFlow } from "@/hooks/use-mcp-story";
 
 export const DATA_PATH = "M4 28 C 90 28, 200 220, 328 252";
 
 type Packet = { x: number; y: number; opacity: number; size: number };
 
-function packetTimes(phase: McpPhase, progress: number): number[] | null {
-  if (phase === "query" || phase === "response") return null;
+function packetTimes(flow: McpFlow, progress: number): number[] | null {
+  if (flow === "idle") return null;
 
-  if (phase === "request") {
+  if (flow === "request") {
     const head = progress;
     return [head, head - 0.16, head - 0.32];
   }
 
-  if (phase === "lookup") {
+  if (flow === "lookup") {
     return [0.82, 0.91, 1];
   }
 
@@ -25,18 +25,18 @@ function packetTimes(phase: McpPhase, progress: number): number[] | null {
 
 function packetsAlongPath(
   path: SVGPathElement,
-  phase: McpPhase,
+  flow: McpFlow,
   progress: number,
 ): Packet[] {
-  const times = packetTimes(phase, progress);
+  const times = packetTimes(flow, progress);
   if (!times) return [];
   const length = path.getTotalLength();
   const next: Packet[] = [];
   times.forEach((t, index) => {
     if (t < 0 || t > 1) return;
     const point = path.getPointAtLength(t * length);
-    const arriving = phase === "lookup" && index === 2;
-    const leaving = phase === "reply" && index === 0;
+    const arriving = flow === "lookup" && index === 2;
+    const leaving = flow === "reply" && index === 0;
     next.push({
       x: point.x,
       y: point.y,
@@ -51,23 +51,24 @@ function packetsAlongPath(
 }
 
 export function DataFlow({
-  phase,
+  flow,
   progress,
+  scene,
 }: {
-  phase: McpPhase;
+  flow: McpFlow;
   progress: number;
+  scene: number;
 }) {
   const pathRef = useRef<SVGPathElement>(null);
-  const transferring =
-    phase === "request" || phase === "lookup" || phase === "reply";
+  const transferring = flow !== "idle";
   const lineOpacity = transferring ? 1 : 0.35;
   const [packets, setPackets] = useState<Packet[]>([]);
 
   useLayoutEffect(() => {
     const path = pathRef.current;
     if (!path) return;
-    setPackets(packetsAlongPath(path, phase, progress));
-  }, [phase, progress]);
+    setPackets(packetsAlongPath(path, flow, progress));
+  }, [flow, progress]);
 
   return (
     <svg
@@ -100,8 +101,10 @@ export function DataFlow({
         strokeWidth="2"
         strokeLinecap="round"
         strokeDasharray="6 8"
-        className={transferring ? "dash-flow" : undefined}
-        style={{ opacity: lineOpacity }}
+        style={{
+          opacity: lineOpacity,
+          strokeDashoffset: transferring ? scene * -56 : 0,
+        }}
       />
       {packets.map((packet, i) => (
         <circle

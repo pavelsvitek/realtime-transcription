@@ -7,6 +7,7 @@ Style references used for Amie's **marketing website** explorations. These are n
 | Brand | File | Notes |
 | --- | --- | --- |
 | [Raycast](./raycast/DESIGN.md) | `raycast/DESIGN.md` | Selected direction for the "On air" above-the-fold hero (dark canvas, hairline chrome, white primary CTA, red hero stripe). |
+| [Website conversation](./website-conversation.md) | `website-conversation.md` | Cast and roadmap-cut meeting used on every marketing surface (hero, word-by-word, Local MCP). |
 
 ## Provenance
 

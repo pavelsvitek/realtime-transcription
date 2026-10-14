@@ -10,6 +10,7 @@ This is not a passive transcript viewer or generic chat assistant. The product h
 - [Developer Instructions](./instructions.md) — rebuild steps for Swift helper, tests, golden eval
 - [Brand guidelines](./brand/README.md) — marketing website style references (currently Raycast)
   - [Raycast](./brand/raycast/DESIGN.md) — dark canvas, hairline chrome, white CTA, hero stripe
+  - [Website conversation](./brand/website-conversation.md) — people and roadmap-cut meeting on the marketing site
 - [Entity API naming](./technical/entity-api-naming.md) — React/Rust CRUD verbs (`getAll` / `get` / `patch` / `delete`)
 - [xAI Transcribe 2.0](./technical/xai-speech-to-text.md) — dual-backend WebSocket STT alongside local Nemotron
 - [NOTSOFAR eval-small](./eval/dataset-notsofar.md) — local ASR WER on 10 far-field meetings
