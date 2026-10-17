@@ -1,3 +1,4 @@
+mod app_menu;
 pub mod audio_device;
 mod commands;
 pub mod config;
@@ -43,14 +44,28 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_process::init())
         .manage(meeting_store.clone())
         .manage(summaries.clone())
         .manage(TranscriptionHandle::new(meeting_store, summaries))
         .setup(|app| {
+            #[cfg(desktop)]
+            {
+                // Production endpoints live in tauri.conf.json. Debug / `tauri dev`
+                // passes an empty-endpoints overlay via scripts/tauri.sh so we never
+                // poll public Releases from local builds (plan risk #10).
+                app.handle()
+                    .plugin(tauri_plugin_updater::Builder::new().build())?;
+            }
+
             #[cfg(target_os = "macos")]
             {
                 let _monitor = spawn_device_monitor(app.handle().clone());
+                if let Err(err) = app_menu::install_macos_app_menu(app.handle()) {
+                    tracing::error!(error = %err, "Failed to install macOS app menu");
+                }
             }
+
             if std::env::var_os("GENERATE_ALL_MEETING_SUMMARIES").is_some() {
                 use tauri::Manager;
                 let summaries = app.state::<SummaryService>().inner().clone();
@@ -97,6 +112,7 @@ pub fn run() {
             commands::system_access::get_system_access_status,
             commands::system_access::open_system_access_settings,
             commands::mcp::get_mcp_status,
+            commands::updates::get_app_install_location,
             commands::onboarding::get_launch_flags,
             commands::onboarding::get_speech_model_status,
             commands::onboarding::start_speech_model_download,

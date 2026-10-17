@@ -113,8 +113,53 @@ That writes:
 
 - `apps/amie/src-tauri/target/release/bundle/macos/Amie.app`
 - `apps/amie/src-tauri/target/release/bundle/dmg/Amie_0.1.0_aarch64.dmg`
+- With `createUpdaterArtifacts`: `Amie.app.tar.gz` + `.sig` for the in-app updater
 
 `pnpm tauri build` refuses to run without a signing identity (see below), signs the bundle with it, and checks the result. Drag **Amie.app** into `/Applications`.
+
+## Check for Updates
+
+The macOS **Amie** menu includes **Check for Updates…**. It uses `tauri-plugin-updater` against the public GitHub Releases feed:
+
+`https://github.com/pavelsvitek/realtime-transcription/releases/latest/download/latest.json`
+
+Until a signed Release exists, the menu still works: you get “up to date” or a clear network/404 error. `pnpm tauri dev` overlays **empty** updater endpoints so local debug builds never poll production.
+
+### Minisign pubkey
+
+`src-tauri/tauri.conf.json` → `plugins.updater.pubkey` holds the real minisign public key (also mirrored at the repo root as `app.pub.key` for convenience; config is source of truth).
+
+Store the matching **private** key only as GitHub Actions secret `TAURI_SIGNING_PRIVATE_KEY` (and an encrypted offline backup). Never commit private key files (`app.priv.key`, `*.priv.key`, or `TAURI_SIGNING_PRIVATE_KEY`).
+
+Losing the private key bricks updates for already-shipped clients until they manually install a build with a new pubkey.
+
+## Releasing (GitHub Actions)
+
+Tag-driven CI: [`.github/workflows/amie-release.yml`](../../.github/workflows/amie-release.yml).
+
+1. Bump **in lockstep**: `src-tauri/tauri.conf.json` → `version`, `src-tauri/Cargo.toml` → `version`, and this package’s `package.json` → `version`.
+2. Commit on the release branch, then tag and push:
+   ```bash
+   git tag app-v0.1.0   # must match the bumped version
+   git push origin app-v0.1.0
+   ```
+3. The workflow runs on `macos-latest`, builds **Apple Silicon only** (`aarch64-apple-darwin`), builds the Nemotron sidecar, then runs `tauri-apps/tauri-action@v1` with `uploadUpdaterJson: true` and `releaseDraft: true`.
+4. Inspect the **draft** Release assets before publishing:
+   - `Amie_*_aarch64.dmg` (first install)
+   - `Amie.app.tar.gz` + `.sig` (updater payload)
+   - `latest.json` (discovery for `tauri-plugin-updater`)
+
+### Secrets
+
+| Secret | Required for | Notes |
+| --- | --- | --- |
+| `TAURI_SIGNING_PRIVATE_KEY` | Signing updater artifacts / `latest.json` | Minisign private key. Workflow fails fast if missing. |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Optional | Only if the key was generated with a password. |
+| `GITHUB_TOKEN` | Creating the draft Release | Provided by Actions; needs `contents: write` (set on the workflow). |
+
+Apple Developer ID / notarization secrets are **not** wired here (next PR). Until then CI sets `AMIE_ALLOW_ADHOC=1` and `APPLE_SIGNING_IDENTITY=-` (ad-hoc). Draft artifacts are for pipeline smoke tests only — Gatekeeper will complain on clean Macs; do not publish for end users.
+
+You can also run the workflow via **Actions → amie-release → Run workflow** (`workflow_dispatch`).
 
 ## Permissions and code signing
 

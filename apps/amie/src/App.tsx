@@ -2,6 +2,7 @@ import { Activity, useCallback, useRef, useState } from "react";
 import { AppLayout } from "./components/AppLayout";
 import { OnboardingProvider } from "./components/OnboardingProvider";
 import type { AppPage } from "./components/Sidebar";
+import { UpdateProvider } from "./components/UpdateProvider";
 import { HomePage } from "./pages/HomePage";
 import { MeetingsPage } from "./pages/MeetingsPage";
 import { SettingsPage } from "./pages/SettingsPage";
@@ -82,6 +83,7 @@ function App() {
       {page === "settings" ? (
         <SettingsPage onBack={() => navigate(lastMainPageRef.current)} />
       ) : null}
+      <UpdateProvider meetingActive={listening || starting} />
       <OnboardingProvider />
     </AppLayout>
   );
