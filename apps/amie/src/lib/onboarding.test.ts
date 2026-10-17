@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   ONBOARDING_SEEN_STORAGE_KEY,
   clearOnboardingSeen,
+  downloadFooterStatus,
   formatModelSize,
   hasSeenOnboarding,
   markOnboardingSeen,
@@ -44,5 +45,11 @@ describe("onboarding prefs", () => {
 
   it("formats the known model size without naming the model", () => {
     expect(formatModelSize()).toBe("about 612 MB");
+  });
+
+  it("formats footer download progress percent", () => {
+    expect(downloadFooterStatus(0)).toBe("Downloading speech model… 0%");
+    expect(downloadFooterStatus(42)).toBe("Downloading speech model… 42%");
+    expect(downloadFooterStatus(100)).toBe("Downloading speech model… 100%");
   });
 });

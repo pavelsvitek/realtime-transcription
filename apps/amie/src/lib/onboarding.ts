@@ -11,8 +11,16 @@ export type LaunchFlags = {
 export type SpeechModelStatus = {
   ready: boolean;
   downloading: boolean;
+  downloadPercent: number | null;
   expectedSizeBytes: number;
   helperFound: boolean;
+};
+
+export type SpeechModelDownloadProgress = {
+  downloading: boolean;
+  percent: number;
+  stage: string;
+  ready: boolean;
 };
 
 export function hasSeenOnboarding(): boolean {
@@ -37,4 +45,10 @@ export function formatModelSize(bytes: number = EXPECTED_MODEL_SIZE_BYTES): stri
     return `about ${Math.round(mb)} MB`;
   }
   return `about ${mb.toFixed(1)} MB`;
+}
+
+/** Footer status while the speech model downloads in the background. */
+export function downloadFooterStatus(percent: number | null | undefined): string {
+  const value = typeof percent === "number" ? Math.max(0, Math.min(100, Math.round(percent))) : 0;
+  return `Downloading speech model… ${value}%`;
 }

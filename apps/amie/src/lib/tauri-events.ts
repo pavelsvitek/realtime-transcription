@@ -6,3 +6,4 @@ export const EVENT_TRANSCRIPTION_MIC_LEVEL = "transcription/mic_level";
 export const EVENT_TRANSCRIPTION_DEVICE = "transcription/device";
 export const EVENT_SUMMARY_DELTA = "summary/delta";
 export const EVENT_SUMMARY_STATUS = "summary/status";
+export const EVENT_SPEECH_MODEL_DOWNLOAD_PROGRESS = "speech-model/download-progress";

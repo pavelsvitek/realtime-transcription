@@ -278,8 +278,20 @@ body,
 }
 
 .onboarding-dialog {
-  width: min(440px, calc(100vw - 48px));
-  max-width: 440px;
+  width: min(720px, calc(100vw - 48px));
+  max-width: 720px;
+  min-height: min(520px, calc(100vh - 64px));
+  padding: 28px;
+  gap: 20px;
+}
+
+.onboarding-dialog .start-meeting-dialog-title {
+  font-size: 22px;
+}
+
+.onboarding-dialog .short-meeting-dialog-copy {
+  font-size: 15px;
+  line-height: 1.5;
 }
 
 .onboarding-dialog-chrome {

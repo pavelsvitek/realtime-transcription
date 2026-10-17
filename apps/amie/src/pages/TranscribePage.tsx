@@ -17,7 +17,9 @@ import { Spinner } from "../components/Spinner";
 import { TranscriptFeed } from "../components/TranscriptFeed";
 import { useAudioDevice } from "../hooks/useAudioDevice";
 import { useMicLevel } from "../hooks/useMicLevel";
+import { useSpeechModelDownload } from "../hooks/useSpeechModelDownload";
 import { useTranscription } from "../hooks/useTranscription";
+import { downloadFooterStatus } from "../lib/onboarding";
 import type { FollowUpSeed } from "../lib/meetings";
 import {
   finishedMeetingTitle,
@@ -78,6 +80,7 @@ export function TranscribePage({
     clear,
   } = useTranscription();
   const { device, error: deviceError } = useAudioDevice();
+  const modelDownload = useSpeechModelDownload();
   const [tab, setTab] = useState<MeetingDetailTab>("transcript");
   const [isFinishing, setIsFinishing] = useState(false);
   const stopping = isStopping || isFinishing;
@@ -345,6 +348,8 @@ export function TranscribePage({
               : audioSource === "system"
                 ? "Capturing Chrome audio..."
                 : "Listening..."
+            : modelDownload.downloading
+              ? downloadFooterStatus(modelDownload.percent)
             : segments.length > 0
               ? `${segments.filter((s) => !s.isPartial).length} segments`
               : "Ready"}
