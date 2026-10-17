@@ -5,6 +5,7 @@ mod error;
 mod eval;
 mod ipc;
 mod llm;
+pub mod mcp;
 mod meetings;
 mod speakers;
 mod state;

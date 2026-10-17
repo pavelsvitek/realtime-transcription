@@ -69,6 +69,36 @@ Stopping `pnpm tauri dev` (or a Cargo rebuild) quits that window. The runner kil
 
 The **ASR** dropdown on New chat selects **Local (Nemotron)** or **xAI Transcribe 2.0** (persisted in `localStorage`). For xAI, save an API key on **Settings** (stored under Application Support) or set `XAI_API_KEY`. Details: [docs/technical/xai-speech-to-text.md](../../docs/technical/xai-speech-to-text.md).
 
+## Local MCP
+
+`amie_mcp` is a stdio MCP server over the meetings database. It does not open a port. stdout is the protocol.
+
+```bash
+cargo build --manifest-path apps/amie/src-tauri/Cargo.toml --bin amie_mcp
+```
+
+Claude Code:
+
+```bash
+claude mcp add amie -- /absolute/path/to/amie_mcp
+```
+
+Cursor or Codex (`~/.cursor/mcp.json` / `~/.codex/config.toml`):
+
+```json
+{
+  "mcpServers": {
+    "amie": {
+      "command": "/absolute/path/to/amie_mcp"
+    }
+  }
+}
+```
+
+The server reads meetings and can edit a meeting's title, context and summary and archive or unarchive it. It cannot delete meetings, edit transcripts, or change a meeting while it is being recorded. Add `--read-only` (or set `AMIE_MCP_READ_ONLY=1`) to drop the editing and archive tools. It never creates or migrates the database: launch Amie once first, and again after upgrading it.
+
+Set `AMIE_DB_PATH` to point at a different `meetings.db`. The default is `~/Library/Application Support/com.pavel.amie/meetings.db`. Tool list: [docs/research/amie-local-mcp.md](../../docs/research/amie-local-mcp.md).
+
 ## Production build
 
 From the repo root on macOS (Apple Silicon), with the Nemotron helper already built (`./apps/amie/scripts/setup-nemotron.sh`):
