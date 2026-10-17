@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   ARCHIVE_MEETING_HOTKEY,
   FOLLOW_UP_MEETING_HOTKEY,
+  moveSettingsSection,
   NAV_HOTKEYS,
   SETTINGS_HOTKEY,
+  SETTINGS_SECTION_DOWN_HOTKEY,
+  SETTINGS_SECTION_UP_HOTKEY,
   START_MEETING_HOTKEY,
   STOP_MEETING_HOTKEY,
 } from "./nav-hotkeys";
@@ -47,5 +50,24 @@ describe("ARCHIVE_MEETING_HOTKEY", () => {
 describe("STOP_MEETING_HOTKEY", () => {
   it("uses Mod+Backspace so Command/Control+Backspace opens the stop confirm", () => {
     expect(STOP_MEETING_HOTKEY).toBe("Mod+Backspace");
+  });
+});
+
+describe("SETTINGS_SECTION hotkeys", () => {
+  it("uses Mod+ArrowUp/Down to move through Settings sections", () => {
+    expect(SETTINGS_SECTION_UP_HOTKEY).toBe("Mod+ArrowUp");
+    expect(SETTINGS_SECTION_DOWN_HOTKEY).toBe("Mod+ArrowDown");
+  });
+});
+
+describe("moveSettingsSection", () => {
+  const items = ["meeting-summary", "mcp", "system-access"] as const;
+
+  it("moves down and up without wrapping", () => {
+    expect(moveSettingsSection(items, "meeting-summary", "down")).toBe("mcp");
+    expect(moveSettingsSection(items, "mcp", "down")).toBe("system-access");
+    expect(moveSettingsSection(items, "system-access", "down")).toBe("system-access");
+    expect(moveSettingsSection(items, "system-access", "up")).toBe("mcp");
+    expect(moveSettingsSection(items, "meeting-summary", "up")).toBe("meeting-summary");
   });
 });

@@ -5,6 +5,11 @@ import type { AsrSettings, SummaryProvider, SummarySettings } from "../lib/trans
 import { summaryProviderHasKey } from "../lib/summary-providers";
 import { useSpeakerTagsStatus } from "../hooks/useSpeakerTagsStatus";
 import { signatureLabel } from "../lib/speaker-tags";
+import {
+  moveSettingsSection,
+  SETTINGS_SECTION_DOWN_HOTKEY,
+  SETTINGS_SECTION_UP_HOTKEY,
+} from "../lib/nav-hotkeys";
 
 const KEY_MASK = "•".repeat(24);
 
@@ -53,6 +58,26 @@ type McpStatus = {
 
 export function SettingsPage({ onBack }: { onBack: () => void }) {
   const [section, setSection] = useState<SettingsSection>("meeting-summary");
+  const [settings, setSettings] = useState<AsrSettings | null>(null);
+  const [summarySettings, setSummarySettings] = useState<SummarySettings | null>(null);
+  const [apiKey, setApiKey] = useState("");
+  const [openaiKey, setOpenaiKey] = useState("");
+  const [geminiKey, setGeminiKey] = useState("");
+  const [status, setStatus] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [systemAccess, setSystemAccess] = useState<SystemAccessStatus | null>(null);
+  const [mcp, setMcp] = useState<McpStatus | null>(null);
+  const [openingPane, setOpeningPane] = useState<string | null>(null);
+  const { status: speakerStatus } = useSpeakerTagsStatus();
+
+  const sectionIds = NAV_ITEMS.map((item) => item.id);
+
+  const selectSection = useCallback((next: SettingsSection) => {
+    setSection(next);
+    setStatus(null);
+    setError(null);
+  }, []);
 
   useHotkey(
     "Escape",
@@ -68,18 +93,44 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
       },
     },
   );
-  const [settings, setSettings] = useState<AsrSettings | null>(null);
-  const [summarySettings, setSummarySettings] = useState<SummarySettings | null>(null);
-  const [apiKey, setApiKey] = useState("");
-  const [openaiKey, setOpenaiKey] = useState("");
-  const [geminiKey, setGeminiKey] = useState("");
-  const [status, setStatus] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [systemAccess, setSystemAccess] = useState<SystemAccessStatus | null>(null);
-  const [mcp, setMcp] = useState<McpStatus | null>(null);
-  const [openingPane, setOpeningPane] = useState<string | null>(null);
-  const { status: speakerStatus } = useSpeakerTagsStatus();
+
+  useHotkey(
+    SETTINGS_SECTION_DOWN_HOTKEY,
+    (event) => {
+      if (event.isComposing) return;
+      event.preventDefault();
+      setSection((current) => moveSettingsSection(sectionIds, current, "down"));
+      setStatus(null);
+      setError(null);
+    },
+    {
+      preventDefault: true,
+      ignoreInputs: true,
+      meta: {
+        name: "Next Settings section",
+        description: "Move down the Settings sidebar",
+      },
+    },
+  );
+
+  useHotkey(
+    SETTINGS_SECTION_UP_HOTKEY,
+    (event) => {
+      if (event.isComposing) return;
+      event.preventDefault();
+      setSection((current) => moveSettingsSection(sectionIds, current, "up"));
+      setStatus(null);
+      setError(null);
+    },
+    {
+      preventDefault: true,
+      ignoreInputs: true,
+      meta: {
+        name: "Previous Settings section",
+        description: "Move up the Settings sidebar",
+      },
+    },
+  );
 
   const refresh = useCallback(async () => {
     try {
@@ -229,11 +280,7 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
                       : "settings-nav-item"
                   }
                   aria-current={section === item.id ? "page" : undefined}
-                  onClick={() => {
-                    setSection(item.id);
-                    setStatus(null);
-                    setError(null);
-                  }}
+                  onClick={() => selectSection(item.id)}
                 >
                   {item.label}
                 </button>

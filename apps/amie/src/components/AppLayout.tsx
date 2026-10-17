@@ -33,9 +33,10 @@ export function AppLayout({
   );
   const [heldOpen, setHeldOpen] = useState(false);
   const confirmOpen = confirmKind !== null || heldOpen;
-  useNavHotkeys(onNavigate);
+  const settingsOpen = currentPage === "settings";
+  useNavHotkeys(onNavigate, !settingsOpen);
   useHotkey(START_MEETING_HOTKEY, () => setConfirmKind("start"), {
-    enabled: !confirmOpen && !listening && !loading,
+    enabled: !settingsOpen && !confirmOpen && !listening && !loading,
     meta: {
       name: "Start a meeting",
       description: "Confirm starting a new meeting",
@@ -48,7 +49,7 @@ export function AppLayout({
       setConfirmKind("stop");
     },
     {
-      enabled: !confirmOpen && listening,
+      enabled: !settingsOpen && !confirmOpen && listening,
       preventDefault: true,
       meta: {
         name: "Stop the meeting",
@@ -56,8 +57,6 @@ export function AppLayout({
       },
     },
   );
-
-  const settingsOpen = currentPage === "settings";
 
   return (
     <StartMeetingConfirmLayer

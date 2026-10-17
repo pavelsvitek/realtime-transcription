@@ -18,3 +18,21 @@ export const NAV_HOTKEYS: {
   { page: "settings", hotkey: "Mod+4", label: "Settings" },
   { page: "settings", hotkey: "Mod+,", label: "Settings" },
 ];
+
+export const SETTINGS_SECTION_UP_HOTKEY = "Mod+ArrowUp";
+export const SETTINGS_SECTION_DOWN_HOTKEY = "Mod+ArrowDown";
+
+/** Move within a Settings sidebar list; stops at the ends. */
+export function moveSettingsSection<T>(
+  items: readonly T[],
+  current: T,
+  direction: "up" | "down",
+): T {
+  if (items.length === 0) return current;
+  const index = items.indexOf(current);
+  const from = index < 0 ? 0 : index;
+  if (direction === "down") {
+    return items[Math.min(items.length - 1, from + 1)]!;
+  }
+  return items[Math.max(0, from - 1)]!;
+}
