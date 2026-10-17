@@ -8,3 +8,4 @@ export const EVENT_SUMMARY_DELTA = "summary/delta";
 export const EVENT_SUMMARY_STATUS = "summary/status";
 /** Native Amie menu → Check for Updates… */
 export const EVENT_CHECK_FOR_UPDATES = "menu/check-for-updates";
+export const EVENT_SPEECH_MODEL_DOWNLOAD_PROGRESS = "speech-model/download-progress";

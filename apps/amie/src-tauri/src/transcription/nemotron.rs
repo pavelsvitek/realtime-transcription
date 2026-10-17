@@ -1,6 +1,7 @@
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStderr, ChildStdin, Command, Stdio};
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::mpsc::{self, Receiver};
 use std::thread;
 use std::time::Duration;
@@ -17,6 +18,8 @@ pub const CACHE_SUBDIR: &str = "nemotron";
 pub const MODEL_REPOSITORY: &str = "aufklarer/Nemotron-3.5-ASR-Streaming-0.6B-CoreML-INT8";
 pub const MODEL_BUNDLE_SUBDIR: &str =
     "qwen3-speech/models/aufklarer/Nemotron-3.5-ASR-Streaming-0.6B-CoreML-INT8";
+/// Approximate CoreML INT8 artifact size (see MODEL_INVESTIGATION.md).
+pub const EXPECTED_DOWNLOAD_SIZE_BYTES: u64 = 612 * 1024 * 1024;
 const REQUIRED_MODEL_COMPONENTS: &[&str] = &[
     "encoder.mlmodelc",
     "decoder.mlmodelc",
@@ -27,6 +30,34 @@ const REQUIRED_MODEL_COMPONENTS: &[&str] = &[
 ];
 const INIT_READY_TIMEOUT: Duration = Duration::from_secs(60);
 const INIT_OVERALL_TIMEOUT: Duration = Duration::from_secs(300);
+const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(60 * 30);
+
+static DOWNLOAD_IN_FLIGHT: AtomicBool = AtomicBool::new(false);
+static DOWNLOAD_PERCENT: AtomicU8 = AtomicU8::new(0);
+
+/// True while a background `--download-only` run is in progress.
+pub fn download_in_flight() -> bool {
+    DOWNLOAD_IN_FLIGHT.load(Ordering::Relaxed)
+}
+
+pub fn download_percent() -> u8 {
+    DOWNLOAD_PERCENT.load(Ordering::Relaxed)
+}
+
+/// Returns true if this caller won the start race and should run the download.
+pub fn try_begin_download() -> bool {
+    DOWNLOAD_IN_FLIGHT
+        .compare_exchange(false, true, Ordering::SeqCst, Ordering::Relaxed)
+        .is_ok()
+}
+
+pub fn set_download_percent(percent: u8) {
+    DOWNLOAD_PERCENT.store(percent.min(100), Ordering::Relaxed);
+}
+
+pub fn end_download() {
+    DOWNLOAD_IN_FLIGHT.store(false, Ordering::SeqCst);
+}
 
 #[derive(Serialize)]
 struct InitRequest<'a> {
@@ -351,8 +382,154 @@ pub fn validate_installation(helper_path: &Path, model_bundle_dir: &Path) -> Res
     Ok(())
 }
 
+pub fn model_bundle_ready(model_bundle_dir: &Path) -> bool {
+    if !model_bundle_dir.is_dir() {
+        return false;
+    }
+    REQUIRED_MODEL_COMPONENTS
+        .iter()
+        .all(|component| model_bundle_dir.join(component).exists())
+}
+
+/// Callback for helper download progress (0–100) and stage label from stdout JSON.
+pub type DownloadProgressFn = dyn Fn(u8, String) + Send + Sync;
+
+/// Runs `nemotron-bridge --download-only --cache-dir <cache_root>` (same path as setup-nemotron.sh).
+pub fn download_model(helper_path: &Path, cache_root: &Path) -> Result<(), String> {
+    download_model_with_progress(helper_path, cache_root, None)
+}
+
+pub fn download_model_with_progress(
+    helper_path: &Path,
+    cache_root: &Path,
+    on_progress: Option<std::sync::Arc<DownloadProgressFn>>,
+) -> Result<(), String> {
+    if !helper_path.exists() {
+        return Err(format!(
+            "Nemotron helper not found at {}. Run apps/amie/scripts/setup-nemotron.sh.",
+            helper_path.display()
+        ));
+    }
+
+    let bundle_dir = default_model_bundle_dir(cache_root);
+    if model_bundle_ready(&bundle_dir) {
+        if let Some(cb) = &on_progress {
+            cb(100, "ready".into());
+        }
+        return Ok(());
+    }
+
+    std::fs::create_dir_all(cache_root).map_err(|error| {
+        format!(
+            "Failed to create model cache at {}: {error}",
+            cache_root.display()
+        )
+    })?;
+
+    let cache_dir = cache_root.to_string_lossy().into_owned();
+    tracing::info!(
+        helper = %helper_path.display(),
+        cache = %cache_dir,
+        "Starting speech model download"
+    );
+
+    let mut child = Command::new(helper_path)
+        .args(["--download-only", "--cache-dir", &cache_dir])
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|error| format!("Failed to start model download: {error}"))?;
+
+    let stdout = child.stdout.take();
+    let stderr = child.stderr.take();
+    if let Some(stdout) = stdout {
+        let progress = on_progress.clone();
+        thread::spawn(move || {
+            let reader = BufReader::new(stdout);
+            for line in reader.lines().flatten() {
+                if line.trim().is_empty() {
+                    continue;
+                }
+                tracing::info!(target: "nemotron-download", "{line}");
+                if let Some(cb) = &progress {
+                    if let Some((percent, stage)) = parse_download_progress_line(&line) {
+                        cb(percent, stage);
+                    }
+                }
+            }
+        });
+    }
+    if let Some(stderr) = stderr {
+        spawn_stderr_logger(stderr);
+    }
+
+    let started = std::time::Instant::now();
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) if status.success() => {
+                if model_bundle_ready(&bundle_dir) {
+                    return Ok(());
+                }
+                return Err(format!(
+                    "Model download finished but bundle is incomplete at {}",
+                    bundle_dir.display()
+                ));
+            }
+            Ok(Some(status)) => {
+                return Err(format!(
+                    "Model download exited with {status} (helper {})",
+                    helper_path.display()
+                ));
+            }
+            Ok(None) if started.elapsed() >= DOWNLOAD_TIMEOUT => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(format!(
+                    "Model download timed out after {}s",
+                    DOWNLOAD_TIMEOUT.as_secs()
+                ));
+            }
+            Ok(None) => thread::sleep(Duration::from_millis(250)),
+            Err(error) => {
+                return Err(format!("Failed while waiting for model download: {error}"));
+            }
+        }
+    }
+}
+
 pub fn default_model_bundle_dir(cache_root: &Path) -> PathBuf {
     cache_root.join(MODEL_BUNDLE_SUBDIR)
+}
+
+/// Parses helper stdout like `{"type":"loading","stage":"downloading_models 42%"}`.
+pub fn parse_download_progress_line(line: &str) -> Option<(u8, String)> {
+    #[derive(Deserialize)]
+    struct LoadingLine {
+        #[serde(rename = "type")]
+        kind: String,
+        stage: String,
+    }
+
+    let parsed: LoadingLine = serde_json::from_str(line.trim()).ok()?;
+    if parsed.kind != "loading" {
+        return None;
+    }
+    let percent = percent_from_stage(&parsed.stage).unwrap_or(0);
+    Some((percent, parsed.stage))
+}
+
+fn percent_from_stage(stage: &str) -> Option<u8> {
+    let trimmed = stage.trim();
+    let percent_idx = trimmed.rfind('%')?;
+    let before = &trimmed[..percent_idx];
+    let start = before
+        .rfind(|c: char| !c.is_ascii_digit())
+        .map(|i| i + 1)
+        .unwrap_or(0);
+    let digits = &before[start..];
+    let value: u8 = digits.parse().ok()?;
+    Some(value.min(100))
 }
 
 fn spawn_stderr_logger(stderr: ChildStderr) {
@@ -484,5 +661,16 @@ mod tests {
         let step = apply_boundary_response(HelperResponse::BoundaryDone, &mut output).unwrap();
         assert!(matches!(step, BoundaryStep::Done));
         assert_eq!(output.committed[0].text, "from ada");
+    }
+
+    #[test]
+    fn parses_helper_download_progress_percent() {
+        let (percent, stage) = parse_download_progress_line(
+            r#"{"type":"loading","stage":"downloading_models 42%"}"#,
+        )
+        .unwrap();
+        assert_eq!(percent, 42);
+        assert!(stage.contains("42%"));
+        assert!(parse_download_progress_line(r#"{"type":"ready","model":"x"}"#).is_none());
     }
 }

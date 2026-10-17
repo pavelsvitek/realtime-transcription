@@ -17,7 +17,12 @@ import { Spinner } from "../components/Spinner";
 import { TranscriptFeed } from "../components/TranscriptFeed";
 import { useAudioDevice } from "../hooks/useAudioDevice";
 import { useMicLevel } from "../hooks/useMicLevel";
+import { useSpeechModelDownload } from "../hooks/useSpeechModelDownload";
 import { useTranscription } from "../hooks/useTranscription";
+import {
+  downloadFooterStatus,
+  formatTranscriptionError,
+} from "../lib/onboarding";
 import type { FollowUpSeed } from "../lib/meetings";
 import {
   finishedMeetingTitle,
@@ -78,6 +83,7 @@ export function TranscribePage({
     clear,
   } = useTranscription();
   const { device, error: deviceError } = useAudioDevice();
+  const modelDownload = useSpeechModelDownload();
   const [tab, setTab] = useState<MeetingDetailTab>("transcript");
   const [isFinishing, setIsFinishing] = useState(false);
   const stopping = isStopping || isFinishing;
@@ -268,7 +274,7 @@ export function TranscribePage({
 
       {error && (
         <div className="error-banner">
-          {error}
+          {formatTranscriptionError(error, modelDownload.downloading)}
         </div>
       )}
 
@@ -340,14 +346,16 @@ export function TranscribePage({
           {stopping
             ? "Stopping..."
             : isActive
-            ? audioSource === "both"
-              ? "Capturing mic + system audio..."
-              : audioSource === "system"
-                ? "Capturing Chrome audio..."
-                : "Listening..."
-            : segments.length > 0
-              ? `${segments.filter((s) => !s.isPartial).length} segments`
-              : "Ready"}
+              ? audioSource === "both"
+                ? "Capturing mic + system audio..."
+                : audioSource === "system"
+                  ? "Capturing Chrome audio..."
+                  : "Listening..."
+              : modelDownload.downloading
+                ? downloadFooterStatus(modelDownload.percent)
+                : segments.length > 0
+                  ? `${segments.filter((s) => !s.isPartial).length} segments`
+                  : "Ready"}
         </span>
       </footer>
     </main>
