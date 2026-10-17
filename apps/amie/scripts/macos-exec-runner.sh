@@ -101,6 +101,7 @@ keys = (
     "NEMOTRON_MIN_SPEECH_MS",
     "TRANSCRIPTION_AUDIO_SOURCE",
     "GENERATE_ALL_MEETING_SUMMARIES",
+    "AMIE_SHOW_ONBOARDING",
 )
 env = {key: os.environ[key] for key in keys if os.environ.get(key)}
 if env:
