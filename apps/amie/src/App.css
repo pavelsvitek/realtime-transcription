@@ -278,10 +278,11 @@ body,
 }
 
 .onboarding-dialog {
+  --onboarding-pad: 28px;
   width: min(720px, calc(100vw - 48px));
   max-width: 720px;
   min-height: min(520px, calc(100vh - 64px));
-  padding: 28px;
+  padding: var(--onboarding-pad);
   gap: 20px;
 }
 
@@ -299,6 +300,24 @@ body,
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  flex-shrink: 0;
+}
+
+.onboarding-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.onboarding-dialog-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex-shrink: 0;
+  margin-top: auto;
+  width: 100%;
 }
 
 .onboarding-step-label {
@@ -330,7 +349,8 @@ body,
 }
 
 .onboarding-primary,
-.onboarding-secondary {
+.onboarding-secondary,
+.onboarding-accent {
   flex: 1;
   padding: 10px 12px;
   font-weight: 600;
@@ -347,6 +367,21 @@ body,
 
 .onboarding-secondary:hover:not(:disabled) {
   background: var(--surface-hover);
+}
+
+/* Permission actions — peach accent (distinct from primary rose Done). */
+.onboarding-accent {
+  color: #5c2f1a;
+  background: var(--brand-peach);
+  border-color: transparent;
+}
+
+.onboarding-accent:hover:not(:disabled) {
+  background: #f29a64;
+}
+
+.onboarding-accent:disabled {
+  opacity: 0.55;
 }
 
 .onboarding-access-list {
