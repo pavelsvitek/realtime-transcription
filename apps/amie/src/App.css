@@ -1488,6 +1488,8 @@ body,
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  /* Title bar is hidden in Settings; clear the traffic-light band. */
+  padding-top: calc(var(--window-chrome-top) + 8px);
 }
 
 .settings-section {
