@@ -19,9 +19,6 @@ export const NAV_HOTKEYS: {
   { page: "settings", hotkey: "Mod+,", label: "Settings" },
 ];
 
-export const SETTINGS_SECTION_UP_HOTKEY = "Mod+ArrowUp";
-export const SETTINGS_SECTION_DOWN_HOTKEY = "Mod+ArrowDown";
-
 /** Move within a Settings sidebar list; stops at the ends. */
 export function moveSettingsSection<T>(
   items: readonly T[],

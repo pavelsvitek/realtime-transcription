@@ -5,8 +5,6 @@ import {
   moveSettingsSection,
   NAV_HOTKEYS,
   SETTINGS_HOTKEY,
-  SETTINGS_SECTION_DOWN_HOTKEY,
-  SETTINGS_SECTION_UP_HOTKEY,
   START_MEETING_HOTKEY,
   STOP_MEETING_HOTKEY,
 } from "./nav-hotkeys";
@@ -50,13 +48,6 @@ describe("ARCHIVE_MEETING_HOTKEY", () => {
 describe("STOP_MEETING_HOTKEY", () => {
   it("uses Mod+Backspace so Command/Control+Backspace opens the stop confirm", () => {
     expect(STOP_MEETING_HOTKEY).toBe("Mod+Backspace");
-  });
-});
-
-describe("SETTINGS_SECTION hotkeys", () => {
-  it("uses Mod+ArrowUp/Down to move through Settings sections", () => {
-    expect(SETTINGS_SECTION_UP_HOTKEY).toBe("Mod+ArrowUp");
-    expect(SETTINGS_SECTION_DOWN_HOTKEY).toBe("Mod+ArrowDown");
   });
 });
 

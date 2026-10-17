@@ -5,11 +5,7 @@ import type { AsrSettings, SummaryProvider, SummarySettings } from "../lib/trans
 import { summaryProviderHasKey } from "../lib/summary-providers";
 import { useSpeakerTagsStatus } from "../hooks/useSpeakerTagsStatus";
 import { signatureLabel } from "../lib/speaker-tags";
-import {
-  moveSettingsSection,
-  SETTINGS_SECTION_DOWN_HOTKEY,
-  SETTINGS_SECTION_UP_HOTKEY,
-} from "../lib/nav-hotkeys";
+import { moveSettingsSection } from "../lib/nav-hotkeys";
 
 const KEY_MASK = "•".repeat(24);
 
@@ -26,6 +22,8 @@ const NAV_ITEMS: { id: SettingsSection; label: string }[] = [
   { id: "mcp", label: "MCP" },
   { id: "system-access", label: "System access" },
 ];
+
+const SECTION_IDS = NAV_ITEMS.map((item) => item.id);
 
 type MicrophoneAuthorization =
   | "notDetermined"
@@ -71,8 +69,6 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
   const [openingPane, setOpeningPane] = useState<string | null>(null);
   const { status: speakerStatus } = useSpeakerTagsStatus();
 
-  const sectionIds = NAV_ITEMS.map((item) => item.id);
-
   const selectSection = useCallback((next: SettingsSection) => {
     setSection(next);
     setStatus(null);
@@ -94,43 +90,35 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
     },
   );
 
-  useHotkey(
-    SETTINGS_SECTION_DOWN_HOTKEY,
-    (event) => {
-      if (event.isComposing) return;
-      event.preventDefault();
-      setSection((current) => moveSettingsSection(sectionIds, current, "down"));
-      setStatus(null);
-      setError(null);
-    },
-    {
-      preventDefault: true,
-      ignoreInputs: true,
-      meta: {
-        name: "Next Settings section",
-        description: "Move down the Settings sidebar",
-      },
-    },
-  );
+  const moveSection = useCallback((direction: "up" | "down") => {
+    setSection((current) => moveSettingsSection(SECTION_IDS, current, direction));
+    setStatus(null);
+    setError(null);
+  }, []);
 
-  useHotkey(
-    SETTINGS_SECTION_UP_HOTKEY,
-    (event) => {
+  // Capture-phase: Cmd+Arrow is often swallowed by WKWebView before React hotkeys.
+  // Plain Arrow also moves sections (same pattern as Meetings), except inside fields.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
       if (event.isComposing) return;
+      if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+
+      const target = event.target;
+      const inField =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        (target instanceof HTMLElement && target.isContentEditable);
+      if (inField && !event.metaKey && !event.ctrlKey) return;
+
       event.preventDefault();
-      setSection((current) => moveSettingsSection(sectionIds, current, "up"));
-      setStatus(null);
-      setError(null);
-    },
-    {
-      preventDefault: true,
-      ignoreInputs: true,
-      meta: {
-        name: "Previous Settings section",
-        description: "Move up the Settings sidebar",
-      },
-    },
-  );
+      event.stopPropagation();
+      moveSection(event.key === "ArrowDown" ? "down" : "up");
+    };
+
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [moveSection]);
 
   const refresh = useCallback(async () => {
     try {
