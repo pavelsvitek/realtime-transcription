@@ -1,5 +1,10 @@
 //! macOS Accessibility (TCC). The prompt and the trust check are unavailable
 //! on other systems; callers there report Accessibility as off.
+//!
+//! Trust is always asked for **this** process (bundle id + designated
+//! requirement). System Settings can still show an older “Amie” row as on
+//! when that row was recorded for a different code identity — especially
+//! ad-hoc builds, whose requirement is a per-binary `cdhash`.
 
 #[cfg(target_os = "macos")]
 mod imp {
@@ -10,23 +15,30 @@ mod imp {
 
     #[link(name = "ApplicationServices", kind = "framework")]
     extern "C" {
-        fn AXIsProcessTrusted() -> u8;
         fn AXIsProcessTrustedWithOptions(
             options: core_foundation::dictionary::CFDictionaryRef,
         ) -> u8;
     }
 
+    /// Live trust for the running process. `prompt: false` so a status poll
+    /// never triggers the system sheet — that path belongs to [`prompt`].
     pub fn is_trusted() -> bool {
-        unsafe { AXIsProcessTrusted() != 0 }
+        with_prompt_option(false)
     }
 
     pub fn prompt() {
+        let _ = with_prompt_option(true);
+    }
+
+    fn with_prompt_option(prompt: bool) -> bool {
         let key = CFString::new("AXTrustedCheckOptionPrompt");
-        let value = CFBoolean::true_value();
+        let value = if prompt {
+            CFBoolean::true_value()
+        } else {
+            CFBoolean::false_value()
+        };
         let dict = CFDictionary::from_CFType_pairs(&[(key, value)]);
-        unsafe {
-            AXIsProcessTrustedWithOptions(dict.as_concrete_TypeRef());
-        }
+        unsafe { AXIsProcessTrustedWithOptions(dict.as_concrete_TypeRef()) != 0 }
     }
 }
 

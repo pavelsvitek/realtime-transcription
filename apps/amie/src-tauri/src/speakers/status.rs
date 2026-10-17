@@ -15,6 +15,8 @@ pub struct SpeakerTagsStatus {
     pub bundle_id: Option<String>,
     pub signature: SignatureKind,
     pub signer: Option<String>,
+    /// Designated requirement for this binary (TCC identity), when known.
+    pub code_requirement: Option<String>,
 }
 
 pub fn status() -> SpeakerTagsStatus {
@@ -30,5 +32,6 @@ pub fn status() -> SpeakerTagsStatus {
         bundle_id: identity.bundle_id.clone(),
         signature: identity.signature.kind,
         signer: identity.signature.signer.clone(),
+        code_requirement: identity.signature.requirement.clone(),
     }
 }
