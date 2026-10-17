@@ -111,8 +111,27 @@ That writes:
 
 - `apps/amie/src-tauri/target/release/bundle/macos/Amie.app`
 - `apps/amie/src-tauri/target/release/bundle/dmg/Amie_0.1.0_aarch64.dmg`
+- With `createUpdaterArtifacts`: `Amie.app.tar.gz` + `.sig` for the in-app updater
 
 `pnpm tauri build` refuses to run without a signing identity (see below), signs the bundle with it, and checks the result. Drag **Amie.app** into `/Applications`.
+
+## Check for Updates
+
+The macOS **Amie** menu includes **Check for Updates…**. It uses `tauri-plugin-updater` against the public GitHub Releases feed:
+
+`https://github.com/pavelsvitek/realtime-transcription/releases/latest/download/latest.json`
+
+Until a signed Release exists, the menu still works: you get “up to date” or a clear network/404 error. `pnpm tauri dev` overlays **empty** updater endpoints so local debug builds never poll production.
+
+### Minisign pubkey (replace before first Release)
+
+`src-tauri/tauri.conf.json` → `plugins.updater.pubkey` currently holds a **placeholder** public key (generated only to satisfy the config format; the matching private key was **not** kept and must never be committed). Before publishing the first updater Release:
+
+1. Generate your real keypair: `pnpm tauri signer generate -w ~/.tauri/amie.key`
+2. Put the **public** key string into `plugins.updater.pubkey`
+3. Store the private key as GitHub Actions secret `TAURI_SIGNING_PRIVATE_KEY` (and keep an encrypted backup)
+
+Losing the private key bricks updates for already-shipped clients until they manually install a build with a new pubkey.
 
 ## Permissions and code signing
 

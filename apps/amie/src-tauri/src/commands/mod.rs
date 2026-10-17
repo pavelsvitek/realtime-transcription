@@ -4,3 +4,4 @@ pub mod meetings;
 pub mod speakers;
 pub mod system_access;
 pub mod transcription;
+pub mod updates;

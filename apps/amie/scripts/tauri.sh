@@ -18,6 +18,13 @@ esac
 
 TAURI="$ROOT/node_modules/.bin/tauri"
 
+# Debug / `tauri dev` must not poll production GitHub Releases (auto-update plan
+# risk #10). Overlay empty updater endpoints for `dev` only.
+# Release `tauri build` keeps the production endpoints from tauri.conf.json.
+updater_debug_config() {
+  printf '%s' '{"plugins":{"updater":{"endpoints":[]}}}'
+}
+
 # `pnpm tauri build`: sign the release app with a real identity, or fail.
 # Tauri leaves the bundle ad-hoc / linker-signed when given none, and then every
 # build is a different app to macOS: the Accessibility grant is lost on update.
@@ -30,6 +37,10 @@ wants_release_signing() {
   done
   return 0
 }
+
+if [[ "${1:-}" == "dev" ]]; then
+  exec "$TAURI" "$@" --config "$(updater_debug_config)"
+fi
 
 if ! wants_release_signing "$@"; then
   exec "$TAURI" "$@"
