@@ -2,3 +2,11 @@ node_modules
 .DS_Store
 *.log
 .pnpm-debug.log*
+
+# Tauri updater signing — public key may be committed; private never
+app.priv.key
+*.priv.key
+*.key.priv
+TAURI_SIGNING_PRIVATE_KEY
+**/amie.key
+**/.tauri/*.key

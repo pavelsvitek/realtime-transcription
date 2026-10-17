@@ -48,7 +48,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEM0NEI4MTI0MDdGNUI4NTMKUldSVHVQVUhKSUZMeE95TkFDaXFsc1VScUV4NU9MeU5ibnR5YkFzUWlRcmZWTGs0R1JEMlc3QzkK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEZBMzNBQTUxRDM4Q0NGQ0EKUldUS3o0elRVYW96K2tDcGdOanBORUtEQmZPWjVSU2U0RURIcllSckxyM2h6UUJ5U1ZObmN4Q0UK",
       "endpoints": [
         "https://github.com/pavelsvitek/realtime-transcription/releases/latest/download/latest.json"
       ]

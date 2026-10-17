@@ -123,13 +123,11 @@ The macOS **Amie** menu includes **Check for Updates…**. It uses `tauri-plugin
 
 Until a signed Release exists, the menu still works: you get “up to date” or a clear network/404 error. `pnpm tauri dev` overlays **empty** updater endpoints so local debug builds never poll production.
 
-### Minisign pubkey (replace before first Release)
+### Minisign pubkey
 
-`src-tauri/tauri.conf.json` → `plugins.updater.pubkey` currently holds a **placeholder** public key (generated only to satisfy the config format; the matching private key was **not** kept and must never be committed). Before publishing the first updater Release:
+`src-tauri/tauri.conf.json` → `plugins.updater.pubkey` holds the real minisign public key (also mirrored at the repo root as `app.pub.key` for convenience; config is source of truth).
 
-1. Generate your real keypair: `pnpm tauri signer generate -w ~/.tauri/amie.key`
-2. Put the **public** key string into `plugins.updater.pubkey`
-3. Store the private key as GitHub Actions secret `TAURI_SIGNING_PRIVATE_KEY` (and keep an encrypted backup)
+Store the matching **private** key only as GitHub Actions secret `TAURI_SIGNING_PRIVATE_KEY` (and an encrypted offline backup). Never commit private key files (`app.priv.key`, `*.priv.key`, or `TAURI_SIGNING_PRIVATE_KEY`).
 
 Losing the private key bricks updates for already-shipped clients until they manually install a build with a new pubkey.
 

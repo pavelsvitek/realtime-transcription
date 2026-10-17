@@ -10,9 +10,8 @@
 #   TAURI_SIGNING_PRIVATE_KEY
 #     Private key contents (or path contents) from:
 #       pnpm tauri signer generate -w ~/.tauri/amie.key
-#     Must match plugins.updater.pubkey in tauri.conf.json.
-#     PR1 currently ships a PLACEHOLDER pubkey — replace pubkey + this secret
-#     with Pavel's real keypair before any client can trust artifacts.
+#     Must match plugins.updater.pubkey in tauri.conf.json (real pubkey is
+#     already embedded; keep this secret in sync with that keypair).
 #
 # Optional repository secret:
 #   TAURI_SIGNING_PRIVATE_KEY_PASSWORD
