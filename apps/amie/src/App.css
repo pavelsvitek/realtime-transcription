@@ -1415,28 +1415,31 @@ body,
 }
 
 .settings-nav-header {
-  padding: 4px 2px 12px;
+  padding: 4px 0 12px;
   flex-shrink: 0;
 }
 
 .settings-back {
-  display: inline-flex;
+  width: 100%;
+  display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   border: none;
   background: transparent;
   color: var(--text-primary);
   font: inherit;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 650;
   letter-spacing: -0.02em;
-  padding: 6px 8px;
+  padding: 8px 10px;
   border-radius: 6px;
   cursor: pointer;
+  text-align: left;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .settings-back:hover {
-  background: var(--surface-hover);
+  background-color: var(--surface-hover);
 }
 
 .settings-nav-list {
