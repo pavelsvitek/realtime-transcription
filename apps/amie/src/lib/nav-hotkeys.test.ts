@@ -3,18 +3,26 @@ import {
   ARCHIVE_MEETING_HOTKEY,
   FOLLOW_UP_MEETING_HOTKEY,
   NAV_HOTKEYS,
+  SETTINGS_HOTKEY,
   START_MEETING_HOTKEY,
   STOP_MEETING_HOTKEY,
 } from "./nav-hotkeys";
 
 describe("NAV_HOTKEYS", () => {
-  it("maps Mod+1 through Mod+4 to the sidebar pages", () => {
+  it("maps Mod+1 through Mod+4 and Mod+, to the sidebar pages", () => {
     expect(NAV_HOTKEYS.map((item) => [item.hotkey, item.page, item.label])).toEqual([
       ["Mod+1", "home", "Home"],
       ["Mod+2", "transcribe", "Transcription"],
       ["Mod+3", "meetings", "Meetings"],
       ["Mod+4", "settings", "Settings"],
+      ["Mod+,", "settings", "Settings"],
     ]);
+  });
+});
+
+describe("SETTINGS_HOTKEY", () => {
+  it("uses Mod+, so Command/Control+, opens Settings", () => {
+    expect(SETTINGS_HOTKEY).toBe("Mod+,");
   });
 });
 

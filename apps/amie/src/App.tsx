@@ -10,6 +10,7 @@ import "./App.css";
 
 function App() {
   const [page, setPage] = useState<AppPage>("transcribe");
+  const lastMainPageRef = useRef<Exclude<AppPage, "settings">>("transcribe");
   const [arrivedMeetingId, setArrivedMeetingId] = useState<string | null>(null);
   const [skipAutoSummaryNotice, setSkipAutoSummaryNotice] = useState(false);
   const [listening, setListening] = useState(false);
@@ -25,16 +26,23 @@ function App() {
     [],
   );
 
+  const navigate = useCallback((next: AppPage) => {
+    if (next !== "settings") {
+      lastMainPageRef.current = next;
+    }
+    setPage(next);
+  }, []);
+
   const startMeeting = useCallback(() => {
-    setPage("transcribe");
+    navigate("transcribe");
     if (listening || starting) return;
     startMeetingRef.current?.();
-  }, [listening, starting]);
+  }, [listening, starting, navigate]);
 
   return (
     <AppLayout
       currentPage={page}
-      onNavigate={setPage}
+      onNavigate={navigate}
       listening={listening}
       loading={starting}
       onStartMeeting={startMeeting}
@@ -54,7 +62,7 @@ function App() {
             setStarting(false);
             setArrivedMeetingId(meetingId);
             setSkipAutoSummaryNotice(skipAutoSummary);
-            setPage("meetings");
+            navigate("meetings");
           }}
         />
       </Activity>
@@ -70,7 +78,9 @@ function App() {
           }}
         />
       ) : null}
-      {page === "settings" ? <SettingsPage /> : null}
+      {page === "settings" ? (
+        <SettingsPage onBack={() => navigate(lastMainPageRef.current)} />
+      ) : null}
     </AppLayout>
   );
 }

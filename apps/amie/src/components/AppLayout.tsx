@@ -57,6 +57,8 @@ export function AppLayout({
     },
   );
 
+  const settingsOpen = currentPage === "settings";
+
   return (
     <StartMeetingConfirmLayer
       kind={confirmKind}
@@ -72,16 +74,18 @@ export function AppLayout({
       }}
       onDismiss={() => setConfirmKind(null)}
     >
-      <div className="app-shell">
-        <Sidebar
-          currentPage={currentPage}
-          onNavigate={onNavigate}
-          onStartMeeting={onStartMeeting}
-          listening={listening}
-          loading={loading}
-        />
+      <div className={settingsOpen ? "app-shell app-shell--settings" : "app-shell"}>
+        {!settingsOpen ? (
+          <Sidebar
+            currentPage={currentPage}
+            onNavigate={onNavigate}
+            onStartMeeting={onStartMeeting}
+            listening={listening}
+            loading={loading}
+          />
+        ) : null}
         <div className="app-main">
-          <TitleBar></TitleBar>
+          {!settingsOpen ? <TitleBar /> : null}
           <div className="app-content">{children}</div>
         </div>
       </div>

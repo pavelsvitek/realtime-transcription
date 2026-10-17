@@ -94,6 +94,9 @@ pub fn run() {
             commands::meetings::delete_meeting,
             commands::speakers::get_speaker_tags_status,
             commands::speakers::request_accessibility_permission,
+            commands::system_access::get_system_access_status,
+            commands::system_access::open_system_access_settings,
+            commands::mcp::get_mcp_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
