@@ -273,14 +273,16 @@ export function OnboardingDialog({
               ) : null}
             </div>
             <div className="onboarding-dialog-footer">
-              <button
-                ref={primaryRef}
-                type="button"
-                className="btn btn-start short-meeting-dialog-ok"
-                onClick={onComplete}
-              >
-                Done
-              </button>
+              <div className="onboarding-dialog-actions">
+                <button
+                  ref={primaryRef}
+                  type="button"
+                  className="btn btn-start onboarding-primary"
+                  onClick={onComplete}
+                >
+                  Done
+                </button>
+              </div>
             </div>
           </>
         )}
