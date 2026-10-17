@@ -50,11 +50,112 @@ pub fn prompt() {
 /// macOS shows the Accessibility dialog at most once per app. After that the
 /// prompt call returns without a window, so open the Privacy list directly.
 pub fn open_privacy_settings() {
+    open_privacy_pane("Privacy_Accessibility");
+}
+
+pub fn open_microphone_settings() {
+    open_privacy_pane("Privacy_Microphone");
+}
+
+/// Core Audio loopback (`AudioCapture` TCC). On recent macOS this is
+/// **System Audio Recording Only** (or **Screen & System Audio Recording**).
+pub fn open_system_audio_settings() {
+    open_privacy_pane("Privacy_AudioCapture");
+}
+
+fn open_privacy_pane(pane: &str) {
     #[cfg(target_os = "macos")]
     {
-        let _ = std::process::Command::new("open")
-            .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
-            .spawn();
+        let url = format!("x-apple.systempreferences:com.apple.preference.security?{pane}");
+        let _ = std::process::Command::new("open").arg(url).spawn();
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = pane;
+    }
+}
+
+/// Microphone TCC via `AVCaptureDevice.authorizationStatus`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum MicrophoneAuthorization {
+    NotDetermined,
+    Restricted,
+    Denied,
+    Authorized,
+    Unknown,
+}
+
+pub fn microphone_authorization() -> MicrophoneAuthorization {
+    #[cfg(target_os = "macos")]
+    {
+        mic::authorization()
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        MicrophoneAuthorization::Unknown
+    }
+}
+
+/// Asks for Microphone access (system prompt) when still undetermined.
+pub fn request_microphone_access() {
+    #[cfg(target_os = "macos")]
+    {
+        mic::request_access();
+    }
+}
+
+#[cfg(target_os = "macos")]
+mod mic {
+    use std::sync::mpsc;
+    use std::time::Duration;
+
+    use block2::RcBlock;
+    use objc2::runtime::{AnyClass, Bool};
+    use objc2::msg_send;
+    use objc2_foundation::NSString;
+
+    use super::MicrophoneAuthorization;
+
+    #[link(name = "AVFoundation", kind = "framework")]
+    extern "C" {}
+
+    /// `AVMediaTypeAudio` — FourCharCode `"soun"`.
+    const AV_MEDIA_TYPE_AUDIO: &str = "soun";
+
+    pub fn authorization() -> MicrophoneAuthorization {
+        let Some(cls) = AnyClass::get(c"AVCaptureDevice") else {
+            return MicrophoneAuthorization::Unknown;
+        };
+        let media = NSString::from_str(AV_MEDIA_TYPE_AUDIO);
+        // AVAuthorizationStatus is NSInteger.
+        let status: isize = unsafe { msg_send![cls, authorizationStatusForMediaType: &*media] };
+        match status {
+            0 => MicrophoneAuthorization::NotDetermined,
+            1 => MicrophoneAuthorization::Restricted,
+            2 => MicrophoneAuthorization::Denied,
+            3 => MicrophoneAuthorization::Authorized,
+            _ => MicrophoneAuthorization::Unknown,
+        }
+    }
+
+    pub fn request_access() {
+        let Some(cls) = AnyClass::get(c"AVCaptureDevice") else {
+            return;
+        };
+        let media = NSString::from_str(AV_MEDIA_TYPE_AUDIO);
+        let (tx, rx) = mpsc::sync_channel::<bool>(1);
+        let block = RcBlock::new(move |granted: Bool| {
+            let _ = tx.send(granted.as_bool());
+        });
+        unsafe {
+            let _: () = msg_send![
+                cls,
+                requestAccessForMediaType: &*media,
+                completionHandler: &*block
+            ];
+        }
+        let _ = rx.recv_timeout(Duration::from_secs(120));
     }
 }
 

@@ -33,9 +33,10 @@ export function AppLayout({
   );
   const [heldOpen, setHeldOpen] = useState(false);
   const confirmOpen = confirmKind !== null || heldOpen;
-  useNavHotkeys(onNavigate);
+  const settingsOpen = currentPage === "settings";
+  useNavHotkeys(onNavigate, !settingsOpen);
   useHotkey(START_MEETING_HOTKEY, () => setConfirmKind("start"), {
-    enabled: !confirmOpen && !listening && !loading,
+    enabled: !settingsOpen && !confirmOpen && !listening && !loading,
     meta: {
       name: "Start a meeting",
       description: "Confirm starting a new meeting",
@@ -48,7 +49,7 @@ export function AppLayout({
       setConfirmKind("stop");
     },
     {
-      enabled: !confirmOpen && listening,
+      enabled: !settingsOpen && !confirmOpen && listening,
       preventDefault: true,
       meta: {
         name: "Stop the meeting",
@@ -72,16 +73,18 @@ export function AppLayout({
       }}
       onDismiss={() => setConfirmKind(null)}
     >
-      <div className="app-shell">
-        <Sidebar
-          currentPage={currentPage}
-          onNavigate={onNavigate}
-          onStartMeeting={onStartMeeting}
-          listening={listening}
-          loading={loading}
-        />
+      <div className={settingsOpen ? "app-shell app-shell--settings" : "app-shell"}>
+        {!settingsOpen ? (
+          <Sidebar
+            currentPage={currentPage}
+            onNavigate={onNavigate}
+            onStartMeeting={onStartMeeting}
+            listening={listening}
+            loading={loading}
+          />
+        ) : null}
         <div className="app-main">
-          <TitleBar></TitleBar>
+          {!settingsOpen ? <TitleBar /> : null}
           <div className="app-content">{children}</div>
         </div>
       </div>

@@ -69,6 +69,14 @@ body,
   background-color: var(--surface-shell);
 }
 
+.app-shell--settings .app-main {
+  background-color: var(--surface-content);
+}
+
+.app-shell--settings .app-content {
+  border-top-left-radius: 0;
+}
+
 .sidebar {
   width: 240px;
   flex-shrink: 0;
@@ -1376,18 +1384,128 @@ body,
   align-items: baseline;
 }
 
+.settings-page {
+  min-height: 0;
+  flex: 1;
+}
+
+.settings-layout {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+}
+
+.settings-nav {
+  width: 220px;
+  flex-shrink: 0;
+  padding: 0 12px 24px;
+  border-right: 1px solid var(--border-default);
+  background: var(--surface-chrome);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-nav-chrome {
+  height: var(--window-chrome-top);
+  flex-shrink: 0;
+  margin: 0 -12px;
+}
+
+.settings-nav-header {
+  padding: 4px 0 12px;
+  flex-shrink: 0;
+}
+
+.settings-back {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.settings-back:hover {
+  background-color: var(--surface-hover);
+}
+
+.settings-nav-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-height: 0;
+}
+
+.settings-nav-item {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 13px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.settings-nav-item:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.settings-nav-item--active {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.settings-pane {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-content);
+}
+
 .settings-scroll {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  /* Title bar is hidden in Settings; clear the traffic-light band. */
+  padding-top: calc(var(--window-chrome-top) + 8px);
 }
 
 .settings-section {
-  max-width: 560px;
-  padding: 8px 24px 32px;
+  max-width: 640px;
+  padding: 8px 24px 28px;
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+
+.settings-pane-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
 }
 
 .settings-heading {
@@ -1401,6 +1519,56 @@ body,
   font-size: 13px;
   color: var(--text-secondary);
   line-height: 1.45;
+}
+
+.settings-copy code,
+.settings-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.settings-link {
+  color: var(--brand-primary);
+  text-decoration: none;
+}
+
+.settings-link:hover {
+  text-decoration: underline;
+}
+
+.settings-code {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border-default);
+  background: var(--surface-muted);
+  color: var(--text-primary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow-x: auto;
+}
+
+.settings-access-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 0;
+  border-top: 1px solid var(--border-default);
+}
+
+.settings-access-card:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+
+.settings-access-card-main {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .settings-row,
@@ -1434,6 +1602,13 @@ body,
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+  align-items: center;
+}
+
+a.settings-external {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
 }
 
 .settings-status {
