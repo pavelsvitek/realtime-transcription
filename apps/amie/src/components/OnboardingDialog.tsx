@@ -244,8 +244,9 @@ export function OnboardingDialog({
                   <div>
                     <h3 className="onboarding-access-heading">Accessibility</h3>
                     <p className="onboarding-access-copy">
-                      Reads who Zoom or Teams shows as speaking. Does not record
-                      the screen.
+                      Read the speaker names from live Zoom or MS Team calls.
+                      Makes the meetings transcription and summary much more
+                      useful.
                     </p>
                   </div>
                   <button
