@@ -65,7 +65,7 @@ On first launch, grant permissions when prompted by macOS:
 
 `pnpm tauri dev` launches via a dev `.app` bundle (`src-tauri/target/debug/amie-dev.app`, **Amie Dev**, bundle id `com.pavel.amie.dev`) using `open`, so macOS attributes microphone, system-audio and Accessibility permission to the app instead of the terminal. Running the raw `target/debug/amie` binary from a terminal will not trigger the permission prompt and loopback will be silent.
 
-Force the first-run onboarding dialog with `--show-onboarding` (or `AMIE_SHOW_ONBOARDING=1`), e.g. `pnpm tauri dev -- -- --show-onboarding`. The “seen” flag lives in `localStorage` as `amie-onboarding-seen` (same prefs pattern as ASR backend / color scheme); clear that key for a fresh first-run without the flag.
+The onboarding dialog opens automatically whenever the speech model is not downloaded yet (every launch until it is). Force it anytime with `--show-onboarding` (or `AMIE_SHOW_ONBOARDING=1`), e.g. `pnpm tauri dev -- -- --show-onboarding`. After the model is on disk, a `localStorage` key `amie-onboarding-seen` (same prefs pattern as ASR backend / color scheme) keeps it from reappearing; clear that key to replay the permissions step.
 
 Stopping `pnpm tauri dev` (or a Cargo rebuild) quits that window. The runner kills the previous `amie-dev.app` process before launching so you do not stack extra instances.
 

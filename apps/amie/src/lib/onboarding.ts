@@ -28,8 +28,25 @@ export function hasSeenOnboarding(): boolean {
 }
 
 /**
- * Mark onboarding as seen so it does not show on the next normal launch.
- * Called when the user finishes step 2 or dismisses (close / Escape / backdrop).
+ * Show onboarding when:
+ * - `--show-onboarding` / `AMIE_SHOW_ONBOARDING` forces it, or
+ * - the speech model is not on disk yet (every launch until downloaded), or
+ * - the user has never completed/dismissed the flow while the model was ready.
+ */
+export function shouldShowOnboarding(options: {
+  force: boolean;
+  modelReady: boolean;
+  seen: boolean;
+}): boolean {
+  if (options.force) return true;
+  if (!options.modelReady) return true;
+  return !options.seen;
+}
+
+/**
+ * Mark onboarding as seen so it does not show again once the model is ready.
+ * Called when the user finishes step 2 (Done) or dismisses early.
+ * If the model is still missing, the dialog still reopens on the next launch.
  */
 export function markOnboardingSeen(): void {
   localStorage.setItem(ONBOARDING_SEEN_STORAGE_KEY, "1");

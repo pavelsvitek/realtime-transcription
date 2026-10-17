@@ -3,17 +3,19 @@ import { invoke } from "@tauri-apps/api/core";
 import {
   hasSeenOnboarding,
   markOnboardingSeen,
+  shouldShowOnboarding,
   type LaunchFlags,
   type SpeechModelStatus,
 } from "../lib/onboarding";
 import { OnboardingDialog } from "./OnboardingDialog";
 
 /**
- * Shows the first-run onboarding dialog once per install (localStorage),
+ * Shows the onboarding dialog when the speech model is not downloaded yet
+ * (every launch until it is), on first completion while the model is ready,
  * or whenever `--show-onboarding` / `AMIE_SHOW_ONBOARDING=1` is set.
  *
- * Seen policy: mark seen when the user finishes step 2 (Done) or dismisses
- * early (Close / Not now / Escape / backdrop). Force-show still works via CLI.
+ * Seen policy: mark seen on Done or dismiss. That only suppresses future
+ * launches once the model is on disk; missing model still reopens every start.
  */
 export function OnboardingProvider() {
   const [open, setOpen] = useState(false);
@@ -29,7 +31,13 @@ export function OnboardingProvider() {
         ]);
         if (cancelled) return;
         setModelStatus(status);
-        if (flags.showOnboarding || !hasSeenOnboarding()) {
+        if (
+          shouldShowOnboarding({
+            force: flags.showOnboarding,
+            modelReady: status.ready,
+            seen: hasSeenOnboarding(),
+          })
+        ) {
           setOpen(true);
         }
       } catch (error) {
