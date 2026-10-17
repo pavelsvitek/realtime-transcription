@@ -277,6 +277,182 @@ body,
   justify-content: center;
 }
 
+.onboarding-dialog {
+  --onboarding-pad: 28px;
+  width: min(720px, calc(100vw - 48px));
+  max-width: 720px;
+  /* Slightly shorter than before so the main app footer peeks out. */
+  min-height: min(490px, calc(100vh - 64px));
+  padding: var(--onboarding-pad);
+  gap: 20px;
+}
+
+.onboarding-dialog .start-meeting-dialog-title {
+  font-size: 22px;
+}
+
+.onboarding-dialog .short-meeting-dialog-copy {
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.onboarding-dialog-chrome {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.onboarding-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.onboarding-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
+  flex-shrink: 0;
+  margin-top: auto;
+  width: 100%;
+}
+
+.onboarding-step-label {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.onboarding-close {
+  margin: 0;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.onboarding-close:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+/* Equal-width action buttons, right-aligned. */
+.onboarding-dialog-actions {
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.onboarding-dialog-actions .btn {
+  min-width: 7.5rem;
+  width: auto;
+  padding: 10px 16px;
+  font-weight: 600;
+  border-radius: 10px;
+  text-align: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.onboarding-secondary {
+  background: var(--surface-input);
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}
+
+.onboarding-secondary:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+/* Permission actions — peach accent (distinct from primary rose Done). */
+.onboarding-accent {
+  color: #5c2f1a;
+  background: var(--brand-peach);
+  border-color: transparent;
+  min-width: 16rem;
+  width: 16rem;
+  padding: 10px 16px;
+  font-weight: 600;
+  border-radius: 10px;
+  text-align: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.onboarding-accent:hover:not(:disabled) {
+  background: #f29a64;
+}
+
+.onboarding-accent:disabled {
+  opacity: 0.55;
+}
+
+.onboarding-access-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.onboarding-access-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border-default);
+}
+
+.onboarding-access-row:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.onboarding-access-heading {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.onboarding-access-copy {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+.onboarding-access-row .btn {
+  align-self: flex-start;
+  justify-content: center;
+  text-align: center;
+}
+
+.onboarding-error {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-danger, #b42318);
+}
+
+.onboarding-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+.onboarding-hint code {
+  font-size: 11px;
+}
+
 .sidebar-footer {
   flex-shrink: 0;
   padding-top: 8px;

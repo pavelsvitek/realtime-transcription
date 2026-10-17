@@ -97,6 +97,9 @@ pub fn run() {
             commands::system_access::get_system_access_status,
             commands::system_access::open_system_access_settings,
             commands::mcp::get_mcp_status,
+            commands::onboarding::get_launch_flags,
+            commands::onboarding::get_speech_model_status,
+            commands::onboarding::start_speech_model_download,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
