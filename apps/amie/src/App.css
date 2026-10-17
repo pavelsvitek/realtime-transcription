@@ -278,12 +278,15 @@ body,
 }
 
 .onboarding-dialog {
-  --onboarding-pad: 28px;
+  --onboarding-pad: 24px;
   width: min(720px, calc(100vw - 48px));
   max-width: 720px;
-  min-height: min(520px, calc(100vh - 64px));
+  /* Keep short enough that the main app footer (download %) stays visible. */
+  min-height: 0;
+  max-height: min(420px, calc(100vh - 120px));
   padding: var(--onboarding-pad);
-  gap: 20px;
+  gap: 16px;
+  overflow: auto;
 }
 
 .onboarding-dialog .start-meeting-dialog-title {
