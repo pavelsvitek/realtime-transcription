@@ -46,11 +46,9 @@ type SystemAccessStatus = {
 type McpStatus = {
   binaryFound: boolean;
   binaryPath: string | null;
-  dbPath: string;
-  dbExists: boolean;
+  claudeCommand: string;
   cursorConfig: string;
-  buildCommand: string;
-  prUrl: string;
+  codexConfig: string;
 };
 
 export function SettingsPage({ onBack }: { onBack: () => void }) {
@@ -422,77 +420,36 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
               <section className="settings-section">
                 <h2 className="settings-pane-title">MCP</h2>
                 <p className="settings-copy">
-                  Local stdio server <code>amie_mcp</code> reads Amie’s meetings database for Cursor,
-                  Claude Code, and Codex. No port, no cloud. Ships in{" "}
-                  <a
-                    className="settings-link"
-                    href="https://github.com/pavelsvitek/realtime-transcription/pull/31"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    PR #31
-                  </a>
-                  .
+                  Connect Claude, Cursor, or Codex so they can use your Amie meetings on this Mac.
+                  Open Amie at least once before connecting.
                 </p>
 
                 <div className="settings-row">
-                  <span className="settings-label">Binary</span>
+                  <span className="settings-label">Status</span>
                   <span className="settings-value">
                     {mcp
                       ? mcp.binaryFound
-                        ? "Found"
-                        : "Not found — build it (see below)"
+                        ? "Ready"
+                        : "Amie MCP isn’t available in this build yet"
                       : "Loading…"}
                   </span>
                 </div>
-                {mcp?.binaryPath && (
-                  <p className="settings-copy settings-mono">{mcp.binaryPath}</p>
-                )}
 
-                <div className="settings-row">
-                  <span className="settings-label">Meetings database</span>
-                  <span className="settings-value">
-                    {mcp ? (mcp.dbExists ? "Present" : "Missing") : "Loading…"}
-                  </span>
-                </div>
-                {mcp?.dbPath && <p className="settings-copy settings-mono">{mcp.dbPath}</p>}
+                <h3 className="settings-heading">Claude</h3>
+                <p className="settings-copy">Run in Terminal, then restart Claude Code:</p>
+                <pre className="settings-code">{mcp?.claudeCommand ?? "Loading…"}</pre>
 
-                <h3 className="settings-heading">Connect in Cursor</h3>
+                <h3 className="settings-heading">Cursor</h3>
                 <p className="settings-copy">
-                  Add to <code>~/.cursor/mcp.json</code>, then reload MCP servers:
+                  Add this to <code>~/.cursor/mcp.json</code>, then reload MCP servers:
                 </p>
                 <pre className="settings-code">{mcp?.cursorConfig ?? "Loading…"}</pre>
 
-                <h3 className="settings-heading">Build</h3>
+                <h3 className="settings-heading">Codex</h3>
                 <p className="settings-copy">
-                  Requires the <code>amie_mcp</code> binary from PR #31 (or a branch that includes it):
+                  Add this to <code>~/.codex/config.toml</code>, then restart Codex:
                 </p>
-                <pre className="settings-code">{mcp?.buildCommand ?? "Loading…"}</pre>
-                <p className="settings-copy">
-                  Claude Code:{" "}
-                  <code>
-                    claude mcp add amie --{" "}
-                    {mcp?.binaryPath ?? "/absolute/path/to/amie_mcp"}
-                  </code>
-                </p>
-                <p className="settings-copy">
-                  Override the database with <code>AMIE_DB_PATH</code> if needed.
-                </p>
-                <div className="settings-actions">
-                  <button className="btn btn-clear" onClick={() => void refreshMcp()} disabled={!mcp}>
-                    Refresh status
-                  </button>
-                  {mcp?.prUrl && (
-                    <a
-                      className="btn btn-clear settings-external"
-                      href={mcp.prUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Open PR #31
-                    </a>
-                  )}
-                </div>
+                <pre className="settings-code">{mcp?.codexConfig ?? "Loading…"}</pre>
               </section>
             )}
 
