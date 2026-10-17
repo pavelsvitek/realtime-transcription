@@ -108,15 +108,12 @@ jobs:
           args: --target aarch64-apple-darwin
           tagName: app-v__VERSION__
           releaseName: Amie v__VERSION__
+          # User-facing text shown in the updater dialog (Release body).
+          # Technical draft/asset/endpoint notes stay in the workflow header comments above.
           releaseBody: |
-            Draft release for Amie (darwin-aarch64).
+            This update includes reliability improvements and bug fixes. Amie will restart automatically after the update.
 
-            Assets: DMG (first install), Amie.app.tar.gz (+ .sig), latest.json (updater).
-            Keep draft until Developer ID + notarization (PR3) are verified — do not
-            publish for end users yet.
-
-            Updater endpoint (published Releases only):
-            https://github.com/pavelsvitek/realtime-transcription/releases/latest/download/latest.json
+            Your meetings and settings stay on this Mac.
           releaseDraft: true
           prerelease: false
           uploadUpdaterJson: true
