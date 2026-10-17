@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  MODEL_STILL_DOWNLOADING_USER_MESSAGE,
   ONBOARDING_SEEN_STORAGE_KEY,
   clearOnboardingSeen,
   downloadFooterStatus,
   formatModelSize,
+  formatTranscriptionError,
   hasSeenOnboarding,
   markOnboardingSeen,
   shouldShowOnboarding,
@@ -73,5 +75,14 @@ describe("onboarding prefs", () => {
     expect(
       shouldShowOnboarding({ force: true, modelReady: true, seen: true }),
     ).toBe(true);
+  });
+
+  it("softens incomplete-model errors while downloading", () => {
+    const raw =
+      "Failed to load model: Nemotron model component config.json is missing at /tmp/x. Run apps/amie/scripts/setup-nemotron.sh.";
+    expect(formatTranscriptionError(raw, true)).toBe(
+      MODEL_STILL_DOWNLOADING_USER_MESSAGE,
+    );
+    expect(formatTranscriptionError(raw, false)).toBe(raw);
   });
 });

@@ -69,3 +69,22 @@ export function downloadFooterStatus(percent: number | null | undefined): string
   const value = typeof percent === "number" ? Math.max(0, Math.min(100, Math.round(percent))) : 0;
   return `Downloading speech model… ${value}%`;
 }
+
+export const MODEL_STILL_DOWNLOADING_USER_MESSAGE =
+  "The transcription model is still being downloaded. Check the progress in footer.";
+
+/** Soften raw Nemotron install errors while a download is in progress. */
+export function formatTranscriptionError(
+  error: string,
+  downloading: boolean,
+): string {
+  if (
+    downloading &&
+    /Failed to load model|setup-nemotron|model component|model bundle not found/i.test(
+      error,
+    )
+  ) {
+    return MODEL_STILL_DOWNLOADING_USER_MESSAGE;
+  }
+  return error;
+}

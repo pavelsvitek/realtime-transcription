@@ -1,6 +1,7 @@
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStderr, ChildStdin, Command, Stdio};
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::mpsc::{self, Receiver};
 use std::thread;
 use std::time::Duration;
@@ -30,6 +31,33 @@ const REQUIRED_MODEL_COMPONENTS: &[&str] = &[
 const INIT_READY_TIMEOUT: Duration = Duration::from_secs(60);
 const INIT_OVERALL_TIMEOUT: Duration = Duration::from_secs(300);
 const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(60 * 30);
+
+static DOWNLOAD_IN_FLIGHT: AtomicBool = AtomicBool::new(false);
+static DOWNLOAD_PERCENT: AtomicU8 = AtomicU8::new(0);
+
+/// True while a background `--download-only` run is in progress.
+pub fn download_in_flight() -> bool {
+    DOWNLOAD_IN_FLIGHT.load(Ordering::Relaxed)
+}
+
+pub fn download_percent() -> u8 {
+    DOWNLOAD_PERCENT.load(Ordering::Relaxed)
+}
+
+/// Returns true if this caller won the start race and should run the download.
+pub fn try_begin_download() -> bool {
+    DOWNLOAD_IN_FLIGHT
+        .compare_exchange(false, true, Ordering::SeqCst, Ordering::Relaxed)
+        .is_ok()
+}
+
+pub fn set_download_percent(percent: u8) {
+    DOWNLOAD_PERCENT.store(percent.min(100), Ordering::Relaxed);
+}
+
+pub fn end_download() {
+    DOWNLOAD_IN_FLIGHT.store(false, Ordering::SeqCst);
+}
 
 #[derive(Serialize)]
 struct InitRequest<'a> {

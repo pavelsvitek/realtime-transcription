@@ -1,14 +1,10 @@
 use serde::Serialize;
-use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::Arc;
 
 use tauri::{AppHandle, Emitter};
 
 use crate::config::AppConfig;
 use crate::transcription::nemotron;
-
-static DOWNLOAD_IN_FLIGHT: AtomicBool = AtomicBool::new(false);
-static DOWNLOAD_PERCENT: AtomicU8 = AtomicU8::new(0);
 
 pub mod event_names {
     pub const DOWNLOAD_PROGRESS: &str = "speech-model/download-progress";
@@ -52,12 +48,12 @@ pub fn get_launch_flags() -> LaunchFlags {
 #[tauri::command]
 pub fn get_speech_model_status() -> SpeechModelStatus {
     let config = AppConfig::load();
-    let downloading = DOWNLOAD_IN_FLIGHT.load(Ordering::Relaxed);
+    let downloading = nemotron::download_in_flight();
     SpeechModelStatus {
         ready: nemotron::model_bundle_ready(&config.model_bundle_dir),
         downloading,
         download_percent: if downloading {
-            Some(DOWNLOAD_PERCENT.load(Ordering::Relaxed))
+            Some(nemotron::download_percent())
         } else {
             None
         },
@@ -82,21 +78,18 @@ pub fn start_speech_model_download(app: AppHandle) -> Result<SpeechModelStatus, 
         ));
     }
 
-    if DOWNLOAD_IN_FLIGHT
-        .compare_exchange(false, true, Ordering::SeqCst, Ordering::Relaxed)
-        .is_err()
-    {
+    if !nemotron::try_begin_download() {
         return Ok(get_speech_model_status());
     }
 
-    DOWNLOAD_PERCENT.store(0, Ordering::Relaxed);
+    nemotron::set_download_percent(0);
     emit_progress(&app, true, 0, "starting", false);
 
     let helper_path = config.helper_path.clone();
     let cache_root = AppConfig::default_model_cache_root();
     let app_for_progress = app.clone();
     let on_progress: Arc<nemotron::DownloadProgressFn> = Arc::new(move |percent, stage| {
-        DOWNLOAD_PERCENT.store(percent, Ordering::Relaxed);
+        nemotron::set_download_percent(percent);
         emit_progress(&app_for_progress, true, percent, &stage, false);
     });
 
@@ -106,19 +99,19 @@ pub fn start_speech_model_download(app: AppHandle) -> Result<SpeechModelStatus, 
             nemotron::download_model_with_progress(&helper_path, &cache_root, Some(progress))
         })
         .await;
-        DOWNLOAD_IN_FLIGHT.store(false, Ordering::SeqCst);
+        nemotron::end_download();
         match result {
             Ok(Ok(())) => {
-                DOWNLOAD_PERCENT.store(100, Ordering::Relaxed);
+                nemotron::set_download_percent(100);
                 emit_progress(&app, false, 100, "ready", true);
                 tracing::info!("Speech model download finished");
             }
             Ok(Err(error)) => {
-                emit_progress(&app, false, DOWNLOAD_PERCENT.load(Ordering::Relaxed), "error", false);
+                emit_progress(&app, false, nemotron::download_percent(), "error", false);
                 tracing::error!(%error, "Speech model download failed");
             }
             Err(error) => {
-                emit_progress(&app, false, DOWNLOAD_PERCENT.load(Ordering::Relaxed), "error", false);
+                emit_progress(&app, false, nemotron::download_percent(), "error", false);
                 tracing::error!(%error, "Speech model download task failed");
             }
         }
