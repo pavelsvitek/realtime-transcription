@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useHotkey } from "@tanstack/react-hotkeys";
 import { invoke } from "@tauri-apps/api/core";
 import type { AsrSettings, SummaryProvider, SummarySettings } from "../lib/transcript-types";
 import { summaryProviderHasKey } from "../lib/summary-providers";
@@ -54,6 +55,21 @@ type McpStatus = {
 
 export function SettingsPage({ onBack }: { onBack: () => void }) {
   const [section, setSection] = useState<SettingsSection>("meeting-summary");
+
+  useHotkey(
+    "Escape",
+    (event) => {
+      event.preventDefault();
+      onBack();
+    },
+    {
+      preventDefault: true,
+      meta: {
+        name: "Leave Settings",
+        description: "Go back to the previous page",
+      },
+    },
+  );
   const [settings, setSettings] = useState<AsrSettings | null>(null);
   const [summarySettings, setSummarySettings] = useState<SummarySettings | null>(null);
   const [apiKey, setApiKey] = useState("");
