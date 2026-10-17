@@ -133,6 +133,34 @@ Until a signed Release exists, the menu still works: you get “up to date” or
 
 Losing the private key bricks updates for already-shipped clients until they manually install a build with a new pubkey.
 
+## Releasing (GitHub Actions)
+
+Tag-driven CI: [`.github/workflows/amie-release.yml`](../../.github/workflows/amie-release.yml).
+
+1. Bump **in lockstep**: `src-tauri/tauri.conf.json` → `version`, `src-tauri/Cargo.toml` → `version`, and this package’s `package.json` → `version`.
+2. Commit on the release branch, then tag and push:
+   ```bash
+   git tag app-v0.1.0   # must match the bumped version
+   git push origin app-v0.1.0
+   ```
+3. The workflow runs on `macos-latest`, builds **Apple Silicon only** (`aarch64-apple-darwin`), builds the Nemotron sidecar, then runs `tauri-apps/tauri-action@v1` with `uploadUpdaterJson: true` and `releaseDraft: true`.
+4. Inspect the **draft** Release assets before publishing:
+   - `Amie_*_aarch64.dmg` (first install)
+   - `Amie.app.tar.gz` + `.sig` (updater payload)
+   - `latest.json` (discovery for `tauri-plugin-updater`)
+
+### Secrets
+
+| Secret | Required for | Notes |
+| --- | --- | --- |
+| `TAURI_SIGNING_PRIVATE_KEY` | Signing updater artifacts / `latest.json` | Minisign private key. Workflow fails fast if missing. |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Optional | Only if the key was generated with a password. |
+| `GITHUB_TOKEN` | Creating the draft Release | Provided by Actions; needs `contents: write` (set on the workflow). |
+
+Apple Developer ID / notarization secrets are **not** wired here (next PR). Until then CI sets `AMIE_ALLOW_ADHOC=1` and `APPLE_SIGNING_IDENTITY=-` (ad-hoc). Draft artifacts are for pipeline smoke tests only — Gatekeeper will complain on clean Macs; do not publish for end users.
+
+You can also run the workflow via **Actions → amie-release → Run workflow** (`workflow_dispatch`).
+
 ## Permissions and code signing
 
 macOS keeps each privacy grant (Accessibility, Microphone, System Audio) under the app's **bundle id plus its code requirement**. Two things follow:

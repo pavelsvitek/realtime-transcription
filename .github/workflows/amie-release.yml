@@ -1,0 +1,124 @@
+# Amie macOS release (Apple Silicon only) → draft GitHub Release + updater assets.
+#
+# Trigger:
+#   - Push tag matching `app-v*` (e.g. app-v0.1.0). Tag version must match
+#     apps/amie/src-tauri/tauri.conf.json (and Cargo.toml) version.
+#   - workflow_dispatch for manual / dry runs (creates draft Release for the
+#     version in tauri.conf.json).
+#
+# Required repository secret (minisign — Tauri updater):
+#   TAURI_SIGNING_PRIVATE_KEY
+#     Private key contents (or path contents) from:
+#       pnpm tauri signer generate -w ~/.tauri/amie.key
+#     Must match plugins.updater.pubkey in tauri.conf.json.
+#     PR1 currently ships a PLACEHOLDER pubkey — replace pubkey + this secret
+#     with Pavel's real keypair before any client can trust artifacts.
+#
+# Optional repository secret:
+#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+#     Only if the private key was generated with a password.
+#
+# Not in this workflow (PR3):
+#   APPLE_CERTIFICATE, APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY,
+#   notarization (APPLE_API_* / Apple ID). Until then CI uses ad-hoc Apple
+#   signing (AMIE_ALLOW_ADHOC + identity "-") so aarch64 bundles build; treat
+#   draft Releases as internal/dev only (Gatekeeper friction expected).
+#
+# Expected draft Release assets (darwin-aarch64):
+#   - Amie_*.dmg (first-install)
+#   - Amie.app.tar.gz (+ .sig) (updater payload)
+#   - latest.json (uploader via uploadUpdaterJson)
+
+name: amie-release
+
+on:
+  push:
+    tags:
+      - "app-v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish-macos-aarch64:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          # packageManager field in root package.json
+          version: 10.33.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: pnpm
+
+      - name: Install Rust stable (aarch64-apple-darwin)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: apps/amie/src-tauri -> target
+
+      - name: Install frontend dependencies
+        run: pnpm install
+
+      - name: Build Nemotron sidecar (release)
+        run: |
+          set -euo pipefail
+          cd apps/amie/nemotron-helper
+          swift build -c release --product nemotron-bridge
+          test -x .build/release/nemotron-bridge
+
+      - name: Fail fast if minisign private key secret is missing
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          if [ -z "${TAURI_SIGNING_PRIVATE_KEY}" ]; then
+            echo "::error::Repository secret TAURI_SIGNING_PRIVATE_KEY is not set."
+            echo "Generate with: pnpm tauri signer generate -w ~/.tauri/amie.key (from apps/amie)"
+            echo "Put the public key in apps/amie/src-tauri/tauri.conf.json → plugins.updater.pubkey"
+            echo "Store the private key as Actions secret TAURI_SIGNING_PRIVATE_KEY"
+            exit 1
+          fi
+
+      - name: Build and upload draft GitHub Release
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Tauri updater (minisign) — required for createUpdaterArtifacts / .sig / latest.json
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # Apple Developer ID / notarization land in PR3. Until then: ad-hoc so
+          # aarch64 builds succeed via apps/amie/scripts/tauri.sh.
+          AMIE_ALLOW_ADHOC: "1"
+          APPLE_SIGNING_IDENTITY: "-"
+        with:
+          projectPath: apps/amie
+          # Uses package.json "tauri" → scripts/tauri.sh (sidecar copy + signing gate).
+          tauriScript: pnpm tauri
+          args: --target aarch64-apple-darwin
+          tagName: app-v__VERSION__
+          releaseName: Amie v__VERSION__
+          releaseBody: |
+            Draft release for Amie (darwin-aarch64).
+
+            Assets: DMG (first install), Amie.app.tar.gz (+ .sig), latest.json (updater).
+            Keep draft until Developer ID + notarization (PR3) are verified — do not
+            publish for end users yet.
+
+            Updater endpoint (published Releases only):
+            https://github.com/pavelsvitek/realtime-transcription/releases/latest/download/latest.json
+          releaseDraft: true
+          prerelease: false
+          uploadUpdaterJson: true
+          uploadUpdaterSignatures: true
