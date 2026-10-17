@@ -4,7 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { AsrSettings, SummaryProvider, SummarySettings } from "../lib/transcript-types";
 import { summaryProviderHasKey } from "../lib/summary-providers";
 import { useSpeakerTagsStatus } from "../hooks/useSpeakerTagsStatus";
-import { signatureLabel } from "../lib/speaker-tags";
+import { codeRequirementLabel, signatureLabel } from "../lib/speaker-tags";
 import { moveSettingsSection } from "../lib/nav-hotkeys";
 
 const KEY_MASK = "•".repeat(24);
@@ -43,6 +43,7 @@ type SystemAccessStatus = {
     meetingApp?: string | null;
     signature?: string;
     signer?: string | null;
+    codeRequirement?: string | null;
   };
 };
 
@@ -577,6 +578,20 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
                             : "Loading…"}
                       </span>
                     </div>
+                    {speakerStatus && codeRequirementLabel(speakerStatus) && (
+                      <div className="settings-row">
+                        <span className="settings-label">Code identity</span>
+                        <span className="settings-value">
+                          {codeRequirementLabel(speakerStatus)}
+                        </span>
+                      </div>
+                    )}
+                    {(systemAccess?.accessibility.bundlePath ||
+                      speakerStatus?.bundlePath) && (
+                      <p className="settings-copy">
+                        {systemAccess?.accessibility.bundlePath ?? speakerStatus?.bundlePath}
+                      </p>
+                    )}
                     {(systemAccess?.accessibility.bundleId || speakerStatus?.bundleId) && (
                       <p className="settings-copy">
                         {systemAccess?.accessibility.bundleId ?? speakerStatus?.bundleId}

@@ -187,7 +187,14 @@ It uses the first of: `Developer ID Application`, `Apple Development` (Xcode →
 
 Swapping to a different certificate (for example local → Developer ID) counts as a different app: grant Accessibility once more.
 
-**Accessibility shows Off although an Amie entry is on.** First check it is the right entry: the dev build and the release app are listed separately, as **Amie Dev** and **Amie**, and `pnpm tauri dev` needs **Amie Dev**. The banner and Settings → Speaker names name the entry this build needs. If the right entry is on and the app still says Off, the entry was recorded for an older signature (typically a pre-certificate ad-hoc build): select it in the list, remove it with **−**, quit and reopen the app so it registers itself again, then click **Allow Accessibility**. Amie never deletes the entry itself, because a running app caches its answer and cannot put a deleted entry back until it is relaunched.
+**Accessibility shows Off although an Amie entry is on.** First check it is the right entry: the dev build and the release app are listed separately, as **Amie Dev** and **Amie**, and `pnpm tauri dev` needs **Amie Dev**. The banner and Settings → System access name the entry and path this process needs. If the right *name* is on and the app still says Off, the entry was recorded for an older signature (typically a GitHub ad-hoc DMG or a pre-certificate build): select every stale **Amie** row, remove it with **−**, click **Allow Accessibility** so this binary reappears, enable the new row, then quit and reopen. Amie never deletes the entry itself, because a running app caches its answer and cannot put a deleted entry back until it is relaunched.
+
+To print what the **currently running** binary reports (trust + signature + designated requirement):
+
+```bash
+/Applications/Amie.app/Contents/MacOS/amie --print-accessibility-status
+# exit 0 = trusted for this process; exit 2 = not trusted (banner should show)
+```
 
 To reset permissions by hand:
 

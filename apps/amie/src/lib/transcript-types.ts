@@ -93,4 +93,6 @@ export type SpeakerTagsStatus = {
   bundleId: string | null;
   signature: SignatureKind;
   signer: string | null;
+  /** Designated requirement for this binary (TCC identity), when known. */
+  codeRequirement: string | null;
 };

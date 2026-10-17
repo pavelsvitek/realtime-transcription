@@ -31,6 +31,22 @@ fn greet(name: &str) -> String {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    if std::env::args().any(|arg| arg == "--print-accessibility-status") {
+        // Headless probe for the running binary's TCC identity / trust.
+        // Used to compare System Settings rows with this process.
+        let status = speakers::status();
+        match serde_json::to_string_pretty(&status) {
+            Ok(json) => {
+                println!("{json}");
+                std::process::exit(if status.trusted { 0 } else { 2 });
+            }
+            Err(err) => {
+                eprintln!("failed to serialize accessibility status: {err}");
+                std::process::exit(1);
+            }
+        }
+    }
+
     tracing_subscriber::fmt()
         .with_env_filter(
             EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("amie_lib=info")),
