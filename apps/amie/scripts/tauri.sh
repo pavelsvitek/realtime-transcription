@@ -21,9 +21,12 @@ TAURI="$ROOT/node_modules/.bin/tauri"
 # Debug / `tauri dev` must not poll production GitHub Releases (auto-update plan
 # risk #10). Overlay empty updater endpoints for `dev` only.
 # Release `tauri build` keeps the production endpoints from tauri.conf.json.
-updater_debug_config() {
-  printf '%s' '{"plugins":{"updater":{"endpoints":[]}}}'
-}
+#
+# Important: `--config` must appear *before* a bare `--`. Anything after `--` is
+# forwarded to `cargo run`, and Cargo's `--config` expects TOML dotted keys
+# (`key=value`), not Tauri JSON. `pnpm tauri dev --` used to become
+# `tauri dev -- --config '{...}'` and fail with a TOML parse error.
+UPDATER_DEV_OVERLAY="$ROOT/src-tauri/tauri.dev.conf.json"
 
 # `pnpm tauri build`: sign the release app with a real identity, or fail.
 # Tauri leaves the bundle ad-hoc / linker-signed when given none, and then every
@@ -39,7 +42,21 @@ wants_release_signing() {
 }
 
 if [[ "${1:-}" == "dev" ]]; then
-  exec "$TAURI" "$@" --config "$(updater_debug_config)"
+  shift
+  before=()
+  after=()
+  seen_sep=0
+  for arg in "$@"; do
+    if [[ "$seen_sep" -eq 1 ]]; then
+      after+=("$arg")
+    elif [[ "$arg" == "--" ]]; then
+      seen_sep=1
+      after+=("$arg")
+    else
+      before+=("$arg")
+    fi
+  done
+  exec "$TAURI" dev --config "$UPDATER_DEV_OVERLAY" "${before[@]}" "${after[@]}"
 fi
 
 if ! wants_release_signing "$@"; then
