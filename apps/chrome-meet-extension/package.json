@@ -1,0 +1,23 @@
+{
+  "name": "chrome-meet-extension",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Google Meet extension speaker-tracking for Amie (remote speaking names). Not Zoom or Teams.",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "build:prod": "node scripts/build.mjs --store",
+    "pack": "node scripts/pack.mjs",
+    "pack:prod": "node scripts/pack.mjs",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "fake-meet": "node scripts/serve-fake-meet.mjs"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.1.1",
+    "esbuild": "^0.25.5",
+    "jsdom": "^26.1.0",
+    "typescript": "~5.8.3",
+    "vitest": "^4.1.9"
+  }
+}

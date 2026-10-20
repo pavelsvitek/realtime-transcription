@@ -85,6 +85,19 @@ export type MeetingApp = "zoom" | "teams";
  */
 export type SignatureKind = "identity" | "adHoc" | "unsigned" | "unknown";
 
+/** Google Meet Chrome extension speaker-tracking (`meet_bridge`), not Zoom/Teams. */
+export type GoogleMeetExtensionStatus = {
+  connected: boolean;
+  browsers: string[];
+  inCallTabs: number;
+  extensionVersion: string | null;
+  health: string;
+  /** Remote Meet names currently speaking. */
+  remoteSpeaking: string[];
+  /** Local user speaking (DEV visibility; not stamped as remote transcript labels). */
+  selfSpeaking: string[];
+};
+
 export type SpeakerTagsStatus = {
   trusted: boolean;
   meetingApp: MeetingApp | null;
@@ -95,4 +108,5 @@ export type SpeakerTagsStatus = {
   signer: string | null;
   /** Designated requirement for this binary (TCC identity), when known. */
   codeRequirement: string | null;
+  googleMeetExtension: GoogleMeetExtensionStatus;
 };

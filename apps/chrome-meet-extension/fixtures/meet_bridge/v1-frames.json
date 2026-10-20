@@ -1,0 +1,60 @@
+{
+  "_about": "Google Meet extension speaker-tracking bridge protocol v1 fixtures (not Zoom/Teams).",
+  "hello": {
+    "type": "hello",
+    "protocol": 1,
+    "extension_version": "0.1.0",
+    "browser": "brave",
+    "instance_id": "b1f"
+  },
+  "welcome": {
+    "type": "welcome",
+    "protocol": 1,
+    "app_version": "0.1.1",
+    "recording": true,
+    "selectors": null
+  },
+  "call_joined": {
+    "type": "call",
+    "tab": "b1f:812",
+    "state": "joined",
+    "meeting_code": "xfc-vvyo-cwt",
+    "observed_at": 1792500000123.4
+  },
+  "call_left": {
+    "type": "call",
+    "tab": "b1f:812",
+    "state": "left",
+    "observed_at": 1792500009999.0
+  },
+  "roster": {
+    "type": "roster",
+    "tab": "b1f:812",
+    "participants": [
+      { "id": "spaces/P0rOpVvN1A8B/devices/96", "name": "Ada Lovelace", "self": false },
+      { "id": "spaces/P0rOpVvN1A8B/devices/95", "name": "Pavel Svitek", "self": true }
+    ]
+  },
+  "speakers": {
+    "type": "speakers",
+    "tab": "b1f:812",
+    "seq": 42,
+    "observed_at": 1792500001456.7,
+    "speaking": ["spaces/P0rOpVvN1A8B/devices/96"]
+  },
+  "heartbeat": {
+    "type": "heartbeat",
+    "tab": "b1f:812",
+    "seq": 43,
+    "observed_at": 1792500002000.0,
+    "speaking": ["spaces/P0rOpVvN1A8B/devices/96"],
+    "visibility": "visible",
+    "health": { "meters": 4, "last_meter_change_ms_ago": 180, "selectors": "default" }
+  },
+  "health": {
+    "type": "health",
+    "tab": "b1f:812",
+    "status": "degraded",
+    "reason": "meter-discovered"
+  }
+}
