@@ -4,6 +4,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
   AudioSource,
   AsrBackend,
+  MicLevelPayload,
   TranscriptSegment,
   TranscriptPayload,
   TranscriptionStatusPayload,
@@ -11,21 +12,31 @@ import type {
 import {
   EVENT_TRANSCRIPT_COMMIT,
   EVENT_TRANSCRIPT_PARTIAL,
+  EVENT_TRANSCRIPTION_MIC_LEVEL,
   EVENT_TRANSCRIPTION_STATUS,
+  EVENT_TRANSCRIPTION_SYSTEM_LEVEL,
 } from "../lib/tauri-events";
+import { rmsIndicatesSound } from "../lib/audio-level";
 import { restoreLiveTranscription } from "../lib/restore-live-transcription";
 import {
   applyTranscriptEvent,
   finalizePartials,
   mergeRestoredTranscript,
 } from "../lib/transcript-timeline";
-
+import {
+  addCaptureNotice,
+  clearSilenceOnSound,
+  type CaptureNotice,
+  type SilenceSource,
+} from "../lib/capture-notices";
 export function useTranscription() {
   const [segments, setSegments] = useState<TranscriptSegment[]>([]);
   const [isActive, setIsActive] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [notices, setNotices] = useState<CaptureNotice[]>([]);
+  const dismissedNotices = useRef(new Set<string>());
+  const heardSound = useRef(new Set<SilenceSource>());
   const [model, setModel] = useState<string | null>(null);
   const [sessionSource, setSessionSource] = useState<AudioSource | null>(null);
   const [sessionBackend, setSessionBackend] = useState<AsrBackend | null>(null);
@@ -96,7 +107,20 @@ export function useTranscription() {
             setSessionBackend(null);
             setSegments((prev) => finalizePartials(prev));
           }
-          setError(payload.error ?? null);
+          if (payload.error) {
+            setNotices((prev) =>
+              addCaptureNotice(
+                prev,
+                dismissedNotices.current,
+                heardSound.current,
+                payload.error,
+              ),
+            );
+          } else if (!payload.active && !payload.loading) {
+            dismissedNotices.current.clear();
+            heardSound.current.clear();
+            setNotices([]);
+          }
           if (payload.model) {
             setModel(payload.model);
           }
@@ -107,6 +131,36 @@ export function useTranscription() {
         return;
       }
       unlisteners.push(unlistenStatus);
+
+      const hideSilenceWhenSound = (source: SilenceSource, rms: number) => {
+        if (!rmsIndicatesSound(rms) || heardSound.current.has(source)) return;
+        // Record sound before the notice update so a status that arrives in the
+        // same turn cannot show a banner we are already clearing.
+        heardSound.current.add(source);
+        setNotices((prev) =>
+          clearSilenceOnSound(prev, dismissedNotices.current, heardSound.current, source),
+        );
+      };
+
+      const unlistenMicLevel = await listen<MicLevelPayload>(
+        EVENT_TRANSCRIPTION_MIC_LEVEL,
+        (event) => hideSilenceWhenSound("mic", event.payload.rms),
+      );
+      if (cancelled) {
+        unlistenMicLevel();
+        return;
+      }
+      unlisteners.push(unlistenMicLevel);
+
+      const unlistenSystemLevel = await listen<MicLevelPayload>(
+        EVENT_TRANSCRIPTION_SYSTEM_LEVEL,
+        (event) => hideSilenceWhenSound("system", event.payload.rms),
+      );
+      if (cancelled) {
+        unlistenSystemLevel();
+        return;
+      }
+      unlisteners.push(unlistenSystemLevel);
 
       unlistenRefs.current = unlisteners;
     };
@@ -128,7 +182,9 @@ export function useTranscription() {
     ) => {
       if (startInFlight.current) return false;
       startInFlight.current = true;
-      setError(null);
+      dismissedNotices.current.clear();
+      heardSound.current.clear();
+      setNotices([]);
       setIsLoading(true);
       setSegments([]);
       setSessionSource(source);
@@ -144,7 +200,9 @@ export function useTranscription() {
         setIsLoading(false);
         setSessionSource(null);
         setSessionBackend(null);
-        setError(String(e));
+        setNotices((prev) =>
+          addCaptureNotice(prev, dismissedNotices.current, heardSound.current, String(e)),
+        );
         return false;
       } finally {
         startInFlight.current = false;
@@ -163,7 +221,9 @@ export function useTranscription() {
       return exported.meetingId ?? null;
     } catch (e) {
       setIsStopping(false);
-      setError(String(e));
+      setNotices((prev) =>
+        addCaptureNotice(prev, dismissedNotices.current, heardSound.current, String(e)),
+      );
       throw e;
     }
   }, []);
@@ -172,12 +232,19 @@ export function useTranscription() {
     setSegments([]);
   }, []);
 
+  const dismissNotice = useCallback((id: string) => {
+    dismissedNotices.current.add(id);
+    setNotices((prev) => prev.filter((notice) => notice.id !== id));
+  }, []);
+
   return {
     segments,
     isActive,
     isLoading,
     isStopping,
-    error,
+    error: notices[0]?.message ?? null,
+    notices,
+    dismissNotice,
     model,
     sessionSource,
     sessionBackend,

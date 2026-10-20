@@ -659,7 +659,10 @@ fn label_event(event: &mut TranscriptEvent, timeline: &SpeakerTimeline) {
                 timeline,
             );
         }
-        TranscriptEvent::Status(_) | TranscriptEvent::MicLevel(_) | TranscriptEvent::Device(_) => {}
+        TranscriptEvent::Status(_)
+        | TranscriptEvent::MicLevel(_)
+        | TranscriptEvent::SystemLevel(_)
+        | TranscriptEvent::Device(_) => {}
     }
 }
 
@@ -669,6 +672,9 @@ fn emit_to_app(app_handle: &AppHandle, event: TranscriptEvent) {
         TranscriptEvent::Commit(payload) => app_handle.emit(event_names::COMMIT, payload),
         TranscriptEvent::Status(payload) => app_handle.emit(event_names::STATUS, payload),
         TranscriptEvent::MicLevel(payload) => app_handle.emit(event_names::MIC_LEVEL, payload),
+        TranscriptEvent::SystemLevel(payload) => {
+            app_handle.emit(event_names::SYSTEM_LEVEL, payload)
+        }
         TranscriptEvent::Device(payload) => app_handle.emit(event_names::DEVICE, payload),
     };
 

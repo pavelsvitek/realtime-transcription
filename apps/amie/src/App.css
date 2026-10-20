@@ -895,6 +895,37 @@ body,
   flex-shrink: 0;
 }
 
+.error-banner:has(.error-banner-close) {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.error-banner-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.error-banner-close {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0 4px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.2;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.error-banner-close:hover,
+.error-banner-close:focus-visible {
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  outline: none;
+}
+
 .speaker-prompt {
   display: flex;
   align-items: center;
