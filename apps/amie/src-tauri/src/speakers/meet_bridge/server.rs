@@ -17,7 +17,8 @@ use super::MeetBridge;
 
 pub const PORTS: &[u16] = &[47821, 47822, 47823, 47824, 47825];
 
-/// DEV accepts any Chrome/Brave extension origin. Web pages cannot set this.
+/// Accept any Chrome/Brave extension origin until a Store id is pinned.
+/// Unpacked DEV extension ids change; web pages cannot set this Origin.
 pub fn origin_allowed(origin: &str) -> bool {
     let Some(rest) = origin.trim().strip_prefix("chrome-extension://") else {
         return false;
@@ -196,7 +197,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn dev_origin_accepts_any_extension_and_refuses_pages() {
+    fn origin_accepts_any_extension_and_refuses_pages() {
         assert!(origin_allowed("chrome-extension://abcdefghijklmnop"));
         assert!(origin_allowed("chrome-extension://dev_build-id/"));
         assert!(!origin_allowed("https://meet.google.com"));
@@ -204,5 +205,14 @@ mod tests {
         assert!(!origin_allowed("chrome-extension://"));
         assert!(!origin_allowed("chrome-extension://id/extra"));
         assert!(!origin_allowed(""));
+    }
+
+    #[cfg(not(debug_assertions))]
+    #[test]
+    fn release_profile_allows_any_chrome_extension_origin() {
+        assert!(origin_allowed("chrome-extension://abcdefghijklmnop"));
+        assert!(origin_allowed("chrome-extension://unpacked-dev-id"));
+        assert!(!origin_allowed("https://meet.google.com"));
+        assert!(cfg!(not(debug_assertions)));
     }
 }

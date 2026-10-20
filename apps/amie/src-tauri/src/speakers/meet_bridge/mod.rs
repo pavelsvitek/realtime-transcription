@@ -55,7 +55,7 @@ struct Inner {
     last_names: BTreeSet<String>,
 }
 
-/// Owns the DEV loopback server, the Meet tab registry, and the session sink.
+/// Owns the loopback server, the Meet tab registry, and the session sink.
 #[derive(Clone)]
 pub struct MeetBridge {
     inner: Arc<Mutex<Inner>>,
@@ -82,11 +82,12 @@ impl MeetBridge {
         *INSTALLED.lock().expect("meet_bridge install") = Some(self.clone());
     }
 
-    /// Bind `127.0.0.1:47821–47825` in DEV only. Release builds of `com.pavel.amie` do not listen.
+    /// Bind `127.0.0.1:47821–47825` in Amie Dev and production Amie.
+    /// Origin stays any `chrome-extension://*` until a Store id is pinned.
     pub fn start_listening(&self) {
-        if !dev_listen_enabled() {
+        if !listen_enabled(cfg!(debug_assertions), app_identity().bundle_id.as_deref()) {
             tracing::info!(
-                "meet_bridge idle (release build; Google Meet extension speaker-tracking is DEV-only)"
+                "meet_bridge idle (Google Meet extension speaker-tracking listen disabled)"
             );
             return;
         }
@@ -213,13 +214,10 @@ pub fn installed_status() -> GoogleMeetExtensionStatus {
         .unwrap_or_default()
 }
 
-/// `debug_assertions` covers `tauri dev`. The dev bundle id covers a release-mode Amie Dev build.
-pub fn dev_listen_enabled() -> bool {
-    listen_enabled(cfg!(debug_assertions), app_identity().bundle_id.as_deref())
-}
-
-pub fn listen_enabled(debug_assertions: bool, bundle_id: Option<&str>) -> bool {
-    debug_assertions || bundle_id == Some("com.pavel.amie.dev")
+/// Listen in Amie Dev (`com.pavel.amie.dev`) and production Amie (`com.pavel.amie`).
+/// Not gated on `debug_assertions`. A Chrome Web Store id pin can tighten this later.
+pub fn listen_enabled(_debug_assertions: bool, _bundle_id: Option<&str>) -> bool {
+    true
 }
 
 fn unix_ms() -> u64 {
@@ -242,11 +240,19 @@ mod tests {
     use crate::speakers::timeline::SpeakerTimeline;
 
     #[test]
-    fn listen_gate_is_dev_only() {
+    fn listen_gate_is_on_for_dev_and_release() {
+        assert!(listen_enabled(true, Some("com.pavel.amie.dev")));
         assert!(listen_enabled(true, Some("com.pavel.amie")));
         assert!(listen_enabled(false, Some("com.pavel.amie.dev")));
-        assert!(!listen_enabled(false, Some("com.pavel.amie")));
-        assert!(!listen_enabled(false, None));
+        assert!(listen_enabled(false, Some("com.pavel.amie")));
+        assert!(listen_enabled(false, None));
+    }
+
+    #[cfg(not(debug_assertions))]
+    #[test]
+    fn release_profile_listens_for_production_bundle() {
+        assert!(listen_enabled(false, Some("com.pavel.amie")));
+        assert!(cfg!(not(debug_assertions)));
     }
 
     #[tokio::test]

@@ -1,16 +1,30 @@
 # Amie for Google Meet
 
-Google Meet extension speaker-tracking for Amie. The unpacked extension reads who is speaking from Google Meet’s own level meters and sends those remote display names to Amie Dev over a loopback WebSocket (`speakers::meet_bridge`). It is not a Zoom or Teams integration and it is not a generic browser bridge.
+Google Meet extension speaker-tracking for Amie. The unpacked extension reads who is speaking from Google Meet’s own level meters and sends those remote display names to Amie over a loopback WebSocket (`speakers::meet_bridge`). It is not a Zoom or Teams integration and it is not a generic browser bridge.
 
-Amie listens only in DEV (`debug_assertions` or bundle id `com.pavel.amie.dev`) on `127.0.0.1`, ports `47821–47825`. The extension opens that socket only while a Google Meet call is in progress. A lobby tab stays disconnected.
+Amie Dev (`com.pavel.amie.dev`) and production Amie (`com.pavel.amie`, `/Applications/Amie.app`) both listen on `127.0.0.1`, ports `47821–47825`. Origin is any `chrome-extension://*` until a Chrome Web Store id is pinned — unpacked DEV extension ids change, so no Google/Chrome Web Store developer account is required. The extension opens that socket only while a Google Meet call is in progress. A lobby tab stays disconnected.
 
-## Load unpacked
+## Installed Amie + unpacked DEV extension
+
+Usual path while there is no Store listing: production Amie talks to the DEV (unpacked) extension. Localhost matches in the DEV build are fine for this.
+
+1. Open installed Amie: `/Applications/Amie.app` (`com.pavel.amie`, from `pnpm -F amie tauri build`).
+2. Confirm the log line `meet_bridge listening on ws://127.0.0.1:4782x (Google Meet extension)` (Console.app, or `log stream --predicate 'process == "amie"'`).
+3. Build the DEV extension: `pnpm -F chrome-meet-extension build` (not `--store` / `build:prod`).
+4. Chrome or Brave → `chrome://extensions` → Developer mode → Load unpacked → select `apps/chrome-meet-extension/dist`.
+5. Join a Google Meet call (the green room is not enough). Open the **Amie for Google Meet** popup: it should say **Connected**, with the Amie version.
+6. When someone else talks, the popup shows their display name. Your own tile is not listed as a remote speaker.
+7. Leave the call or sit in the lobby: the popup returns to **Not connected**.
+
+No Chrome Web Store account, Store id pin, or production zip is needed for this path. `pack:prod` / `--store` can stay as-is for later.
+
+## Load unpacked (Amie Dev)
 
 1. Start Amie Dev: `pnpm -F amie tauri` (or `pnpm dev:desktop`).
 2. Confirm the log line `meet_bridge listening on ws://127.0.0.1:4782x (Google Meet extension)`.
 3. Build the extension: `pnpm -F chrome-meet-extension build`.
 4. Chrome or Brave → `chrome://extensions` → Developer mode → Load unpacked → select `apps/chrome-meet-extension/dist`.
-5. The extension name is **Amie for Google Meet**. DEV accepts any `chrome-extension://` origin, so no extension id pin is required.
+5. The extension name is **Amie for Google Meet**. Amie accepts any `chrome-extension://` origin, so no extension id pin is required.
 6. Join a Google Meet call (the green room is not enough). Open the extension popup: it should say **Connected**, with the Amie version.
 7. When someone else talks, the popup shows their display name. Your own tile is not listed as a remote speaker.
 8. Leave the call or sit in the lobby: the popup returns to **Not connected**.
