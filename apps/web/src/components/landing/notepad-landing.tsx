@@ -1,0 +1,356 @@
+"use client";
+
+import "./landing.css";
+import { AmieWindow } from "./amie-window";
+import { FollowUpStory } from "./follow-up-story";
+import { SpeakerStory } from "./speaker-story";
+import { FinePrint, DownloadCta } from "./download-cta";
+import { CloseCta, LandingNav } from "./nav";
+import { MenuBarPill } from "./chrome";
+import { WaveformMark } from "./mark";
+import { MeetMark, TeamsMark, ZoomMark } from "./works-with-icons";
+import { cn } from "@/lib/utils";
+import { useEffect, useState, type ReactNode } from "react";
+
+/**
+ * Spec — notepad
+ * Who: people on Zoom / Meet / Teams who refuse a meeting bot.
+ * Not: a bot that joins the call; not a suite.
+ * Default: Download for Mac. Price is Free.
+ * Real: interactive Amie window in the hero; benefit scenes for context, speakers, follow-up.
+ * Refuse: Before/During/After filler; unlabeled fake quotes; invented Pro tier.
+ */
+
+const THEME_COOKIE = "amie-notepad-theme";
+
+const PREVIEW_LIGHT =
+  "h-[min(400px,52vh)] min-h-[320px] w-full min-w-0 shadow-[0_16px_40px_rgba(15,23,42,0.10)]";
+const PREVIEW_DARK =
+  "h-[min(400px,52vh)] min-h-[320px] w-full min-w-0 shadow-[0_24px_60px_rgba(0,0,0,0.45)]";
+
+const BENEFITS = [
+  {
+    kicker: "On this Mac",
+    title: "Real-time transcription, on device",
+    body: "Words appear as you talk. Amie runs a voice model on your Mac — not a wait-until-the-call-ends upload.",
+  },
+  {
+    kicker: "Context",
+    title: "Brief the summary before you hang up",
+    body: "Add participants, the topic, anything the recap should know. The summary uses that context instead of a generic dump of the transcript.",
+    scene: "context" as const,
+  },
+  {
+    kicker: "Keyboard",
+    title: "Hands on the keys",
+    body: "Shortcuts for people who already live in a launcher. Start, stop, follow up, move between Home, Transcription, Meetings, and Settings.",
+    keys: true,
+    reverse: true,
+  },
+];
+
+const SHORTCUTS = [
+  { keys: "⌘N", label: "Start a meeting" },
+  { keys: "⌘⇧N", label: "Follow-up meeting" },
+  { keys: "⌘⌫", label: "Stop" },
+  { keys: "⌘1–4", label: "Move around the app" },
+];
+
+const QUOTES = [
+  {
+    quote: "Notes from Zoom without a notetaker in the waiting room.",
+    source: "Sample · not a real review",
+  },
+  {
+    quote: "The summary is usable when I seed context. Otherwise it’s just a transcript.",
+    source: "Sample · Mac press style",
+  },
+];
+
+const FAQS = [
+  {
+    q: "Is it really free?",
+    a: "Yes. I’m building it for myself.",
+  },
+  {
+    q: "How does the voice transcribe to text so fast?",
+    a: "The app downloads a voice model to your device and uses it to transcribe in real time.",
+  },
+  {
+    q: "Which AI is used to make the summary?",
+    a: "You put your own API key in the Settings page for OpenAI, Gemini, or xAI.",
+  },
+];
+
+export function NotepadLanding({
+  initialTheme = "dark",
+}: {
+  initialTheme?: "light" | "dark";
+}) {
+  const [theme, setTheme] = useState<"light" | "dark">(initialTheme);
+  const [listening, setListening] = useState(false);
+  const dark = theme === "dark";
+  const windowAppearance = dark ? "dark" : "light";
+  const previewClass = dark ? PREVIEW_DARK : PREVIEW_LIGHT;
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const body = document.body;
+    const previousRoot = root.style.backgroundColor;
+    const previousBody = body.style.backgroundColor;
+    const previousScheme = root.style.colorScheme;
+    const color = dark ? "#0c0c0d" : "#f4efe8";
+    root.style.backgroundColor = color;
+    body.style.backgroundColor = color;
+    root.style.colorScheme = dark ? "dark" : "light";
+    return () => {
+      root.style.backgroundColor = previousRoot;
+      body.style.backgroundColor = previousBody;
+      root.style.colorScheme = previousScheme;
+    };
+  }, [dark]);
+
+  function toggleTheme() {
+    const next = dark ? "light" : "dark";
+    document.cookie = `${THEME_COOKIE}=${next}; Path=/; Max-Age=31536000; SameSite=Lax`;
+    setTheme(next);
+  }
+
+  return (
+    <div
+      className={cn(
+        "amie-landing relative min-h-dvh",
+        dark && "amie-landing-dark",
+      )}
+    >
+      <div className="relative z-10">
+        <LandingNav
+          tone={dark ? "dark" : "light"}
+          onToggleTheme={toggleTheme}
+        />
+      </div>
+      <div className="pointer-events-none absolute inset-x-0 top-3 z-20 flex justify-center max-md:hidden">
+        <div className="pointer-events-none">
+          <MenuBarPill listening={listening} />
+        </div>
+      </div>
+      <main className="mx-auto grid w-full max-w-[1360px] items-center gap-10 px-6 pb-8 pt-6 lg:grid-cols-[minmax(280px,0.42fr)_minmax(0,0.85fr)] lg:px-8 lg:pt-10">
+        <div className="flex max-w-lg flex-col items-start gap-6">
+          <p className="flex items-center gap-2 text-[12px] font-semibold tracking-[0.16em] text-amie uppercase">
+            <WaveformMark />
+            For Zoom, Meet, and Teams
+          </p>
+          <h1 className="amie-display text-[clamp(2.2rem,5.4vw,3.7rem)]">
+            The notepad for video calls.
+            <span className="block text-[color:var(--amie-muted)]">
+              No bot on the call.
+            </span>
+          </h1>
+          <p className="max-w-md text-[17px] leading-7 text-[color:var(--amie-ink)]">
+            Amie sits on your Mac — not in Google Meet, Zoom, or Microsoft Teams.
+            Live transcript while you talk. A summary when you hang up.
+          </p>
+          <DownloadCta />
+          <FinePrint />
+        </div>
+        <div className="flex min-w-0 flex-col gap-4">
+          <AmieWindow
+            scene="idle"
+            autoPlay
+            appearance={windowAppearance}
+            namedSpeakers
+            remoteSpeakerHint="The name is taken from a call in MS Teams or other supported apps"
+            onListeningChange={setListening}
+            className="h-[min(540px,68vh)] min-h-[440px] w-full min-w-0"
+          />
+          <WorksWith />
+        </div>
+      </main>
+
+      <div className="mx-auto flex max-w-[1180px] flex-col gap-24 px-6 py-20 lg:px-8">
+        <FollowUpStory appearance={windowAppearance} />
+        <SpeakerStory appearance={windowAppearance} />
+        {BENEFITS.filter((benefit) => !benefit.keys).map((benefit) => (
+          <BenefitRow
+            key={benefit.title}
+            {...benefit}
+            appearance={windowAppearance}
+            previewClass={previewClass}
+          />
+        ))}
+        {BENEFITS.filter((benefit) => benefit.keys).map((benefit) => (
+          <BenefitRow
+            key={benefit.title}
+            {...benefit}
+            appearance={windowAppearance}
+            previewClass={previewClass}
+          />
+        ))}
+      </div>
+
+      <section className="border-y border-[color:var(--amie-line)] bg-[color:var(--amie-band)]">
+        <div className="mx-auto grid max-w-[1180px] gap-12 px-6 py-20 sm:grid-cols-2 lg:px-8">
+          {QUOTES.map((item) => (
+            <figure key={item.quote}>
+              <blockquote className="amie-display text-[1.55rem] leading-snug">
+                “{item.quote}”
+              </blockquote>
+              <figcaption className="mt-3 text-[12px] tracking-[0.08em] text-[color:var(--amie-muted)] uppercase">
+                {item.source}
+              </figcaption>
+            </figure>
+          ))}
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-[640px] px-6 py-20 text-center lg:px-8">
+        <p className="text-[12px] font-semibold tracking-[0.16em] text-amie uppercase">
+          Pricing
+        </p>
+        <h2 className="amie-display mt-3 text-[clamp(2rem,4vw,3rem)]">Free</h2>
+        <p className="mt-3 text-[16px] leading-7 text-[color:var(--amie-muted)]">
+          Download for Mac. I’m building Amie for my own calls. No paid tier, no
+          account.
+        </p>
+        <div className="mt-6 flex flex-col items-center gap-3">
+          <DownloadCta />
+          <FinePrint />
+        </div>
+      </section>
+
+      <section className="mx-auto w-full max-w-[720px] px-6 pb-8 lg:px-8">
+        <h2 className="amie-display text-[clamp(1.8rem,3vw,2.4rem)]">FAQ</h2>
+        <div className="mt-8 divide-y divide-[color:var(--amie-line)] border-y border-[color:var(--amie-line)]">
+          {FAQS.map((item) => (
+            <details key={item.q} className="group py-5">
+              <summary className="cursor-pointer list-none text-[16px] font-medium marker:content-none [&::-webkit-details-marker]:hidden">
+                <span className="flex items-baseline justify-between gap-4">
+                  {item.q}
+                  <span className="text-[color:var(--amie-faint)] group-open:hidden">
+                    +
+                  </span>
+                  <span className="hidden text-[color:var(--amie-faint)] group-open:inline">
+                    −
+                  </span>
+                </span>
+              </summary>
+              <p className="mt-3 max-w-xl text-[15px] leading-7 text-[color:var(--amie-muted)]">
+                {item.a}
+              </p>
+            </details>
+          ))}
+        </div>
+      </section>
+
+      <CloseCta headline="Leave the call with notes. Not a bot." />
+    </div>
+  );
+}
+
+function WorksWith() {
+  return (
+    <p className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-[13px] leading-5 text-[color:var(--amie-muted)]">
+      <span>Works with:</span>
+      <span className="inline-flex items-center gap-1.5">
+        <ZoomMark className="h-[18px] w-[17px]" />
+        Zoom,
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <TeamsMark className="h-[20px] w-[19px]" />
+        MS Teams and
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <MeetMark className="h-[18px] w-[22px]" />
+        Google Meet
+      </span>
+      <span>and others</span>
+    </p>
+  );
+}
+
+function BenefitRow({
+  kicker,
+  title,
+  body,
+  scene,
+  keys,
+  reverse = false,
+  appearance = "light",
+  previewClass,
+}: {
+  kicker?: string;
+  title: string;
+  body: string;
+  scene?: "context" | "speakers" | "files" | "followup";
+  keys?: boolean;
+  reverse?: boolean;
+  appearance?: "light" | "dark";
+  previewClass: string;
+}) {
+  const visual: ReactNode = keys ? (
+    <ul className="grid gap-3 sm:grid-cols-2">
+      {SHORTCUTS.map((item) => (
+        <li
+          key={item.keys}
+          className="flex items-center gap-3 rounded-[12px] border border-[color:var(--amie-line)] bg-[color:var(--amie-card)] px-4 py-3"
+        >
+          <kbd className="font-mono text-[13px] font-semibold tracking-tight text-amie">
+            {item.keys}
+          </kbd>
+          <span className="text-[14px] text-[color:var(--amie-ink)]">
+            {item.label}
+          </span>
+        </li>
+      ))}
+    </ul>
+  ) : scene ? (
+    <AmieWindow
+      scene={scene}
+      namedSpeakers={scene === "speakers"}
+      appearance={appearance}
+      className={previewClass}
+    />
+  ) : null;
+
+  const copy = (
+      <div>
+        {kicker ? (
+          <p className="text-[12px] font-semibold tracking-[0.16em] text-amie uppercase">
+            {kicker}
+          </p>
+        ) : null}
+        <h2 className={cn("amie-display text-[clamp(1.7rem,3vw,2.35rem)]", kicker && "mt-3")}>
+          {title}
+        </h2>
+        <p className="mt-3 max-w-md text-[16px] leading-7 text-[color:var(--amie-muted)]">
+          {body}
+        </p>
+      </div>
+  );
+
+  const media = visual ? <div>{visual}</div> : null;
+
+  return (
+    <article
+      className={cn(
+        "grid items-center gap-10",
+        visual &&
+          (reverse
+            ? "lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]"
+            : "lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]"),
+      )}
+    >
+      {reverse && media ? (
+        <>
+          {media}
+          {copy}
+        </>
+      ) : (
+        <>
+          {copy}
+          {media}
+        </>
+      )}
+    </article>
+  );
+}

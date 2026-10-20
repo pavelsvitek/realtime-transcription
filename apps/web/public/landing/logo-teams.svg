@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="4 4 36 38" aria-hidden="true">
+  <!-- Monochrome Teams silhouette. Prefer currentColor when inlined. -->
+  <path fill="currentColor" d="M22 20h12a6 6 0 0 1 6 6v10a6 6 0 0 1-12 0V26a6 6 0 0 0-6-6Z"/>
+  <path fill="currentColor" d="M8 24a6 6 0 0 1 6-6h8a6 6 0 0 1 6 6v12a6 6 0 0 0 6 6H14C8.477 42 4 37.523 4 32V24Z"/>
+  <circle cx="33" cy="13" r="5" fill="currentColor"/>
+  <circle cx="18" cy="10" r="6" fill="currentColor"/>
+  <rect x="4" y="23" width="16" height="16" rx="3.25" fill="currentColor"/>
+  <path fill="#ffffff" d="M15.479 28.105h-2.447v7.466h-2.065v-7.466H8.52v-1.677h6.959z"/>
+</svg>

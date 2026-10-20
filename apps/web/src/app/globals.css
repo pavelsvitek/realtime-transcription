@@ -10,6 +10,11 @@
   --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
+  --font-display: var(--font-instrument), "Iowan Old Style", Georgia, serif;
+  --color-amie: #ce5b78;
+  --color-amie-hover: #b44864;
+  --color-amie-dark: #e27888;
+  --color-amie-remote: #c45d4a;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);

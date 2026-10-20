@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import { AgentationDev } from "@/components/agentation-dev";
 import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
@@ -14,9 +14,18 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const instrument = Instrument_Serif({
+  variable: "--font-instrument",
+  subsets: ["latin"],
+  weight: "400",
+});
+
 export const metadata: Metadata = {
-  title: "Meeting Copilot",
-  description: "Live conversation copilot — UI exploration",
+  title: {
+    default: "Amie",
+    template: "%s · Amie",
+  },
+  description: "Meetings, transcribed on your Mac. No bot in the call.",
 };
 
 export default function RootLayout({
@@ -27,7 +36,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${instrument.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col">
