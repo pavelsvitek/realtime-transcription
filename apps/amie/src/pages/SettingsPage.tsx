@@ -38,6 +38,8 @@ type GoogleMeetExtensionStatus = {
   inCallTabs: number;
   extensionVersion: string | null;
   health: string;
+  remoteSpeaking: string[];
+  selfSpeaking: string[];
 };
 
 type SystemAccessStatus = {
@@ -657,6 +659,14 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
                         .
                       </p>
                     )}
+                    {systemAccess?.googleMeetExtension.connected && (
+                      <div className="settings-row">
+                        <span className="settings-label">Speaking</span>
+                        <span className="settings-value">
+                          {meetSpeakingLabel(systemAccess.googleMeetExtension)}
+                        </span>
+                      </div>
+                    )}
                     {systemAccess?.googleMeetExtension.health === "degraded" && (
                       <p className="settings-copy">
                         Google Meet level meters look different than expected, so speaker names may be missing.
@@ -703,6 +713,15 @@ function meetExtensionLabel(status: GoogleMeetExtensionStatus | undefined): stri
   if (!status.connected) return "Not detected";
   const browsers = status.browsers.map(browserLabel).filter(Boolean);
   return browsers.length > 0 ? `Connected (${browsers.join(", ")})` : "Connected";
+}
+
+function meetSpeakingLabel(status: GoogleMeetExtensionStatus): string {
+  const remote = status.remoteSpeaking ?? [];
+  const self = status.selfSpeaking ?? [];
+  const parts: string[] = [];
+  if (remote.length) parts.push(remote.join(", "));
+  if (self.length) parts.push(`You (${self.join(", ")})`);
+  return parts.length > 0 ? parts.join(" · ") : "Nobody speaking";
 }
 
 function browserLabel(browser: string): string {

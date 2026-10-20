@@ -22,6 +22,8 @@ const status = (overrides: Partial<SpeakerTagsStatus> = {}): SpeakerTagsStatus =
     inCallTabs: 0,
     extensionVersion: null,
     health: "unknown",
+    remoteSpeaking: [],
+    selfSpeaking: [],
   },
   ...overrides,
 });

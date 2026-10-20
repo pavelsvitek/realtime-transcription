@@ -28,6 +28,10 @@ pub struct GoogleMeetExtensionStatus {
     pub in_call_tabs: u32,
     pub extension_version: Option<String>,
     pub health: String,
+    /// Remote Meet display names currently speaking.
+    pub remote_speaking: Vec<String>,
+    /// Local user speaking (extension still sends self ids; not used for remote transcript labels).
+    pub self_speaking: Vec<String>,
 }
 
 impl Default for GoogleMeetExtensionStatus {
@@ -38,6 +42,8 @@ impl Default for GoogleMeetExtensionStatus {
             in_call_tabs: 0,
             extension_version: None,
             health: "unknown".into(),
+            remote_speaking: Vec::new(),
+            self_speaking: Vec::new(),
         }
     }
 }
@@ -109,13 +115,21 @@ impl MeetBridge {
     }
 
     pub fn snapshot(&self) -> GoogleMeetExtensionStatus {
-        let snapshot = self.inner.lock().expect("meet_bridge").registry.snapshot();
+        let now = unix_ms();
+        let snapshot = self
+            .inner
+            .lock()
+            .expect("meet_bridge")
+            .registry
+            .snapshot(now);
         GoogleMeetExtensionStatus {
             connected: snapshot.connected,
             browsers: snapshot.browsers,
             in_call_tabs: snapshot.in_call_tabs,
             extension_version: snapshot.extension_version,
             health: snapshot.health,
+            remote_speaking: snapshot.remote_speaking,
+            self_speaking: snapshot.self_speaking,
         }
     }
 
@@ -294,6 +308,8 @@ mod tests {
         assert_eq!(status.browsers, vec!["brave".to_string()]);
         assert_eq!(status.in_call_tabs, 1);
         assert_eq!(status.health, "ok");
+        assert_eq!(status.remote_speaking, vec!["Ada Lovelace".to_string()]);
+        assert_eq!(status.self_speaking, vec!["Pavel Svitek".to_string()]);
         let label = timeline.lock().unwrap().resolve(0, 10_000);
         assert_eq!(label.as_deref(), Some("Ada Lovelace"));
         assert_eq!(speaker_cut.load(Ordering::Relaxed), 1);

@@ -62,6 +62,10 @@ pub struct ExtensionSnapshot {
     pub in_call_tabs: u32,
     pub extension_version: Option<String>,
     pub health: String,
+    /// Remote display names currently speaking (self excluded).
+    pub remote_speaking: Vec<String>,
+    /// Local user display names currently speaking (still on the wire; not stamped on remote lines).
+    pub self_speaking: Vec<String>,
 }
 
 impl Registry {
@@ -201,7 +205,7 @@ impl Registry {
         (remote_names(tabs), observed)
     }
 
-    pub fn snapshot(&self) -> ExtensionSnapshot {
+    pub fn snapshot(&self, now_ms: u64) -> ExtensionSnapshot {
         let mut browsers = BTreeSet::new();
         let mut versions = BTreeSet::new();
         let mut in_call_tabs = 0u32;
@@ -223,6 +227,7 @@ impl Registry {
             }
         }
         let connected = !self.connections.is_empty();
+        let (remote_speaking, self_speaking) = self.live_speaking_names(now_ms);
         ExtensionSnapshot {
             connected,
             browsers: browsers.into_iter().collect(),
@@ -239,7 +244,43 @@ impl Registry {
             } else {
                 "ok".into()
             },
+            remote_speaking,
+            self_speaking,
         }
+    }
+
+    /// Speaking display names from fresh in-call tabs, split into remote vs self.
+    fn live_speaking_names(&self, now_ms: u64) -> (Vec<String>, Vec<String>) {
+        let mut remote = BTreeSet::new();
+        let mut selves = BTreeSet::new();
+        for connection in self.connections.values() {
+            for tab in connection.tabs.values() {
+                if !tab_is_fresh(tab, now_ms) {
+                    continue;
+                }
+                for id in &tab.speaking {
+                    let Some(participant) = tab
+                        .participants
+                        .iter()
+                        .find(|participant| participant.id == *id)
+                    else {
+                        continue;
+                    };
+                    if participant.name.is_empty() {
+                        continue;
+                    }
+                    if participant.is_self {
+                        selves.insert(participant.name.clone());
+                    } else {
+                        remote.insert(participant.name.clone());
+                    }
+                }
+            }
+        }
+        for name in &selves {
+            remote.remove(name);
+        }
+        (remote.into_iter().collect(), selves.into_iter().collect())
     }
 
     fn grouped_fresh_tabs(&self, now_ms: u64) -> BTreeMap<String, Vec<Tab>> {
@@ -628,12 +669,42 @@ mod tests {
             },
             1_000,
         );
-        let snapshot = registry.snapshot();
+        let snapshot = registry.snapshot(1_000);
         assert!(snapshot.connected);
         assert_eq!(snapshot.browsers, vec!["brave".to_string()]);
         assert_eq!(snapshot.in_call_tabs, 1);
         assert_eq!(snapshot.extension_version.as_deref(), Some("0.1.0"));
         assert_eq!(snapshot.health, "degraded");
+        assert!(snapshot.remote_speaking.is_empty());
+        assert!(snapshot.self_speaking.is_empty());
         assert!(!registry.is_live(1_000));
+    }
+
+    #[test]
+    fn snapshot_splits_self_and_remote_speaking() {
+        let mut registry = Registry::default();
+        let conn = hello_browser(&mut registry, "chrome");
+        join(&mut registry, conn, "c:1", "abc-defg-hij", 1_000);
+        roster(
+            &mut registry,
+            conn,
+            "c:1",
+            vec![
+                participant("ada", "Ada Lovelace", false),
+                participant("me", "Pavel Svitek", true),
+            ],
+            1_000,
+        );
+        beat(
+            &mut registry,
+            conn,
+            "c:1",
+            1,
+            &["ada", "me"],
+            1_100,
+        );
+        let snapshot = registry.snapshot(1_200);
+        assert_eq!(snapshot.remote_speaking, vec!["Ada Lovelace".to_string()]);
+        assert_eq!(snapshot.self_speaking, vec!["Pavel Svitek".to_string()]);
     }
 }

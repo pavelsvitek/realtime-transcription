@@ -92,6 +92,10 @@ export type GoogleMeetExtensionStatus = {
   inCallTabs: number;
   extensionVersion: string | null;
   health: string;
+  /** Remote Meet names currently speaking. */
+  remoteSpeaking: string[];
+  /** Local user speaking (DEV visibility; not stamped as remote transcript labels). */
+  selfSpeaking: string[];
 };
 
 export type SpeakerTagsStatus = {
