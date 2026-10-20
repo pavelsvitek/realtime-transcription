@@ -6,6 +6,7 @@ type PopupStatus = {
   recording: boolean;
   inCallTabs: number;
   speakingNames: string[];
+  selfSpeakingNames: string[];
   lastError: string | null;
   port: number | null;
 };
@@ -13,6 +14,7 @@ type PopupStatus = {
 const connection = document.querySelector("#connection");
 const detail = document.querySelector("#detail");
 const speakers = document.querySelector("#speakers");
+const selfSpeaking = document.querySelector("#self-speaking");
 const trace = document.querySelector<HTMLInputElement>("#trace");
 const download = document.querySelector<HTMLButtonElement>("#download");
 
@@ -22,12 +24,13 @@ async function refresh() {
 }
 
 function render(status: PopupStatus | undefined) {
-  if (!connection || !detail || !speakers) return;
+  if (!connection || !detail || !speakers || !selfSpeaking) return;
   if (!status?.connected) {
     connection.textContent = "Not connected";
     connection.className = "bad";
     detail.textContent = status?.lastError ?? "Join a Google Meet call while Amie Dev is running.";
     speakers.textContent = "";
+    selfSpeaking.textContent = "";
     return;
   }
   connection.textContent = "Connected";
@@ -38,6 +41,10 @@ function render(status: PopupStatus | undefined) {
   speakers.textContent = status.speakingNames.length
     ? `Speaking: ${status.speakingNames.join(", ")}`
     : "Nobody remote is speaking.";
+  const selfNames = status.selfSpeakingNames ?? [];
+  selfSpeaking.textContent = selfNames.length
+    ? `You are speaking (${selfNames.join(", ")})`
+    : "";
 }
 
 trace?.addEventListener("change", () => {

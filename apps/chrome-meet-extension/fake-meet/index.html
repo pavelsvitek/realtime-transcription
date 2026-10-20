@@ -315,17 +315,23 @@
     <script>
       const levels = ["HX2H7", "OgVli", "Oaajhc", "wEsLMd"];
 
-      function bindTalk(buttonId, meterId, tileId) {
+      function bindTalk(buttonId, meterId, tileId, extraMeterIds = []) {
         let timer = null;
         const button = document.getElementById(buttonId);
         const meter = document.getElementById(meterId);
+        const extras = extraMeterIds.map((id) => document.getElementById(id)).filter(Boolean);
         const tile = document.getElementById(tileId);
+
+        const setMeters = (className) => {
+          meter.className = className;
+          for (const extra of extras) extra.className = className;
+        };
 
         button.addEventListener("click", () => {
           if (timer) {
             clearInterval(timer);
             timer = null;
-            meter.className = "gjg47c";
+            setMeters("gjg47c");
             tile.classList.remove("speaking");
             button.classList.remove("active");
             return;
@@ -333,15 +339,17 @@
           let index = 0;
           tile.classList.add("speaking");
           button.classList.add("active");
+          // Same level-class cycle Ada uses — detector watches class flicker on [jsname="QgSmzd"].
           timer = setInterval(() => {
-            meter.className = levels[index % levels.length];
+            setMeters(levels[index % levels.length]);
             index += 1;
           }, 100);
         });
       }
 
       bindTalk("ada-talk", "ada-meter", "ada-tile");
-      bindTalk("pavel-talk", "self-meter", "pavel-tile");
+      // Self tile + toolbar mic meter (lockstep), matching real Meet self-correlation cues.
+      bindTalk("pavel-talk", "self-meter", "pavel-tile", ["toolbar-meter"]);
     </script>
   </body>
 </html>

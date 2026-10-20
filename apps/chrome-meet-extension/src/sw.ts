@@ -16,6 +16,7 @@ import {
   emptyTab,
   hasInCallTab,
   remoteSpeakingNames,
+  selfSpeakingNames,
   type TabModel,
 } from "./sw-state";
 import { backoffDelay, nextPort } from "./transport";
@@ -26,6 +27,7 @@ type PopupStatus = {
   recording: boolean;
   inCallTabs: number;
   speakingNames: string[];
+  selfSpeakingNames: string[];
   lastError: string | null;
   port: number | null;
 };
@@ -330,6 +332,7 @@ function status(): PopupStatus {
     recording,
     inCallTabs: modelsNow.filter((tab) => tab.joined).length,
     speakingNames: remoteSpeakingNames(modelsNow),
+    selfSpeakingNames: selfSpeakingNames(modelsNow),
     lastError,
     port: lastGood,
   };

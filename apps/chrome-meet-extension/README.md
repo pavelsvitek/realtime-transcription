@@ -25,7 +25,7 @@ pnpm -F chrome-meet-extension fake-meet
 2. Open `http://127.0.0.1:47921/abc-defg-hij` (the server redirects `/` there). A lobby path has no meeting code, so the extension stays disconnected.
 3. With Amie Dev running, the popup says **Connected**.
 4. Click **Ada talks** in the DEV strip. Ada’s tile gets a green speaking border and the popup says **Speaking: Ada Lovelace**.
-5. Click **Pavel talks** to flicker the self tile the same way. The popup must not list Pavel as a remote speaker (self is filtered). Both toggles work independently.
+5. Click **Pavel talks** to flicker the self tile (and toolbar mic meter) with the same level classes. The popup shows **You are speaking (Pavel Svitek)**; Pavel stays off the remote **Speaking:** list. Both toggles work independently. Self ids stay in the `speakers` / `heartbeat` wire frames — Amie only strips them when labeling remote transcript lines.
 
 ## What Amie does with the names
 

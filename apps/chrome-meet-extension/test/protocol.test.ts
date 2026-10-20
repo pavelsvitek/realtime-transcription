@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import fixture from "../fixtures/meet_bridge/v1-frames.json";
 import { parseClientMessage, parseServerMessage } from "../src/protocol";
-import { applyContentEvent, emptyTab, remoteSpeakingNames } from "../src/sw-state";
+import { applyContentEvent, emptyTab, remoteSpeakingNames, selfSpeakingNames } from "../src/sw-state";
 import { backoffDelay, nextPort, portOrder } from "../src/transport";
 
 describe("meet_bridge protocol fixture", () => {
@@ -50,7 +50,9 @@ describe("meet_bridge protocol fixture", () => {
       observed_at: 20,
       speaking: ["ada", "me"],
     });
+    expect(tab.speaking).toEqual(["ada", "me"]);
     expect(remoteSpeakingNames([tab])).toEqual(["Ada Lovelace"]);
+    expect(selfSpeakingNames([tab])).toEqual(["Pavel Svitek"]);
     tab = applyContentEvent(tab, { type: "call", state: "left", meeting_code: null, observed_at: 30 });
     expect(tab.joined).toBe(false);
   });
