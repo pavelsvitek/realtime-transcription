@@ -34,7 +34,13 @@ await copyFile(join(root, "src/popup.html"), join(outdir, "popup.html"));
 
 const matches = ["https://meet.google.com/*"];
 if (!store) {
-  matches.push("http://localhost/*", "http://127.0.0.1/*");
+  // Omitted port matches every port. The explicit :47921 entries are the fake Meet page.
+  matches.push(
+    "http://localhost/*",
+    "http://127.0.0.1/*",
+    "http://localhost:47921/*",
+    "http://127.0.0.1:47921/*",
+  );
 }
 
 const manifest = {

@@ -34,7 +34,9 @@ function connectPort() {
   next.onMessage.addListener(onControl);
   next.onDisconnect.addListener(() => {
     if (port === next) port = null;
-    if (joined) window.setTimeout(connectPort, 500);
+    // Re-announce the call. A restarted service worker has an empty tab and the fake
+    // page never mutates its tile list, so the one-shot roster would otherwise stay lost.
+    if (joined) window.setTimeout(() => syncCall(true), 500);
   });
 }
 
@@ -128,23 +130,27 @@ function scheduleRoster() {
   }, 250);
 }
 
+function announcePresence(code: string | null) {
+  post({
+    type: "call",
+    state: "joined",
+    meeting_code: code,
+    observed_at: observedAt(),
+  });
+  participants = readRoster(document, selectors, participants);
+  applySelf();
+  post({ type: "roster", participants });
+}
+
 function syncCall(heartbeat: boolean) {
   const detected = detectCall(location.pathname, document, selectors);
   if (detected.inCall) {
     missingSince = null;
-    if (!joined) {
-      joined = true;
-      connectPort();
-      post({
-        type: "call",
-        state: "joined",
-        meeting_code: detected.code,
-        observed_at: observedAt(),
-      });
-      participants = readRoster(document, selectors, participants);
-      applySelf();
-      post({ type: "roster", participants });
-    }
+    const fresh = !joined;
+    if (fresh) joined = true;
+    // Heartbeats repeat the roster. The static fake page only changes meter classes,
+    // so a roster posted before the service worker listener exists would never return.
+    if (fresh || heartbeat) announcePresence(detected.code);
     publishSpeaking(heartbeat);
     return;
   }

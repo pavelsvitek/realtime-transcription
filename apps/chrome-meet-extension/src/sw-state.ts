@@ -76,3 +76,22 @@ export function hasInCallTab(tabs: Iterable<TabModel>): boolean {
   }
   return false;
 }
+
+/** Holds port messages that arrive before async tab setup finishes, then flushes in order. */
+export function createPendingQueue<T>() {
+  const pending: T[] = [];
+  let open = false;
+  return {
+    push(item: T, handle: (item: T) => void) {
+      if (!open) {
+        pending.push(item);
+        return;
+      }
+      handle(item);
+    },
+    open(handle: (item: T) => void) {
+      open = true;
+      for (const item of pending.splice(0)) handle(item);
+    },
+  };
+}

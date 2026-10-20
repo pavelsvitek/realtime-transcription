@@ -10,7 +10,14 @@ import {
   type ContentEvent,
   type SelectorOverride,
 } from "./protocol";
-import { applyContentEvent, emptyTab, hasInCallTab, remoteSpeakingNames, type TabModel } from "./sw-state";
+import {
+  applyContentEvent,
+  createPendingQueue,
+  emptyTab,
+  hasInCallTab,
+  remoteSpeakingNames,
+  type TabModel,
+} from "./sw-state";
 import { backoffDelay, nextPort } from "./transport";
 
 type PopupStatus = {
@@ -24,6 +31,8 @@ type PopupStatus = {
 };
 
 const tabs = new Map<number, { tabKey: string; model: TabModel; port: chrome.runtime.Port }>();
+let attachSerial = 0;
+const tabAttach = new Map<number, number>();
 let instanceIdPromise: Promise<string> | null = null;
 let socket: WebSocket | null = null;
 let pending: WebSocket | null = null;
@@ -74,25 +83,22 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   return undefined;
 });
 
-async function attachTab(port: chrome.runtime.Port, tabId: number) {
-  const instanceId = await getInstanceId();
-  const tabKey = `${instanceId}:${tabId}`;
-  const model = emptyTab(tabKey);
-  tabs.set(tabId, { tabKey, model, port });
-  if (traceEnabled) port.postMessage({ type: "trace", enabled: true });
+function attachTab(port: chrome.runtime.Port, tabId: number) {
+  const queue = createPendingQueue<unknown>();
+  let entry: { tabKey: string; model: TabModel; port: chrome.runtime.Port } | null = null;
+  let closed = false;
+  const generation = ++attachSerial;
+  tabAttach.set(tabId, generation);
+
+  // Register before any await. Chrome drops port messages that arrive with no listener,
+  // and the content script posts call + roster in the same turn as connect().
   port.onMessage.addListener((message) => {
-    const entry = tabs.get(tabId);
-    if (!entry || !isContentEvent(message)) return;
-    if (message.type === "trace-dump") {
-      latestTrace = message.payload;
-      return;
-    }
-    entry.model = applyContentEvent(entry.model, message);
-    forward(entry.model.tabKey, message);
-    ensureSocket();
+    queue.push(message, handleContentMessage);
   });
   port.onDisconnect.addListener(() => {
-    const entry = tabs.get(tabId);
+    closed = true;
+    const current = tabs.get(tabId);
+    if (!current || current.port !== port) return;
     tabs.delete(tabId);
     if (entry?.model.joined && socket && connected) {
       send({
@@ -104,6 +110,27 @@ async function attachTab(port: chrome.runtime.Port, tabId: number) {
     }
     if (!hasInCallTab(models())) stopSocket();
   });
+
+  void (async () => {
+    const instanceId = await getInstanceId();
+    if (closed || tabAttach.get(tabId) !== generation) return;
+    const tabKey = `${instanceId}:${tabId}`;
+    entry = { tabKey, model: emptyTab(tabKey), port };
+    tabs.set(tabId, entry);
+    if (traceEnabled) port.postMessage({ type: "trace", enabled: true });
+    queue.open(handleContentMessage);
+  })();
+
+  function handleContentMessage(message: unknown) {
+    if (!entry || !isContentEvent(message)) return;
+    if (message.type === "trace-dump") {
+      latestTrace = message.payload;
+      return;
+    }
+    entry.model = applyContentEvent(entry.model, message);
+    forward(entry.model.tabKey, message);
+    ensureSocket();
+  }
 }
 
 function forward(tabKey: string, event: ContentEvent) {

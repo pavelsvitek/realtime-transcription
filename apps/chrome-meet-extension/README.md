@@ -15,13 +15,16 @@ Amie listens only in DEV (`debug_assertions` or bundle id `com.pavel.amie.dev`) 
 7. When someone else talks, the popup shows their display name. Your own tile is not listed as a remote speaker.
 8. Leave the call or sit in the lobby: the popup returns to **Not connected**.
 
-Optional fake call (no Google account):
+Optional fake call (no Google account). This needs the DEV build (`pnpm -F chrome-meet-extension build`, not `--store`).
 
 ```bash
 pnpm -F chrome-meet-extension fake-meet
 ```
 
-Open `http://127.0.0.1:47921/abc-defg-hij` and click **Ada talks**. The DEV build injects on `localhost` and `127.0.0.1` so this page can exercise the same path.
+1. Load unpacked `apps/chrome-meet-extension/dist`, then reload the fake tab if it was already open.
+2. Open `http://127.0.0.1:47921/abc-defg-hij` (the server redirects `/` there). A lobby path has no meeting code, so the extension stays disconnected.
+3. With Amie Dev running, the popup says **Connected**.
+4. Click **Ada talks**. Within about a second the popup says **Speaking: Ada Lovelace**. Your own tile stays off that list.
 
 ## What Amie does with the names
 

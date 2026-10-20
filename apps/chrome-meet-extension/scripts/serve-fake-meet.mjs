@@ -7,10 +7,20 @@ import { fileURLToPath } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const html = await readFile(join(root, "fake-meet/index.html"));
 const port = 47921;
+const meetingPath = "/abc-defg-hij";
 
-createServer((_request, response) => {
-  response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+createServer((request, response) => {
+  const pathname = new URL(request.url ?? "/", "http://127.0.0.1").pathname;
+  if (pathname === "/") {
+    response.writeHead(302, { location: meetingPath });
+    response.end();
+    return;
+  }
+  response.writeHead(200, {
+    "content-type": "text/html; charset=utf-8",
+    "cache-control": "no-store",
+  });
   response.end(html);
 }).listen(port, "127.0.0.1", () => {
-  console.log(`Fake Google Meet: http://127.0.0.1:${port}/abc-defg-hij`);
+  console.log(`Fake Google Meet: http://127.0.0.1:${port}${meetingPath}`);
 });
