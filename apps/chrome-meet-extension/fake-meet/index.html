@@ -8,6 +8,7 @@
       body { font: 14px system-ui, sans-serif; margin: 24px; }
       .tile { display: inline-block; margin-right: 16px; padding: 12px; border: 1px solid #ccc; }
       [jsname="QgSmzd"] { width: 24px; height: 12px; background: #ddd; }
+      button { margin-right: 8px; }
     </style>
   </head>
   <body>
@@ -21,23 +22,33 @@
       <div jsname="QgSmzd" id="self-meter" class="gjg47c"></div>
     </div>
     <div jsname="QgSmzd" id="toolbar-meter" class="gjg47c"></div>
-    <p><button id="talk" type="button">Ada talks</button></p>
+    <p>
+      <button id="ada-talk" type="button">Ada talks</button>
+      <button id="pavel-talk" type="button">Pavel talks</button>
+    </p>
     <script>
       const levels = ["HX2H7", "OgVli", "Oaajhc", "wEsLMd"];
-      let timer = null;
-      document.getElementById("talk").addEventListener("click", () => {
-        if (timer) {
-          clearInterval(timer);
-          timer = null;
-          document.getElementById("ada-meter").className = "gjg47c";
-          return;
-        }
-        let index = 0;
-        timer = setInterval(() => {
-          document.getElementById("ada-meter").className = levels[index % levels.length];
-          index += 1;
-        }, 100);
-      });
+
+      function bindTalk(buttonId, meterId) {
+        let timer = null;
+        document.getElementById(buttonId).addEventListener("click", () => {
+          const meter = document.getElementById(meterId);
+          if (timer) {
+            clearInterval(timer);
+            timer = null;
+            meter.className = "gjg47c";
+            return;
+          }
+          let index = 0;
+          timer = setInterval(() => {
+            meter.className = levels[index % levels.length];
+            index += 1;
+          }, 100);
+        });
+      }
+
+      bindTalk("ada-talk", "ada-meter");
+      bindTalk("pavel-talk", "self-meter");
     </script>
   </body>
 </html>
