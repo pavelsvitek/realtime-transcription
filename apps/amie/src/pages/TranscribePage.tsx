@@ -16,6 +16,7 @@ import { MicIndicator } from "../components/MicIndicator";
 import { Spinner } from "../components/Spinner";
 import { TranscriptFeed } from "../components/TranscriptFeed";
 import { useAudioDevice } from "../hooks/useAudioDevice";
+import { silenceSourceOf } from "../lib/capture-notices";
 import { useMicLevel } from "../hooks/useMicLevel";
 import { useSpeechModelDownload } from "../hooks/useSpeechModelDownload";
 import { useTranscription } from "../hooks/useTranscription";
@@ -74,7 +75,8 @@ export function TranscribePage({
     isActive,
     isLoading,
     isStopping,
-    error,
+    notices,
+    dismissNotice,
     model,
     sessionSource,
     sessionBackend,
@@ -242,7 +244,10 @@ export function TranscribePage({
           <MicIndicator
             isActive={isActive && !stopping}
             micActive={micActive}
-            error={error}
+            error={
+              notices.find((notice) => silenceSourceOf(notice.message) === null)?.message ??
+              null
+            }
             deviceName={device?.name ?? null}
             deviceKind={device?.kind ?? null}
             deviceError={deviceError}
@@ -272,11 +277,21 @@ export function TranscribePage({
         </div>
       </header>
 
-      {error && (
-        <div className="error-banner">
-          {formatTranscriptionError(error, modelDownload.downloading)}
+      {notices.map((notice) => (
+        <div className="error-banner" key={notice.id} role="status">
+          <span className="error-banner-text">
+            {formatTranscriptionError(notice.message, modelDownload.downloading)}
+          </span>
+          <button
+            type="button"
+            className="error-banner-close"
+            aria-label="Close"
+            onClick={() => dismissNotice(notice.id)}
+          >
+            ×
+          </button>
         </div>
-      )}
+      ))}
 
       <SpeakerNamesPrompt />
 

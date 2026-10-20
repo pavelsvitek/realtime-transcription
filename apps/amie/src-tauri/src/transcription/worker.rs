@@ -87,7 +87,8 @@ pub fn run_worker<E>(
             observer.as_mut(),
         );
 
-        // Only the mic stream drives the mic-level indicator.
+        // Mic and system levels are separate: the mic icon follows only the mic,
+        // and each silence banner hides on its own stream's level.
         if labels.stream == crate::transcription::labels::MIC_STREAM {
             let rms = mic_input::compute_rms(&chunk);
             emit(TranscriptEvent::MicLevel(MicLevel { rms }));
@@ -117,6 +118,7 @@ pub fn run_worker<E>(
         } else if labels.stream == crate::transcription::labels::SYSTEM_STREAM {
             // [silent-loopback diagnostic] see block comment above `system_samples_seen`
             let rms = mic_input::compute_rms(&chunk);
+            emit(TranscriptEvent::SystemLevel(MicLevel { rms }));
             system_peak_rms = system_peak_rms.max(rms);
             system_samples_seen += chunk.len();
             if !system_silence_warned && system_samples_seen >= SYSTEM_SILENCE_CHECK_SAMPLES {
@@ -611,5 +613,65 @@ mod tests {
             event,
             TranscriptEvent::Commit(commit) if commit.text == "from ada"
         )));
+    }
+
+    struct IdleAsr;
+
+    impl crate::transcription::pipeline::StreamingAsr for IdleAsr {
+        fn push_mono(
+            &mut self,
+            _samples: &[f32],
+        ) -> anyhow::Result<Option<crate::transcription::pipeline::AsrOutput>> {
+            Ok(None)
+        }
+
+        fn finish(&mut self) -> anyhow::Result<crate::transcription::pipeline::AsrOutput> {
+            Ok(crate::transcription::pipeline::AsrOutput::default())
+        }
+    }
+
+    #[test]
+    fn system_audio_emits_its_own_level_and_not_the_mic_meter() {
+        let (tx, rx) = std::sync::mpsc::sync_channel::<Vec<f32>>(2);
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let events_emit = events.clone();
+        tx.send(vec![0.0; 8]).unwrap();
+        tx.send(vec![0.25; 8]).unwrap();
+        drop(tx);
+
+        run_worker(
+            rx,
+            StreamingPipeline::new(Box::new(IdleAsr)),
+            StreamLabels {
+                speaker: labels::REMOTE,
+                stream: labels::SYSTEM_STREAM,
+            },
+            move |event| events_emit.lock().unwrap().push(event),
+            Arc::new(AtomicBool::new(false)),
+            Arc::new(AtomicU64::new(0)),
+            None,
+            None,
+        );
+
+        let events = events.lock().unwrap();
+        let mut saw_mic_level = false;
+        let levels: Vec<f32> = events
+            .iter()
+            .filter_map(|event| match event {
+                TranscriptEvent::SystemLevel(level) => Some(level.rms),
+                TranscriptEvent::MicLevel(_) => {
+                    saw_mic_level = true;
+                    None
+                }
+                _ => None,
+            })
+            .collect();
+        assert!(!saw_mic_level, "system audio must not drive the mic icon");
+        assert_eq!(levels.len(), 2);
+        assert!(levels[0] < 0.01, "silence stays under the speech threshold");
+        assert!(
+            levels[1] > 0.01,
+            "a loud chunk is the signal that hides the system banner"
+        );
     }
 }
