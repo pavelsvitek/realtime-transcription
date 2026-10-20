@@ -41,6 +41,7 @@ describe("meet_bridge protocol fixture", () => {
       type: "roster",
       participants: [
         { id: "ada", name: "Ada Lovelace", self: false },
+        { id: "sam", name: "Sam Rivera", self: false },
         { id: "me", name: "Pavel Svitek", self: true },
       ],
     });
@@ -48,10 +49,10 @@ describe("meet_bridge protocol fixture", () => {
       type: "speakers",
       seq: 2,
       observed_at: 20,
-      speaking: ["ada", "me"],
+      speaking: ["ada", "sam", "me"],
     });
-    expect(tab.speaking).toEqual(["ada", "me"]);
-    expect(remoteSpeakingNames([tab])).toEqual(["Ada Lovelace"]);
+    expect(tab.speaking).toEqual(["ada", "sam", "me"]);
+    expect(remoteSpeakingNames([tab])).toEqual(["Ada Lovelace", "Sam Rivera"]);
     expect(selfSpeakingNames([tab])).toEqual(["Pavel Svitek"]);
     tab = applyContentEvent(tab, { type: "call", state: "left", meeting_code: null, observed_at: 30 });
     expect(tab.joined).toBe(false);

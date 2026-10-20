@@ -9,14 +9,21 @@ import { applyContentEvent, emptyTab, remoteSpeakingNames, selfSpeakingNames } f
 
 const ADA = "spaces/fake/devices/1";
 const PAVEL = "spaces/fake/devices/2";
+const SAM = "spaces/fake/devices/3";
 const LEVELS = ["HX2H7", "OgVli", "Oaajhc", "wEsLMd"];
 
-/** Mirrors `fake-meet/index.html` after the Meet-like restyle (tiles, (You) tag, toolbar meter). */
+/** Mirrors `fake-meet/index.html` (Ada + Sam remotes, Pavel self, toolbar meter). */
 const FAKE_MEET_MARKUP = `
   <div class="tile" id="ada-tile" data-participant-id="${ADA}" role="listitem" aria-label="Ada Lovelace">
     <div class="tile-footer">
       <span class="notranslate">Ada Lovelace</span>
       <div jsname="QgSmzd" id="ada-meter" class="gjg47c"></div>
+    </div>
+  </div>
+  <div class="tile" id="sam-tile" data-participant-id="${SAM}" role="listitem" aria-label="Sam Rivera">
+    <div class="tile-footer">
+      <span class="notranslate">Sam Rivera</span>
+      <div jsname="QgSmzd" id="sam-meter" class="gjg47c"></div>
     </div>
   </div>
   <div class="tile" id="pavel-tile" data-participant-id="${PAVEL}" role="listitem" aria-label="Pavel Svitek (You)">
@@ -39,7 +46,7 @@ function meterParentId(id: string): string | null {
   return el?.closest(DEFAULT_SELECTORS.participant)?.getAttribute("data-participant-id") ?? null;
 }
 
-function namesFromPipeline(opts: { ada?: boolean; pavel?: boolean; startAt?: number }) {
+function namesFromPipeline(opts: { ada?: boolean; sam?: boolean; pavel?: boolean; startAt?: number }) {
   const startAt = opts.startAt ?? 10_000;
   const detector = createDetector();
   const toolbarChanges: number[] = [];
@@ -63,6 +70,7 @@ function namesFromPipeline(opts: { ada?: boolean; pavel?: boolean; startAt?: num
   };
 
   emit(ADA, "ada-meter", 0, "gjg47c");
+  emit(SAM, "sam-meter", 0, "gjg47c");
   emit(PAVEL, "self-meter", 0, "gjg47c");
   emit(null, "toolbar-meter", 0, "gjg47c");
 
@@ -70,6 +78,7 @@ function namesFromPipeline(opts: { ada?: boolean; pavel?: boolean; startAt?: num
     const at = startAt + i * 100;
     const tokens = LEVELS[i % LEVELS.length];
     if (opts.ada) emit(ADA, "ada-meter", at, tokens);
+    if (opts.sam) emit(SAM, "sam-meter", at, tokens);
     if (opts.pavel) {
       emit(PAVEL, "self-meter", at, tokens);
       emit(null, "toolbar-meter", at, tokens);
@@ -106,17 +115,19 @@ describe("fake Meet HTML after Meet-like restyle", () => {
       inCall: true,
       code: "abc-defg-hij",
     });
-    expect(document.querySelectorAll(DEFAULT_SELECTORS.meter)).toHaveLength(3);
+    expect(document.querySelectorAll(DEFAULT_SELECTORS.meter)).toHaveLength(4);
     expect(meterParentId("ada-meter")).toBe(ADA);
+    expect(meterParentId("sam-meter")).toBe(SAM);
     expect(meterParentId("self-meter")).toBe(PAVEL);
     expect(meterParentId("toolbar-meter")).toBeNull();
     expect(readRoster(document, DEFAULT_SELECTORS, [])).toEqual([
       { id: ADA, name: "Ada Lovelace", self: false },
+      { id: SAM, name: "Sam Rivera", self: false },
       { id: PAVEL, name: "Pavel Svitek", self: true },
     ]);
   });
 
-  it("Ada talks stays remote even when Pavel talks locksteps the toolbar", () => {
+  it("Ada and Sam stay remote; Pavel talks is self-only", () => {
     loadFakeMeet();
     const adaOnly = namesFromPipeline({ ada: true });
     expect(adaOnly.speaking).toContain(ADA);
@@ -125,15 +136,26 @@ describe("fake Meet HTML after Meet-like restyle", () => {
     expect(adaOnly.remote).toEqual(["Ada Lovelace"]);
     expect(adaOnly.self).toEqual([]);
 
+    const samOnly = namesFromPipeline({ sam: true });
+    expect(samOnly.speaking).toContain(SAM);
+    expect(samOnly.participants.find((participant) => participant.id === SAM)?.self).toBe(false);
+    expect(samOnly.remote).toEqual(["Sam Rivera"]);
+    expect(samOnly.self).toEqual([]);
+
+    const remotes = namesFromPipeline({ ada: true, sam: true });
+    expect(remotes.remote).toEqual(["Ada Lovelace", "Sam Rivera"]);
+    expect(remotes.self).toEqual([]);
+
     const pavelOnly = namesFromPipeline({ pavel: true });
     expect(pavelOnly.speaking).toContain(PAVEL);
     expect(pavelOnly.remote).toEqual([]);
     expect(pavelOnly.self).toEqual(["Pavel Svitek"]);
 
-    const both = namesFromPipeline({ ada: true, pavel: true });
-    expect(both.speaking).toEqual([ADA, PAVEL].sort());
-    expect(both.participants.find((participant) => participant.id === ADA)?.self).toBe(false);
-    expect(both.remote).toEqual(["Ada Lovelace"]);
-    expect(both.self).toEqual(["Pavel Svitek"]);
+    const all = namesFromPipeline({ ada: true, sam: true, pavel: true });
+    expect(all.speaking).toEqual([ADA, PAVEL, SAM].sort());
+    expect(all.participants.find((participant) => participant.id === ADA)?.self).toBe(false);
+    expect(all.participants.find((participant) => participant.id === SAM)?.self).toBe(false);
+    expect(all.remote).toEqual(["Ada Lovelace", "Sam Rivera"]);
+    expect(all.self).toEqual(["Pavel Svitek"]);
   });
 });

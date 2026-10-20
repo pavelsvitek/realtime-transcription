@@ -82,10 +82,14 @@ describe("Meet roster and call", () => {
 });
 
 describe("fake Meet page", () => {
-  it("treats the advertised path as in-call and reads Ada plus self", () => {
+  it("treats the advertised path as in-call and reads Ada, Sam, plus self", () => {
     document.body.innerHTML = `
       <div class="tile" data-participant-id="spaces/fake/devices/1" role="listitem" aria-label="Ada Lovelace">
         <span class="notranslate">Ada Lovelace</span>
+        <div jsname="QgSmzd" class="gjg47c"></div>
+      </div>
+      <div class="tile" data-participant-id="spaces/fake/devices/3" role="listitem" aria-label="Sam Rivera">
+        <span class="notranslate">Sam Rivera</span>
         <div jsname="QgSmzd" class="gjg47c"></div>
       </div>
       <div class="tile" data-participant-id="spaces/fake/devices/2" role="listitem" aria-label="Pavel Svitek (You)">
@@ -99,9 +103,10 @@ describe("fake Meet page", () => {
       code: "abc-defg-hij",
     });
     expect(detectCall("/", document, DEFAULT_SELECTORS).inCall).toBe(false);
-    expect(document.querySelectorAll(DEFAULT_SELECTORS.meter)).toHaveLength(3);
+    expect(document.querySelectorAll(DEFAULT_SELECTORS.meter)).toHaveLength(4);
     expect(readRoster(document, DEFAULT_SELECTORS, [])).toEqual([
       { id: "spaces/fake/devices/1", name: "Ada Lovelace", self: false },
+      { id: "spaces/fake/devices/3", name: "Sam Rivera", self: false },
       { id: "spaces/fake/devices/2", name: "Pavel Svitek", self: true },
     ]);
   });

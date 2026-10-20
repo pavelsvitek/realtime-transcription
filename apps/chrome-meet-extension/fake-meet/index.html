@@ -80,9 +80,9 @@
       }
 
       .grid {
-        width: min(960px, 100%);
+        width: min(1100px, 100%);
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 16px;
       }
 
@@ -124,6 +124,7 @@
         user-select: none;
       }
       .avatar-ada { background: #1a73e8; }
+      .avatar-sam { background: #188038; }
       .avatar-pavel { background: #c5221f; }
 
       .tile-footer {
@@ -235,7 +236,7 @@
         color: #81c995;
       }
 
-      @media (max-width: 640px) {
+      @media (max-width: 720px) {
         .grid { grid-template-columns: 1fr; }
       }
     </style>
@@ -265,6 +266,22 @@
             <div class="tile-footer">
               <span class="notranslate">Ada Lovelace</span>
               <div jsname="QgSmzd" id="ada-meter" class="gjg47c"></div>
+            </div>
+          </div>
+
+          <div
+            class="tile"
+            id="sam-tile"
+            data-participant-id="spaces/fake/devices/3"
+            role="listitem"
+            aria-label="Sam Rivera"
+          >
+            <div class="avatar">
+              <div class="avatar-circle avatar-sam" aria-hidden="true">S</div>
+            </div>
+            <div class="tile-footer">
+              <span class="notranslate">Sam Rivera</span>
+              <div jsname="QgSmzd" id="sam-meter" class="gjg47c"></div>
             </div>
           </div>
 
@@ -308,6 +325,7 @@
         <strong>DEV</strong>
         <span>Simulate speaking for the Amie extension</span>
         <button id="ada-talk" type="button">Ada talks</button>
+        <button id="sam-talk" type="button">Sam talks</button>
         <button id="pavel-talk" type="button">Pavel talks</button>
       </aside>
     </div>
@@ -348,6 +366,7 @@
       }
 
       bindTalk("ada-talk", "ada-meter", "ada-tile");
+      bindTalk("sam-talk", "sam-meter", "sam-tile");
       // Self tile + toolbar mic meter (lockstep), matching real Meet self-correlation cues.
       bindTalk("pavel-talk", "self-meter", "pavel-tile", ["toolbar-meter"]);
     </script>
