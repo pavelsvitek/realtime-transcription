@@ -6,6 +6,9 @@
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
+    "build:prod": "node scripts/build.mjs --store",
+    "pack": "node scripts/pack.mjs",
+    "pack:prod": "node scripts/pack.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "fake-meet": "node scripts/serve-fake-meet.mjs"

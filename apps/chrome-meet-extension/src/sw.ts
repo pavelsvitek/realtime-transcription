@@ -2,7 +2,6 @@
 
 import { detectBrowser } from "./browser";
 import {
-  EXTENSION_VERSION,
   PORT_NAME,
   PROTOCOL_VERSION,
   parseServerMessage,
@@ -271,7 +270,7 @@ async function sendHello(ws: WebSocket) {
   const hello: ClientMessage = {
     type: "hello",
     protocol: PROTOCOL_VERSION,
-    extension_version: EXTENSION_VERSION,
+    extension_version: chrome.runtime.getManifest().version,
     browser: await detectBrowser(),
     instance_id: await getInstanceId(),
   };

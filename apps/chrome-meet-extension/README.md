@@ -33,3 +33,25 @@ pnpm -F chrome-meet-extension fake-meet
 While a meeting is recording, a live Meet extension feed is the speaker source. Zoom and Teams keep using Accessibility. Google Meet has no Accessibility fallback: if the extension disconnects, remote Meet lines go back to unnamed within about 2.5 seconds.
 
 `MEET_METER_LEAD_MS` is `0` until a live call measures how far the meter leads system audio.
+
+## Chrome Web Store package
+
+Production / Store builds omit the fake-Meet `localhost` / `127.0.0.1` **content-script** matches. (`host_permissions` still includes `http://127.0.0.1/*` so the service worker can open `meet_bridge`.) Version is `package.json` `version` in this package; `build:prod` copies it into `dist/manifest.json`. The service worker hello frame uses `chrome.runtime.getManifest().version` so it stays in lockstep.
+
+```bash
+pnpm -F chrome-meet-extension pack:prod
+```
+
+That writes a gitignored zip at:
+
+`apps/chrome-meet-extension/release/amie-for-google-meet-v<version>.zip`
+
+Example for `0.1.0`: `apps/chrome-meet-extension/release/amie-for-google-meet-v0.1.0.zip`.
+
+`manifest.json` is at the zip root (not nested under `dist/`). Upload that file in the [Chrome Web Store developer dashboard](https://chrome.google.com/webstore/devconsole) (Package → Upload new package). Bump `version` in this `package.json` before packing a new Store upload.
+
+Related scripts:
+
+- `pnpm -F chrome-meet-extension build` — DEV `dist/` (includes localhost matches for fake Meet)
+- `pnpm -F chrome-meet-extension build:prod` — Store `dist/` only (`--store`)
+- `pnpm -F chrome-meet-extension pack` — same as `pack:prod`

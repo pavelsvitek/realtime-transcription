@@ -1,13 +1,19 @@
-/** Google Meet extension speaker-tracking — bundle the unpacked DEV extension. */
+/** Google Meet extension speaker-tracking — bundle the unpacked DEV or Store extension. */
 import * as esbuild from "esbuild";
-import { mkdir, copyFile, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const outdir = join(root, "dist");
 const store = process.argv.includes("--store");
+const pkg = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
+const version = pkg.version;
+if (typeof version !== "string" || !version) {
+  throw new Error("apps/chrome-meet-extension/package.json is missing version");
+}
 
+await rm(outdir, { recursive: true, force: true });
 await mkdir(outdir, { recursive: true });
 
 const shared = { bundle: true, target: "chrome120", sourcemap: true };
@@ -46,7 +52,7 @@ if (!store) {
 const manifest = {
   manifest_version: 3,
   name: "Amie for Google Meet",
-  version: "0.1.0",
+  version,
   description: "Speaks remote Google Meet speaker names to Amie (speaker tracking).",
   background: { service_worker: "sw.js", type: "module" },
   content_scripts: [
