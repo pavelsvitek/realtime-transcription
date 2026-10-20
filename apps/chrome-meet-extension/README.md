@@ -24,8 +24,8 @@ pnpm -F chrome-meet-extension fake-meet
 1. Load unpacked `apps/chrome-meet-extension/dist`, then reload the fake tab if it was already open.
 2. Open `http://127.0.0.1:47921/abc-defg-hij` (the server redirects `/` there). A lobby path has no meeting code, so the extension stays disconnected.
 3. With Amie Dev running, the popup says **Connected**.
-4. Click **Ada talks**. Within about a second the popup says **Speaking: Ada Lovelace**.
-5. Click **Pavel talks** to flicker the self tile meter. The popup must not list Pavel as a remote speaker (self is filtered). Both toggles work independently.
+4. Click **Ada talks** in the DEV strip. Ada’s tile gets a green speaking border and the popup says **Speaking: Ada Lovelace**.
+5. Click **Pavel talks** to flicker the self tile the same way. The popup must not list Pavel as a remote speaker (self is filtered). Both toggles work independently.
 
 ## What Amie does with the names
 
