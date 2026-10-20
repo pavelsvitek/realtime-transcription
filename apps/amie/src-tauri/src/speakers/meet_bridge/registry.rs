@@ -707,4 +707,25 @@ mod tests {
         assert_eq!(snapshot.remote_speaking, vec!["Ada Lovelace".to_string()]);
         assert_eq!(snapshot.self_speaking, vec!["Pavel Svitek".to_string()]);
     }
+
+    #[test]
+    fn snapshot_keeps_remote_ada_when_self_is_silent() {
+        let mut registry = Registry::default();
+        let conn = hello_browser(&mut registry, "brave");
+        join(&mut registry, conn, "c:1", "abc-defg-hij", 1_000);
+        roster(
+            &mut registry,
+            conn,
+            "c:1",
+            vec![
+                participant("ada", "Ada Lovelace", false),
+                participant("me", "Pavel Svitek", true),
+            ],
+            1_000,
+        );
+        beat(&mut registry, conn, "c:1", 1, &["ada"], 1_100);
+        let snapshot = registry.snapshot(1_200);
+        assert_eq!(snapshot.remote_speaking, vec!["Ada Lovelace".to_string()]);
+        assert!(snapshot.self_speaking.is_empty());
+    }
 }

@@ -9,20 +9,23 @@ export function coincidingFraction(anchor: number[], other: number[], toleranceM
   return hits / anchor.length;
 }
 
-/** Toolbar mic meter lockstep (>90% of toolbar changes). Needs a few changes so a blip cannot win. */
+/**
+ * Toolbar mic meter lockstep (>90% of toolbar changes). Needs a few changes so a blip cannot win.
+ * Ambiguous lockstep (two tiles on the same cadence, e.g. Ada + Pavel on fake Meet) must not
+ * mark a remote as self — that silently drops them from the popup / meet_bridge remote list.
+ */
 export function selfIdFromCorrelation(
   toolbarChanges: number[],
   participantChanges: Map<string, number[]>,
 ): string | null {
   if (toolbarChanges.length < 4) return null;
-  let best: { id: string; fraction: number } | null = null;
+  const matches: { id: string; fraction: number }[] = [];
   for (const [id, times] of participantChanges) {
     const fraction = coincidingFraction(toolbarChanges, times, 50);
-    if (fraction > 0.9 && (best == null || fraction > best.fraction)) {
-      best = { id, fraction };
-    }
+    if (fraction > 0.9) matches.push({ id, fraction });
   }
-  return best?.id ?? null;
+  if (matches.length !== 1) return null;
+  return matches[0].id;
 }
 
 export function looksLikeYou(label: string): boolean {

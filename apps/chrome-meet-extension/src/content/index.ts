@@ -113,6 +113,10 @@ function rememberChange(id: string | null, at: number) {
 }
 
 function applySelf() {
+  // Panel "(You)" already identified the local user. Correlation is a fallback for
+  // Meet tiles that omit that label — never a way to mark a second participant self
+  // (fake Meet Ada + Pavel sharing a 100ms flicker would otherwise drop Ada).
+  if (participants.some((participant) => participant.self)) return;
   const correlated = selfIdFromCorrelation(toolbarChanges, participantChanges);
   if (!correlated) return;
   participants = participants.map((participant) =>

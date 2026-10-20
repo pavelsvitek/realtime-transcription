@@ -57,6 +57,16 @@ describe("Meet roster and call", () => {
     expect(selfIdFromCorrelation(toolbar, changes)).toBe("self");
   });
 
+  it("does not mark a remote as self when two tiles lockstep the toolbar", () => {
+    const toolbar = [0, 100, 200, 300, 400, 500];
+    const lockstep = [0, 100, 200, 300, 400, 500];
+    const changes = new Map<string, number[]>([
+      ["spaces/fake/devices/1", lockstep],
+      ["spaces/fake/devices/2", lockstep],
+    ]);
+    expect(selfIdFromCorrelation(toolbar, changes)).toBeNull();
+  });
+
   it("anonymizes traces and accepts a discovered meter shape", () => {
     const anonymized = anonymizeTrace(
       [{ t: 1, participantId: "spaces/a/devices/96", tokens: "a" }],
