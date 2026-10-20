@@ -16,6 +16,13 @@ const status = (overrides: Partial<SpeakerTagsStatus> = {}): SpeakerTagsStatus =
   signature: "identity",
   signer: "Amie Local Signing",
   codeRequirement: 'identifier "com.pavel.amie.dev" and certificate leaf = H"abc"',
+  googleMeetExtension: {
+    connected: false,
+    browsers: [],
+    inCallTabs: 0,
+    extensionVersion: null,
+    health: "unknown",
+  },
   ...overrides,
 });
 

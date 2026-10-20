@@ -1,0 +1,43 @@
+<!-- Google Meet extension speaker-tracking — fake Meet tiles and level meters. Not Zoom/Teams. -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Fake Google Meet</title>
+    <style>
+      body { font: 14px system-ui, sans-serif; margin: 24px; }
+      .tile { display: inline-block; margin-right: 16px; padding: 12px; border: 1px solid #ccc; }
+      [jsname="QgSmzd"] { width: 24px; height: 12px; background: #ddd; }
+    </style>
+  </head>
+  <body>
+    <h1>Fake Google Meet</h1>
+    <div class="tile" data-participant-id="spaces/fake/devices/1" role="listitem" aria-label="Ada Lovelace">
+      <span class="notranslate">Ada Lovelace</span>
+      <div jsname="QgSmzd" id="ada-meter" class="gjg47c"></div>
+    </div>
+    <div class="tile" data-participant-id="spaces/fake/devices/2" role="listitem" aria-label="Pavel Svitek (You)">
+      <span class="notranslate">Pavel Svitek</span>
+      <div jsname="QgSmzd" id="self-meter" class="gjg47c"></div>
+    </div>
+    <div jsname="QgSmzd" id="toolbar-meter" class="gjg47c"></div>
+    <p><button id="talk" type="button">Ada talks</button></p>
+    <script>
+      const levels = ["HX2H7", "OgVli", "Oaajhc", "wEsLMd"];
+      let timer = null;
+      document.getElementById("talk").addEventListener("click", () => {
+        if (timer) {
+          clearInterval(timer);
+          timer = null;
+          document.getElementById("ada-meter").className = "gjg47c";
+          return;
+        }
+        let index = 0;
+        timer = setInterval(() => {
+          document.getElementById("ada-meter").className = levels[index % levels.length];
+          index += 1;
+        }, 100);
+      });
+    </script>
+  </body>
+</html>

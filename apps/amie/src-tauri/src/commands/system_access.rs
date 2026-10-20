@@ -3,8 +3,8 @@ use tauri::AppHandle;
 
 use crate::speakers::{
     is_main_thread, is_trusted, microphone_authorization, open_microphone_settings,
-    open_privacy_settings, open_system_audio_settings, prompt, request_microphone_access,
-    status, MicrophoneAuthorization, SpeakerTagsStatus,
+    open_privacy_settings, open_system_audio_settings, prompt, request_microphone_access, status,
+    GoogleMeetExtensionStatus, MicrophoneAuthorization, SpeakerTagsStatus,
 };
 
 #[derive(Debug, Clone, Serialize)]
@@ -14,6 +14,8 @@ pub struct SystemAccessStatus {
     /// Loopback has no public “is granted” API; UI shows guidance + Settings deep link.
     pub system_audio: SystemAudioAccess,
     pub accessibility: SpeakerTagsStatus,
+    /// Google Meet Chrome extension speaker-tracking (`meet_bridge`).
+    pub google_meet_extension: GoogleMeetExtensionStatus,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -43,17 +45,22 @@ impl SystemAccessPane {
 
 #[tauri::command(async)]
 pub fn get_system_access_status() -> SystemAccessStatus {
+    let accessibility = status();
     SystemAccessStatus {
         microphone: microphone_authorization(),
         system_audio: SystemAudioAccess::ReviewInSettings,
-        accessibility: status(),
+        google_meet_extension: accessibility.google_meet_extension.clone(),
+        accessibility,
     }
 }
 
 /// Opens the matching Privacy pane. For Accessibility / Microphone, also
 /// triggers the system prompt when the grant is still missing.
 #[tauri::command(async)]
-pub fn open_system_access_settings(app: AppHandle, pane: String) -> Result<SystemAccessStatus, String> {
+pub fn open_system_access_settings(
+    app: AppHandle,
+    pane: String,
+) -> Result<SystemAccessStatus, String> {
     let pane = SystemAccessPane::parse(&pane).ok_or_else(|| format!("Unknown pane: {pane}"))?;
     match pane {
         SystemAccessPane::Microphone => {

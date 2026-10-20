@@ -1,0 +1,60 @@
+/** Google Meet extension speaker-tracking — bundle the unpacked DEV extension. */
+import * as esbuild from "esbuild";
+import { mkdir, copyFile, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const outdir = join(root, "dist");
+const store = process.argv.includes("--store");
+
+await mkdir(outdir, { recursive: true });
+
+const shared = { bundle: true, target: "chrome120", sourcemap: true };
+await esbuild.build({
+  ...shared,
+  entryPoints: [join(root, "src/sw.ts")],
+  outfile: join(outdir, "sw.js"),
+  format: "esm",
+});
+await esbuild.build({
+  ...shared,
+  entryPoints: [join(root, "src/content/index.ts")],
+  outfile: join(outdir, "content.js"),
+  format: "iife",
+});
+await esbuild.build({
+  ...shared,
+  entryPoints: [join(root, "src/popup.ts")],
+  outfile: join(outdir, "popup.js"),
+  format: "iife",
+});
+
+await copyFile(join(root, "src/popup.html"), join(outdir, "popup.html"));
+
+const matches = ["https://meet.google.com/*"];
+if (!store) {
+  matches.push("http://localhost/*", "http://127.0.0.1/*");
+}
+
+const manifest = {
+  manifest_version: 3,
+  name: "Amie for Google Meet",
+  version: "0.1.0",
+  description: "Speaks remote Google Meet speaker names to Amie (speaker tracking).",
+  background: { service_worker: "sw.js", type: "module" },
+  content_scripts: [
+    {
+      matches,
+      js: ["content.js"],
+      run_at: "document_idle",
+      all_frames: false,
+    },
+  ],
+  host_permissions: ["http://127.0.0.1/*"],
+  permissions: ["storage"],
+  action: { default_popup: "popup.html" },
+};
+
+await writeFile(join(outdir, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+console.log(`Amie for Google Meet → ${outdir}${store ? " (store matches)" : " (DEV, includes localhost)"}`);

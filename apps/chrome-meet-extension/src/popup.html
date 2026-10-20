@@ -1,0 +1,42 @@
+<!-- Google Meet extension speaker-tracking popup (not Zoom/Teams). -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Amie for Google Meet</title>
+    <style>
+      body {
+        font: 13px/1.4 system-ui, sans-serif;
+        width: 280px;
+        margin: 12px;
+        color: #1c1b1a;
+      }
+      h1 {
+        font-size: 14px;
+        margin: 0 0 8px;
+      }
+      .ok {
+        color: #0a7a45;
+        font-weight: 600;
+      }
+      .bad {
+        color: #9a3412;
+        font-weight: 600;
+      }
+      button,
+      label {
+        margin-top: 10px;
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Amie for Google Meet</h1>
+    <p id="connection" class="bad">Not connected</p>
+    <p id="detail"></p>
+    <p id="speakers"></p>
+    <label><input id="trace" type="checkbox" /> Record meter trace</label>
+    <button id="download" type="button">Download trace</button>
+    <script src="popup.js"></script>
+  </body>
+</html>
