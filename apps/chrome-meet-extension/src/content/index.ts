@@ -113,9 +113,10 @@ function rememberChange(id: string | null, at: number) {
 }
 
 function applySelf() {
-  // Panel "(You)" already identified the local user. Correlation is a fallback for
-  // Meet tiles that omit that label — never a way to mark a second participant self
-  // (fake Meet Ada + Pavel sharing a 100ms flicker would otherwise drop Ada).
+  // "(You)" on any participant node (tile or panel, including text after the
+  // marker) already identified the local user. Toolbar lockstep is a fallback
+  // only when that label is absent. An ambiguous lockstep marks nobody
+  // (fake Meet Ada + Pavel sharing a 100ms flicker must not drop Ada).
   if (participants.some((participant) => participant.self)) return;
   const correlated = selfIdFromCorrelation(toolbarChanges, participantChanges);
   if (!correlated) return;

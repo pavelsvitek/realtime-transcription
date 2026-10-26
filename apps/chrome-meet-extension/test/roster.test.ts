@@ -1,10 +1,11 @@
 /** Google Meet extension speaker-tracking — roster and self from a Meet tile snapshot. */
 import { describe, expect, it } from "vitest";
 import { detectCall, meetingCodeFromPath } from "../src/content/call";
+import { createDetector } from "../src/content/detector";
 import { readRoster } from "../src/content/roster";
 import { DEFAULT_SELECTORS } from "../src/content/selectors";
-import { applyContentEvent, createPendingQueue, emptyTab, remoteSpeakingNames } from "../src/sw-state";
-import { selfIdFromCorrelation, stripYou } from "../src/content/self";
+import { applyContentEvent, createPendingQueue, emptyTab, remoteSpeakingNames, selfSpeakingNames } from "../src/sw-state";
+import { looksLikeYou, selfIdFromCorrelation, stripYou } from "../src/content/self";
 import { isDiscoveryCandidate } from "../src/content/discovery";
 import { anonymizeTrace } from "../src/content/trace";
 
@@ -38,6 +39,25 @@ describe("Meet roster and call", () => {
       { id: "spaces/a/devices/95", name: "Pavel Svitek", self: true },
     ]);
     expect(stripYou("Pavel Svitek (You)")).toBe("Pavel Svitek");
+    expect(stripYou("Pavel Svitek (You), muted")).toBe("Pavel Svitek, muted");
+    expect(looksLikeYou("Pavel Svitek (You), muted")).toBe(true);
+    expect(looksLikeYou("Pavel Svitek (You) presenting")).toBe(true);
+    expect(looksLikeYou("Nick Heller")).toBe(false);
+  });
+
+  it("marks self from a tile whose accessible name continues after (You)", () => {
+    document.body.innerHTML = `
+      <div data-participant-id="spaces/a/devices/96">
+        <span class="notranslate">Nick Heller</span>
+      </div>
+      <div data-participant-id="spaces/a/devices/95" aria-label="Pavel Svitek (You), muted">
+        <span class="notranslate">Pavel Svitek (You), muted</span>
+      </div>
+    `;
+    expect(readRoster(document, DEFAULT_SELECTORS, [])).toEqual([
+      { id: "spaces/a/devices/96", name: "Nick Heller", self: false },
+      { id: "spaces/a/devices/95", name: "Pavel Svitek, muted", self: true },
+    ]);
   });
 
   it("keeps the last name when the tile text disappears", () => {
@@ -65,6 +85,125 @@ describe("Meet roster and call", () => {
       ["spaces/fake/devices/2", lockstep],
     ]);
     expect(selfIdFromCorrelation(toolbar, changes)).toBeNull();
+  });
+
+  it("keeps a churning self tile off the remote speaking set", () => {
+    const nick = "spaces/a/devices/nick";
+    const pavel = "spaces/a/devices/pavel";
+    // Not a people-panel row. "(You)" is not the end of the accessible name.
+    document.body.innerHTML = `
+      <div data-participant-id="${nick}">
+        <span class="notranslate">Nick Heller</span>
+        <div jsname="QgSmzd" class="gjg47c"></div>
+      </div>
+      <div data-participant-id="${pavel}" aria-label="Pavel Svitek (You), muted">
+        <span class="notranslate">Pavel Svitek</span><span>(You)</span><span>microphone off</span>
+        <div jsname="QgSmzd" class="gjg47c"></div>
+      </div>
+    `;
+
+    const detector = createDetector();
+    const toolbarChanges: number[] = [];
+    const participantChanges = new Map<string, number[]>();
+    const emit = (id: string | null, at: number, tokens: string) => {
+      const bucket = id == null ? toolbarChanges : (participantChanges.get(id) ?? []);
+      bucket.push(at);
+      const trimmed = bucket.slice(-32);
+      if (id == null) {
+        toolbarChanges.length = 0;
+        toolbarChanges.push(...trimmed);
+        return;
+      }
+      participantChanges.set(id, trimmed);
+      detector.onMeter({ participantId: id, meterId: `${id}-tile`, at, tokens });
+    };
+
+    emit(nick, 0, "idle");
+    // Self tile class keeps changing, so idle is never learned. The live mic is silent;
+    // this is not an off-idle excursion that belongs to Pavel.
+    for (let i = 0; i <= 39; i += 1) emit(pavel, i * 100, `self-${i}`);
+    detector.speaking(1_600);
+    const nickSpeech = [4_000, 4_100, 4_200, 4_300];
+    for (const at of nickSpeech) {
+      emit(nick, at, `nick-${at}`);
+      emit(null, at, `toolbar-${at}`);
+    }
+
+    const now = 4_300;
+    const speaking = [...detector.speaking(now)].sort();
+    let participants = readRoster(document, DEFAULT_SELECTORS, []);
+    // Same rule as the content script: lockstep only when nobody is already "(You)".
+    if (!participants.some((participant) => participant.self)) {
+      const correlated = selfIdFromCorrelation(toolbarChanges, participantChanges);
+      if (correlated) {
+        participants = participants.map((participant) =>
+          participant.id === correlated ? { ...participant, self: true } : participant,
+        );
+      }
+    }
+    // Nick's meter matches the toolbar exactly. That must not mark him; "(You)" already did.
+    expect(selfIdFromCorrelation(toolbarChanges, participantChanges)).toBe(nick);
+
+    let tab = emptyTab("instance:1");
+    tab = applyContentEvent(tab, {
+      type: "call",
+      state: "joined",
+      meeting_code: "d52c5bdd",
+      observed_at: now,
+    });
+    tab = applyContentEvent(tab, { type: "roster", participants });
+    tab = applyContentEvent(tab, { type: "speakers", seq: 1, observed_at: now, speaking });
+
+    expect(participants).toEqual([
+      { id: nick, name: "Nick Heller", self: false },
+      { id: pavel, name: "Pavel Svitek", self: true },
+    ]);
+    expect(speaking).toEqual([nick]);
+    expect(remoteSpeakingNames([tab])).toEqual(["Nick Heller"]);
+    expect(remoteSpeakingNames([tab])).not.toContain("Pavel Svitek");
+    expect(selfSpeakingNames([tab])).toEqual([]);
+  });
+
+  it("attributes a real off-idle self excursion to self only", () => {
+    const nick = "spaces/a/devices/nick";
+    const pavel = "spaces/a/devices/pavel";
+    document.body.innerHTML = `
+      <div data-participant-id="${nick}">
+        <span class="notranslate">Nick Heller</span>
+      </div>
+      <div data-participant-id="${pavel}">
+        <span class="notranslate">Pavel Svitek</span><span>(You)</span><span>presenting</span>
+      </div>
+    `;
+    const detector = createDetector();
+    detector.onMeter({ participantId: nick, meterId: "nick-tile", at: 0, tokens: "idle" });
+    detector.onMeter({ participantId: pavel, meterId: "pavel-tile", at: 0, tokens: "idle" });
+    detector.speaking(1_600);
+    detector.onMeter({ participantId: nick, meterId: "nick-tile", at: 2_000, tokens: "n1" });
+    detector.onMeter({ participantId: nick, meterId: "nick-tile", at: 2_100, tokens: "n2" });
+    detector.onMeter({ participantId: pavel, meterId: "pavel-tile", at: 2_000, tokens: "p1" });
+    detector.onMeter({ participantId: pavel, meterId: "pavel-tile", at: 2_100, tokens: "p2" });
+    const now = 2_200;
+    const speaking = [...detector.speaking(now)].sort();
+    const participants = readRoster(document, DEFAULT_SELECTORS, []);
+    let tab = emptyTab("instance:1");
+    tab = applyContentEvent(tab, {
+      type: "call",
+      state: "joined",
+      meeting_code: "d52c5bdd",
+      observed_at: now,
+    });
+    tab = applyContentEvent(tab, { type: "roster", participants });
+    tab = applyContentEvent(tab, { type: "speakers", seq: 1, observed_at: now, speaking });
+
+    expect(participants.find((participant) => participant.id === pavel)).toEqual({
+      id: pavel,
+      name: "Pavel Svitek",
+      self: true,
+    });
+    expect(speaking).toEqual([nick, pavel].sort());
+    expect(remoteSpeakingNames([tab])).toEqual(["Nick Heller"]);
+    expect(selfSpeakingNames([tab])).toEqual(["Pavel Svitek"]);
   });
 
   it("anonymizes traces and accepts a discovered meter shape", () => {

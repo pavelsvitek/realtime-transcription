@@ -28,10 +28,12 @@ export function selfIdFromCorrelation(
   return matches[0].id;
 }
 
+/** Accessible name contains "(You)". Text after it (mute, presenting) still counts. */
 export function looksLikeYou(label: string): boolean {
-  return /\(You\)\s*$/i.test(label.trim());
+  return /\(You\)/i.test(label);
 }
 
+/** Drop the "(You)" marker wherever it sits. Other status text stays put. */
 export function stripYou(name: string): string {
-  return name.replace(/\s*\(You\)\s*$/i, "").trim();
+  return name.replace(/\s*\(You\)/gi, "").replace(/\s{2,}/g, " ").trim();
 }

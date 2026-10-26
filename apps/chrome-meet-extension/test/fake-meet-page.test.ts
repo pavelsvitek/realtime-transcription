@@ -73,6 +73,8 @@ function namesFromPipeline(opts: { ada?: boolean; sam?: boolean; pavel?: boolean
   emit(SAM, "sam-meter", 0, "gjg47c");
   emit(PAVEL, "self-meter", 0, "gjg47c");
   emit(null, "toolbar-meter", 0, "gjg47c");
+  // Learn idle while every meter rests. Speech after this is an off-idle excursion.
+  detector.speaking(startAt - 1);
 
   for (let i = 0; i < 8; i += 1) {
     const at = startAt + i * 100;

@@ -4,6 +4,8 @@ export const IDLE_LEARN_MS = 1500;
 export const CHANGE_WINDOW_MS = 300;
 export const MIN_ON_CHANGES = 2;
 export const HANGOVER_MS = 500;
+/** A rest off idle counts as speech only this long. Longer than that is a new baseline, not a pinned speaker. */
+export const HELD_MAX_MS = 1_000;
 
 export type MeterEvent = {
   participantId: string;
@@ -64,12 +66,14 @@ export function createDetector(): Detector {
           state.idleTokens = state.tokens;
         }
         state.changeTimes = state.changeTimes.filter((at) => now - at <= CHANGE_WINDOW_MS);
+        // Speech needs a learned idle and a real excursion off it. Flicker before
+        // idle is known is not speech. `held` is capped so a class that rests off
+        // idle cannot pin the participant for the rest of the call.
         const offIdle = state.idleTokens != null && state.tokens !== state.idleTokens;
+        const sinceChange = now - state.lastChangeAt;
         const flickering =
-          state.changeTimes.length >= MIN_ON_CHANGES &&
-          now - state.lastChangeAt <= CHANGE_WINDOW_MS &&
-          (state.idleTokens == null || offIdle);
-        const held = offIdle && now - state.lastChangeAt > CHANGE_WINDOW_MS;
+          state.changeTimes.length >= MIN_ON_CHANGES && sinceChange <= CHANGE_WINDOW_MS && offIdle;
+        const held = offIdle && sinceChange > CHANGE_WINDOW_MS && sinceChange <= HELD_MAX_MS;
         if (flickering || held) {
           state.activeUntil = now + HANGOVER_MS;
           speaking.add(state.participantId);

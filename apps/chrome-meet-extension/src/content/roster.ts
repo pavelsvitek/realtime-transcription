@@ -18,7 +18,7 @@ export function readRoster(
     if (!id) return;
     const panel = node.matches(selectors.panelRow);
     const named = panel ? panelName(node) : tileName(node, selectors);
-    const you = panel && looksLikeYou(node.getAttribute("aria-label") ?? node.textContent ?? "");
+    const you = marksSelf(node);
     const current = found.get(id) ?? {
       id,
       name: known.get(id)?.name ?? "",
@@ -33,6 +33,13 @@ export function readRoster(
   return [...found.values()];
 }
 
+/** Tiles and panel rows. "(You)" may sit in the accessible name with text after it. */
+function marksSelf(node: Element): boolean {
+  const label = node.getAttribute("aria-label") ?? "";
+  if (looksLikeYou(label)) return true;
+  return looksLikeYou(node.textContent ?? "");
+}
+
 function panelName(node: Element): string | null {
   const label = node.getAttribute("aria-label");
   if (!label) return null;
@@ -42,6 +49,6 @@ function panelName(node: Element): string | null {
 
 function tileName(node: Element, selectors: Selectors): string | null {
   const span = node.querySelector(selectors.name);
-  const text = span?.textContent?.trim() ?? "";
+  const text = stripYou(span?.textContent?.trim() ?? "");
   return text || null;
 }
