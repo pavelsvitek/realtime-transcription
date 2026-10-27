@@ -31,6 +31,34 @@ describe("Meet roster and call", () => {
     expect(detectCall("/", document, DEFAULT_SELECTORS).inCall).toBe(false);
   });
 
+  it("accepts /{code} and /meet/{code}, including a trailing slash", () => {
+    expect(meetingCodeFromPath("/vir-onxt-eib")).toBe("vir-onxt-eib");
+    expect(meetingCodeFromPath("/vir-onxt-eib/")).toBe("vir-onxt-eib");
+    expect(meetingCodeFromPath("/meet/jbr-bwcj-xxh")).toBe("jbr-bwcj-xxh");
+    expect(meetingCodeFromPath("/meet/jbr-bwcj-xxh/")).toBe("jbr-bwcj-xxh");
+    expect(meetingCodeFromPath("/MEET/JBR-BWCJ-XXH")).toBe("jbr-bwcj-xxh");
+    expect(meetingCodeFromPath("/")).toBeNull();
+    expect(meetingCodeFromPath("/meet")).toBeNull();
+    expect(meetingCodeFromPath("/meet/")).toBeNull();
+    expect(meetingCodeFromPath("/lookup/jbr-bwcj-xxh")).toBeNull();
+    document.body.innerHTML = html;
+    expect(detectCall("/vir-onxt-eib", document, DEFAULT_SELECTORS)).toEqual({
+      inCall: true,
+      code: "vir-onxt-eib",
+    });
+    expect(detectCall("/meet/jbr-bwcj-xxh", document, DEFAULT_SELECTORS)).toEqual({
+      inCall: true,
+      code: "jbr-bwcj-xxh",
+    });
+    expect(detectCall("/meet/jbr-bwcj-xxh/", document, DEFAULT_SELECTORS)).toEqual({
+      inCall: true,
+      code: "jbr-bwcj-xxh",
+    });
+    expect(detectCall("/", document, DEFAULT_SELECTORS).inCall).toBe(false);
+    expect(detectCall("/meet", document, DEFAULT_SELECTORS).inCall).toBe(false);
+    expect(detectCall("/meet/", document, DEFAULT_SELECTORS).inCall).toBe(false);
+  });
+
   it("prefers the panel name and marks (You)", () => {
     document.body.innerHTML = html;
     const roster = readRoster(document, DEFAULT_SELECTORS, []);

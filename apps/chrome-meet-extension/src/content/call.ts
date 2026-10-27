@@ -2,7 +2,8 @@
 
 import type { Selectors } from "./selectors";
 
-const MEETING_CODE = /^\/([a-z0-9]{3,}-[a-z0-9]{3,}-[a-z0-9]{3,})\/?$/i;
+/** `/{code}` or `/meet/{code}`, optional trailing slash. Home and `/meet` are not calls. */
+const MEETING_CODE = /^\/(?:meet\/)?([a-z0-9]{3,}-[a-z0-9]{3,}-[a-z0-9]{3,})\/?$/i;
 
 export function meetingCodeFromPath(pathname: string): string | null {
   const match = pathname.match(MEETING_CODE);
