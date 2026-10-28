@@ -1,11 +1,12 @@
 use std::collections::BTreeSet;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
+use super::meet_bridge::MeetBridge;
 use super::meeting;
-use super::timeline::{samples_to_ms, SpeakerTimeline};
+use super::sink::SpeakerSink;
 
 /// Empty polls while a meeting app is open. A few misses keep the last
 /// speaker so one failed read does not punch a hole through an utterance.
@@ -38,54 +39,39 @@ impl Drop for SpeakerWatch {
     }
 }
 
-pub fn start(
-    timeline: Arc<Mutex<SpeakerTimeline>>,
-    captured_samples: Arc<AtomicU64>,
-    sample_rate: u32,
-    stop: Arc<AtomicBool>,
-    speaker_cut: Arc<AtomicU64>,
-) -> SpeakerWatch {
+pub fn start(sink: SpeakerSink, stop: Arc<AtomicBool>, meet_bridge: MeetBridge) -> SpeakerWatch {
     let handle = std::thread::Builder::new()
         .name("speaker-watch".into())
-        .spawn(move || poll_loop(timeline, captured_samples, sample_rate, stop, speaker_cut))
+        .spawn(move || poll_loop(sink, stop, meet_bridge))
         .inspect_err(|error| tracing::error!(%error, "Failed to start speaker watch"))
         .ok();
     SpeakerWatch { handle }
 }
 
-fn poll_loop(
-    timeline: Arc<Mutex<SpeakerTimeline>>,
-    captured_samples: Arc<AtomicU64>,
-    sample_rate: u32,
-    stop: Arc<AtomicBool>,
-    speaker_cut: Arc<AtomicU64>,
-) {
+fn poll_loop(sink: SpeakerSink, stop: Arc<AtomicBool>, meet_bridge: MeetBridge) {
     let mut warned = false;
     let mut hold = SpeakerHold::default();
     while !stop.load(Ordering::Relaxed) {
-        match meeting::read_speakers() {
-            Ok(names) => {
-                let app_running = meeting::running_meeting_app().is_some();
-                if let Some(names) = hold.publish(app_running, names) {
-                    let at_ms =
-                        samples_to_ms(captured_samples.load(Ordering::Relaxed), sample_rate);
-                    let changed = timeline
-                        .lock()
-                        .map(|mut timeline| timeline.push(at_ms, names.iter().cloned()))
-                        .unwrap_or(false);
-                    // A different non-empty set is a speaker change. Holding the
-                    // last name across a failed read, or clearing to nobody, is not.
-                    if changed && !names.is_empty() {
-                        speaker_cut.fetch_add(1, Ordering::Release);
+        // Google Meet names come from `meet_bridge` while that extension is live.
+        // This loop stays the Zoom/Teams Accessibility writer, and it records an
+        // empty set when Meet has no live extension (there is no Meet AX path).
+        if !meet_bridge.is_live() {
+            match meeting::read_speakers() {
+                Ok(names) => {
+                    if !meet_bridge.is_live() {
+                        let app_running = meeting::running_meeting_app().is_some();
+                        if let Some(names) = hold.publish(app_running, names) {
+                            sink.record(names, sink.sample_clock_now_ms());
+                        }
                     }
                 }
-            }
-            Err(error) => {
-                if !warned {
-                    warned = true;
-                    tracing::warn!(error = %error, "Speaker names unavailable");
-                } else {
-                    tracing::debug!(error = %error, "Speaker names unavailable");
+                Err(error) => {
+                    if !warned {
+                        warned = true;
+                        tracing::warn!(error = %error, "Speaker names unavailable");
+                    } else {
+                        tracing::debug!(error = %error, "Speaker names unavailable");
+                    }
                 }
             }
         }

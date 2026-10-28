@@ -123,7 +123,7 @@ The macOS **Amie** menu includes **Check for Updates…**. It uses `tauri-plugin
 
 `https://github.com/pavelsvitek/realtime-transcription/releases/latest/download/latest.json`
 
-Until a signed Release exists, the menu still works: you get “up to date” or a clear network/404 error. `pnpm tauri dev` overlays **empty** updater endpoints so local debug builds never poll production.
+Until a signed Release exists, the menu still works: you get “up to date” or a clear network/404 error. `pnpm tauri dev` overlays **empty** updater endpoints (`src-tauri/tauri.dev.conf.json`) so local debug builds never poll production. A trailing `pnpm … tauri dev --` is fine; the wrapper keeps that overlay ahead of any `--` so Cargo never sees the JSON as its own `--config`.
 
 ### Minisign pubkey
 

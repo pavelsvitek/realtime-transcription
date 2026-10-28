@@ -57,6 +57,9 @@ pub struct TranscriptionSnapshot {
 #[derive(Debug, Clone, Serialize)]
 pub struct MicLevel {
     pub rms: f32,
+    /// The meeting app's mute button is on, so this stream is silence by design.
+    /// Always `false` on the system-audio meter.
+    pub muted: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]

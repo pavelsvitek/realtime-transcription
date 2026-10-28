@@ -57,14 +57,22 @@ pub fn run() {
         panic!("Failed to open meetings.db: {err}");
     });
     let summaries = SummaryService::new(meeting_store.clone());
+    let meet_bridge = speakers::MeetBridge::new();
+    meet_bridge.install_status_source();
+    let meet_bridge_for_setup = meet_bridge.clone();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_process::init())
         .manage(meeting_store.clone())
         .manage(summaries.clone())
-        .manage(TranscriptionHandle::new(meeting_store, summaries))
-        .setup(|app| {
+        .manage(TranscriptionHandle::new(
+            meeting_store,
+            summaries,
+            meet_bridge,
+        ))
+        .setup(move |app| {
+            meet_bridge_for_setup.start_listening();
             #[cfg(desktop)]
             {
                 // Production endpoints live in tauri.conf.json. Debug / `tauri dev`
