@@ -10,6 +10,8 @@ export type TabModel = {
   speaking: string[];
   seq: number;
   observedAt: number;
+  /** `null` until the content script finds the mic button. */
+  micMuted: boolean | null;
 };
 
 export function emptyTab(tabKey: string): TabModel {
@@ -21,6 +23,7 @@ export function emptyTab(tabKey: string): TabModel {
     speaking: [],
     seq: 0,
     observedAt: 0,
+    micMuted: null,
   };
 }
 
@@ -39,7 +42,6 @@ export function applyContentEvent(tab: TabModel, event: ContentEvent): TabModel 
     case "roster":
       return { ...tab, joined: true, participants: event.participants };
     case "speakers":
-    case "heartbeat":
       return {
         ...tab,
         joined: true,
@@ -47,6 +49,17 @@ export function applyContentEvent(tab: TabModel, event: ContentEvent): TabModel 
         seq: event.seq,
         observedAt: event.observed_at,
       };
+    case "heartbeat":
+      return {
+        ...tab,
+        joined: true,
+        speaking: event.speaking,
+        seq: event.seq,
+        observedAt: event.observed_at,
+        micMuted: event.mic_muted ?? tab.micMuted,
+      };
+    case "mic":
+      return { ...tab, joined: true, micMuted: event.muted };
     default:
       return tab;
   }

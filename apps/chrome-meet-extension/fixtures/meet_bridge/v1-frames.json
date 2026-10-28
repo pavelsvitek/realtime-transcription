@@ -49,7 +49,13 @@
     "observed_at": 1792500002000.0,
     "speaking": ["spaces/P0rOpVvN1A8B/devices/96"],
     "visibility": "visible",
-    "health": { "meters": 4, "last_meter_change_ms_ago": 180, "selectors": "default" }
+    "health": { "meters": 4, "last_meter_change_ms_ago": 180, "selectors": "default" },
+    "mic_muted": false
+  },
+  "mic": {
+    "type": "mic",
+    "tab": "b1f:812",
+    "muted": true
   },
   "health": {
     "type": "health",

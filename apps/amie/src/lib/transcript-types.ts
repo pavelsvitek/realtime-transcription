@@ -56,6 +56,8 @@ export type TranscriptionSnapshot = TranscriptionStatusPayload & {
 
 export type MicLevelPayload = {
   rms: number;
+  /** Muted in the meeting app; Amie is recording silence for the mic. */
+  muted: boolean;
 };
 
 export type DeviceKind =
@@ -96,6 +98,8 @@ export type GoogleMeetExtensionStatus = {
   remoteSpeaking: string[];
   /** Local user speaking (DEV visibility; not stamped as remote transcript labels). */
   selfSpeaking: string[];
+  /** Mic muted in Meet; Amie records silence for it. */
+  selfMuted: boolean;
 };
 
 export type SpeakerTagsStatus = {

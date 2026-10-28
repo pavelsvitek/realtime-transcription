@@ -40,6 +40,7 @@ type GoogleMeetExtensionStatus = {
   health: string;
   remoteSpeaking: string[];
   selfSpeaking: string[];
+  selfMuted: boolean;
 };
 
 type SystemAccessStatus = {
@@ -721,7 +722,8 @@ function meetSpeakingLabel(status: GoogleMeetExtensionStatus): string {
   const parts: string[] = [];
   if (remote.length) parts.push(remote.join(", "));
   if (self.length) parts.push(`You (${self.join(", ")})`);
-  return parts.length > 0 ? parts.join(" · ") : "Nobody speaking";
+  const speaking = parts.length > 0 ? parts.join(" · ") : "Nobody speaking";
+  return status.selfMuted ? `${speaking} · Your mic is muted, not recorded` : speaking;
 }
 
 function browserLabel(browser: string): string {

@@ -170,7 +170,12 @@ function forward(tabKey: string, event: ContentEvent) {
       speaking: event.speaking,
       visibility: event.visibility,
       health: event.health,
+      ...(event.mic_muted == null ? {} : { mic_muted: event.mic_muted }),
     });
+    return;
+  }
+  if (event.type === "mic") {
+    send({ type: "mic", tab: tabKey, muted: event.muted });
     return;
   }
   send({ type: "health", tab: tabKey, status: event.status, reason: event.reason });
@@ -299,6 +304,9 @@ function replay(ws: WebSocket) {
         speaking: tab.speaking,
       }),
     );
+    if (tab.micMuted != null) {
+      ws.send(JSON.stringify({ type: "mic", tab: tab.tabKey, muted: tab.micMuted }));
+    }
   }
 }
 
@@ -349,6 +357,7 @@ function isContentEvent(value: unknown): value is ContentEvent {
     type === "roster" ||
     type === "speakers" ||
     type === "heartbeat" ||
+    type === "mic" ||
     type === "health" ||
     type === "trace-dump"
   );

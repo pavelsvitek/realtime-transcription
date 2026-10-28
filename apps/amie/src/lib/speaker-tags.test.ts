@@ -24,6 +24,7 @@ const status = (overrides: Partial<SpeakerTagsStatus> = {}): SpeakerTagsStatus =
     health: "unknown",
     remoteSpeaking: [],
     selfSpeaking: [],
+    selfMuted: false,
   },
   ...overrides,
 });

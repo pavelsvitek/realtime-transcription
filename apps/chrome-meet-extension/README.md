@@ -48,6 +48,10 @@ While a meeting is recording, a live Meet extension feed is the speaker source. 
 
 `MEET_METER_LEAD_MS` is `0` until a live call measures how far the meter leads system audio.
 
+## Mic mute
+
+The extension also reports your own mic button (Meet's `data-is-muted` toggle, found by its microphone label) as a `mic` frame and as `mic_muted` on every heartbeat. While you are muted in the call, Amie feeds silence to the transcriber instead of your microphone, so muted speech is not transcribed. It fails open: an unknown button, a stale heartbeat, a left call or a dropped socket all count as unmuted. Amie keeps the input device open; only the samples are discarded. Settings shows "Your mic is muted, not recorded" next to the Meet status. On the fake Meet page the mic button toggles the same way.
+
 ## Chrome Web Store package
 
 Production / Store builds omit the fake-Meet `localhost` / `127.0.0.1` **content-script** matches. (`host_permissions` still includes `http://127.0.0.1/*` so the service worker can open `meet_bridge`.) Version is `package.json` `version` in this package; `build:prod` copies it into `dist/manifest.json`. The service worker hello frame uses `chrome.runtime.getManifest().version` so it stays in lockstep.

@@ -32,6 +32,8 @@ pub struct GoogleMeetExtensionStatus {
     pub remote_speaking: Vec<String>,
     /// Local user speaking (extension still sends self ids; not used for remote transcript labels).
     pub self_speaking: Vec<String>,
+    /// The local user's mic is muted in Meet; Amie records silence for it.
+    pub self_muted: bool,
 }
 
 impl Default for GoogleMeetExtensionStatus {
@@ -44,6 +46,7 @@ impl Default for GoogleMeetExtensionStatus {
             health: "unknown".into(),
             remote_speaking: Vec::new(),
             self_speaking: Vec::new(),
+            self_muted: false,
         }
     }
 }
@@ -131,7 +134,19 @@ impl MeetBridge {
             health: snapshot.health,
             remote_speaking: snapshot.remote_speaking,
             self_speaking: snapshot.self_speaking,
+            self_muted: snapshot.self_muted,
         }
+    }
+
+    /// The local user is muted in their Meet call. Read by the mic worker for every
+    /// chunk, so it only takes the registry lock.
+    pub fn self_muted(&self) -> bool {
+        let now = unix_ms();
+        self.inner
+            .lock()
+            .expect("meet_bridge")
+            .registry
+            .self_muted(now)
     }
 
     pub fn attach_session(&self, sink: SpeakerSink) {

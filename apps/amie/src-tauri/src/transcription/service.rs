@@ -23,6 +23,7 @@ use crate::transcription::capture;
 use crate::transcription::cpal_capture::CaptureCounters;
 use crate::transcription::debug_dump::{DebugSession, StreamCaptureStats};
 use crate::transcription::flac_convert::convert_wav_to_flac_background;
+use crate::transcription::mic_mute::MicMuteGate;
 use crate::transcription::transcript_store::TranscriptStore;
 use crate::transcription::worker;
 
@@ -217,6 +218,10 @@ impl TranscriptionService {
             }
         };
         let speaker_cut = Arc::new(AtomicU64::new(0));
+        let mic_mute = {
+            let meet_bridge = self.meet_bridge.clone();
+            MicMuteGate::new(move || meet_bridge.self_muted())
+        };
 
         let (mic, system) = match source {
             AudioSource::Both => {
@@ -232,6 +237,7 @@ impl TranscriptionService {
                     meeting_id.clone(),
                     None,
                     None,
+                    Some(mic_mute.clone()),
                 )?;
                 let system = spawn_stream_worker(
                     AudioSource::SystemAudio,
@@ -245,6 +251,7 @@ impl TranscriptionService {
                     meeting_id.clone(),
                     speakers.clone(),
                     Some(speaker_cut.clone()),
+                    None,
                 )?;
                 (Some(mic), Some(system))
             }
@@ -261,6 +268,7 @@ impl TranscriptionService {
                     meeting_id.clone(),
                     None,
                     None,
+                    Some(mic_mute.clone()),
                 )?;
                 (Some(pair), None)
             }
@@ -277,6 +285,7 @@ impl TranscriptionService {
                     meeting_id.clone(),
                     speakers.clone(),
                     Some(speaker_cut.clone()),
+                    None,
                 )?;
                 (None, Some(pair))
             }
@@ -574,6 +583,7 @@ fn spawn_stream_worker(
     meeting_id: Option<String>,
     speakers: Option<Arc<Mutex<SpeakerTimeline>>>,
     speaker_cut: Option<Arc<AtomicU64>>,
+    mic_mute: Option<MicMuteGate>,
 ) -> Result<StreamPair, AppError> {
     super::cpal_capture::reset_capture_stats();
     let (audio_tx, audio_rx) = mpsc::sync_channel::<Vec<f32>>(AUDIO_CHANNEL_BOUND);
@@ -638,6 +648,7 @@ fn spawn_stream_worker(
                 segment_counter,
                 observer,
                 speaker_cut,
+                mic_mute,
             );
         })
         .map_err(|e| AppError::Capture(format!("Failed to spawn worker: {e}")))?;

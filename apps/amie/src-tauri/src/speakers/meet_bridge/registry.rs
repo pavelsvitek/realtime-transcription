@@ -22,6 +22,8 @@ struct Tab {
     last_observed_at: f64,
     health_status: String,
     health_reason: Option<String>,
+    /// `None` until the extension reports the mic button (older extensions never do).
+    mic_muted: Option<bool>,
 }
 
 impl Tab {
@@ -37,6 +39,7 @@ impl Tab {
             last_observed_at: 0.0,
             health_status: "ok".into(),
             health_reason: None,
+            mic_muted: None,
         }
     }
 }
@@ -66,6 +69,8 @@ pub struct ExtensionSnapshot {
     pub remote_speaking: Vec<String>,
     /// Local user display names currently speaking (still on the wire; not stamped on remote lines).
     pub self_speaking: Vec<String>,
+    /// The local user's mic is muted in the selected call.
+    pub self_muted: bool,
 }
 
 impl Registry {
@@ -148,17 +153,28 @@ impl Registry {
                 observed_at,
                 speaking,
                 health,
+                mic_muted,
                 ..
             } => {
                 let applied =
                     apply_speaking(connection, &tab, seq, observed_at, speaking, now_ms, true);
                 if let Some(entry) = connection.tabs.get_mut(&tab) {
                     entry.last_heartbeat_ms = Some(now_ms);
+                    if mic_muted.is_some() {
+                        entry.mic_muted = mic_muted;
+                    }
                     if let Some(health) = health {
                         apply_heartbeat_health(entry, &health);
                     }
                 }
                 applied
+            }
+            ClientMessage::Mic { tab, muted } => {
+                let Some(entry) = ensure_joined(connection, &tab) else {
+                    return false;
+                };
+                entry.mic_muted = Some(muted);
+                true
             }
             ClientMessage::Health {
                 tab,
@@ -205,6 +221,20 @@ impl Registry {
         (remote_names(tabs), observed)
     }
 
+    /// Whether the local user is muted in the selected call. Fails open: a stale
+    /// tab, an older extension, or any tab that reports unmuted all answer `false`.
+    /// The same person on two tabs of one call counts as muted only if every
+    /// reporting tab says so.
+    pub fn self_muted(&self, now_ms: u64) -> bool {
+        let grouped = self.grouped_fresh_tabs(now_ms);
+        if grouped.is_empty() {
+            return false;
+        }
+        let chosen = choose_meeting(&grouped, self.selected_meeting.as_deref());
+        let mut known = grouped[&chosen].iter().filter_map(|tab| tab.mic_muted).peekable();
+        known.peek().is_some() && known.all(|muted| muted)
+    }
+
     pub fn snapshot(&self, now_ms: u64) -> ExtensionSnapshot {
         let mut browsers = BTreeSet::new();
         let mut versions = BTreeSet::new();
@@ -246,6 +276,7 @@ impl Registry {
             },
             remote_speaking,
             self_speaking,
+            self_muted: self.self_muted(now_ms),
         }
     }
 
@@ -491,6 +522,7 @@ mod tests {
                 speaking: speaking.iter().map(|id| (*id).to_string()).collect(),
                 visibility: Some("visible".into()),
                 health: None,
+                mic_muted: None,
             },
             now,
         );
@@ -759,5 +791,104 @@ mod tests {
             vec!["Ada Lovelace".to_string(), "Sam Rivera".to_string()]
         );
         assert_eq!(snapshot.self_speaking, vec!["Pavel Svitek".to_string()]);
+    }
+    fn mic(registry: &mut Registry, conn: u64, tab: &str, muted: bool, now: u64) {
+        registry.apply(
+            conn,
+            ClientMessage::Mic {
+                tab: tab.into(),
+                muted,
+            },
+            now,
+        );
+    }
+
+    #[test]
+    fn a_muted_mic_follows_the_extension_and_fails_open() {
+        let mut registry = Registry::default();
+        let conn = hello_browser(&mut registry, "brave");
+        join(&mut registry, conn, "t1", "abc-defg-hij", 1_000);
+        beat(&mut registry, conn, "t1", 1, &[], 1_000);
+        assert!(!registry.self_muted(1_000), "unknown is not muted");
+
+        mic(&mut registry, conn, "t1", true, 1_100);
+        assert!(registry.self_muted(1_200));
+        assert!(registry.snapshot(1_200).self_muted);
+
+        mic(&mut registry, conn, "t1", false, 1_300);
+        assert!(!registry.self_muted(1_400));
+
+        mic(&mut registry, conn, "t1", true, 1_500);
+        assert!(registry.self_muted(1_600));
+        assert!(
+            !registry.self_muted(1_000 + STALE_AFTER_MS + 1),
+            "a silent extension releases the mute"
+        );
+    }
+
+    #[test]
+    fn leaving_the_call_and_a_dropped_connection_release_the_mute() {
+        let mut registry = Registry::default();
+        let conn = hello_browser(&mut registry, "brave");
+        join(&mut registry, conn, "t1", "abc-defg-hij", 1_000);
+        beat(&mut registry, conn, "t1", 1, &[], 1_000);
+        mic(&mut registry, conn, "t1", true, 1_000);
+        assert!(registry.self_muted(1_100));
+
+        registry.apply(
+            conn,
+            ClientMessage::Call {
+                tab: "t1".into(),
+                state: CallState::Left,
+                meeting_code: None,
+                observed_at: 1_200.0,
+            },
+            1_200,
+        );
+        assert!(!registry.self_muted(1_300));
+
+        join(&mut registry, conn, "t1", "abc-defg-hij", 1_400);
+        beat(&mut registry, conn, "t1", 2, &[], 1_400);
+        mic(&mut registry, conn, "t1", true, 1_400);
+        assert!(registry.self_muted(1_450));
+        registry.disconnect(conn);
+        assert!(!registry.self_muted(1_500));
+    }
+
+    #[test]
+    fn two_tabs_of_one_call_are_muted_only_when_every_reporting_tab_is() {
+        let mut registry = Registry::default();
+        let conn = hello_browser(&mut registry, "brave");
+        for (tab, seq) in [("t1", 1), ("t2", 1)] {
+            join(&mut registry, conn, tab, "abc-defg-hij", 1_000);
+            beat(&mut registry, conn, tab, seq, &[], 1_000);
+        }
+        mic(&mut registry, conn, "t1", true, 1_000);
+        assert!(registry.self_muted(1_100), "t2 has not reported");
+        mic(&mut registry, conn, "t2", false, 1_000);
+        assert!(!registry.self_muted(1_100));
+        mic(&mut registry, conn, "t2", true, 1_050);
+        assert!(registry.self_muted(1_100));
+    }
+
+    #[test]
+    fn a_heartbeat_carries_the_mic_state_after_a_reconnect() {
+        let mut registry = Registry::default();
+        let conn = hello_browser(&mut registry, "brave");
+        join(&mut registry, conn, "t1", "abc-defg-hij", 1_000);
+        registry.apply(
+            conn,
+            ClientMessage::Heartbeat {
+                tab: "t1".into(),
+                seq: 1,
+                observed_at: 1_000.0,
+                speaking: Vec::new(),
+                visibility: Some("visible".into()),
+                health: None,
+                mic_muted: Some(true),
+            },
+            1_000,
+        );
+        assert!(registry.self_muted(1_100));
     }
 }

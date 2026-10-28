@@ -14,6 +14,7 @@ describe("meet_bridge protocol fixture", () => {
       fixture.roster,
       fixture.speakers,
       fixture.heartbeat,
+      fixture.mic,
       fixture.health,
     ]) {
       expect(parseClientMessage(frame)).not.toBeNull();

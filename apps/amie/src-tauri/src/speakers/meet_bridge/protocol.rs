@@ -43,6 +43,14 @@ pub enum ClientMessage {
         visibility: Option<String>,
         #[serde(default)]
         health: Option<HeartbeatHealth>,
+        /// The local user's mic button in that call. Absent from older extensions.
+        #[serde(default)]
+        mic_muted: Option<bool>,
+    },
+    /// The local user's mic button changed. Heartbeats repeat the state.
+    Mic {
+        tab: String,
+        muted: bool,
     },
     Health {
         tab: String,
@@ -150,6 +158,7 @@ mod tests {
             "roster",
             "speakers",
             "heartbeat",
+            "mic",
             "health",
         ] {
             let message: ClientMessage = serde_json::from_value(fixture[key].clone())
@@ -158,6 +167,17 @@ mod tests {
                 assert!(matches!(message, ClientMessage::Hello { protocol: 1, .. }));
             }
         }
+        let mic: ClientMessage = serde_json::from_value(fixture["mic"].clone()).unwrap();
+        assert!(matches!(mic, ClientMessage::Mic { muted: true, .. }));
+        let heartbeat: ClientMessage =
+            serde_json::from_value(fixture["heartbeat"].clone()).unwrap();
+        assert!(matches!(
+            heartbeat,
+            ClientMessage::Heartbeat {
+                mic_muted: Some(false),
+                ..
+            }
+        ));
         let hello: ClientMessage = serde_json::from_value(fixture["hello"].clone()).unwrap();
         assert!(matches!(
             hello,

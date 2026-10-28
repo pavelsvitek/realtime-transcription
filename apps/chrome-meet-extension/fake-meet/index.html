@@ -309,7 +309,7 @@
       <div jsname="QgSmzd" id="toolbar-meter" class="gjg47c"></div>
 
       <nav class="controls" aria-label="Call controls">
-        <button class="ctrl" type="button" title="Microphone" aria-label="Microphone">
+        <button id="mic-toggle" class="ctrl" type="button" title="Microphone" aria-label="Turn off microphone" data-is-muted="false">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V21h2v-3.1A7 7 0 0 0 19 11h-2z"/></svg>
         </button>
         <button class="ctrl" type="button" title="Camera" aria-label="Camera">
@@ -364,6 +364,15 @@
           }, 100);
         });
       }
+
+      // Same toggle shape as the real Meet toolbar: data-is-muted plus a Turn on/off label.
+      const micToggle = document.getElementById("mic-toggle");
+      micToggle.addEventListener("click", () => {
+        const muted = micToggle.getAttribute("data-is-muted") !== "true";
+        micToggle.setAttribute("data-is-muted", String(muted));
+        micToggle.setAttribute("aria-label", muted ? "Turn on microphone" : "Turn off microphone");
+        micToggle.classList.toggle("active", muted);
+      });
 
       bindTalk("ada-talk", "ada-meter", "ada-tile");
       bindTalk("sam-talk", "sam-meter", "sam-tile");

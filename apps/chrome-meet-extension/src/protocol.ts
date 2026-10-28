@@ -40,7 +40,10 @@ export type ClientMessage =
       speaking: string[];
       visibility: "visible" | "hidden";
       health: HeartbeatHealth;
+      /** Omitted until the mic button is found. */
+      mic_muted?: boolean;
     }
+  | { type: "mic"; tab: string; muted: boolean }
   | { type: "health"; tab: string; status: "ok" | "degraded"; reason?: string };
 
 export type SelectorOverride = {
@@ -70,7 +73,9 @@ export type ContentEvent =
       speaking: string[];
       visibility: "visible" | "hidden";
       health: HeartbeatHealth;
+      mic_muted: boolean | null;
     }
+  | { type: "mic"; muted: boolean }
   | { type: "health"; status: "ok" | "degraded"; reason?: string }
   | { type: "trace-dump"; payload: unknown };
 
@@ -101,6 +106,9 @@ export function parseClientMessage(value: unknown): ClientMessage | null {
         return null;
       }
       if (value.visibility !== "visible" && value.visibility !== "hidden") return null;
+      return value as ClientMessage;
+    case "mic":
+      if (!isString(value.tab) || typeof value.muted !== "boolean") return null;
       return value as ClientMessage;
     case "health":
       if (!isString(value.tab) || (value.status !== "ok" && value.status !== "degraded")) return null;

@@ -89,7 +89,7 @@ export function TranscribePage({
   const [tab, setTab] = useState<MeetingDetailTab>("transcript");
   const [isFinishing, setIsFinishing] = useState(false);
   const stopping = isStopping || isFinishing;
-  const micActive = useMicLevel(isActive && !stopping);
+  const { micActive, micMuted } = useMicLevel(isActive && !stopping);
   const queryClient = useQueryClient();
   const liveQuery = useGetLiveMeetingQuery(true);
   const liveMeeting = liveQuery.data ?? null;
@@ -244,6 +244,7 @@ export function TranscribePage({
           <MicIndicator
             isActive={isActive && !stopping}
             micActive={micActive}
+            micMuted={micMuted}
             error={
               notices.find((notice) => silenceSourceOf(notice.message) === null)?.message ??
               null

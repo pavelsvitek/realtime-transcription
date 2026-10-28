@@ -7,6 +7,7 @@ use crate::ipc::transcript::*;
 use crate::transcription::audio_source::StreamLabels;
 use crate::transcription::debug_dump::StreamObserver;
 use crate::transcription::mic_input;
+use crate::transcription::mic_mute::MicMuteGate;
 use crate::transcription::pipeline::{AsrWord, StreamingPipeline};
 
 /// Runs the transcription worker loop.
@@ -25,10 +26,12 @@ pub fn run_worker<E>(
     segment_counter: Arc<AtomicU64>,
     mut observer: Option<Box<dyn StreamObserver>>,
     speaker_cut: Option<Arc<AtomicU64>>,
+    mic_mute: Option<MicMuteGate>,
 ) where
     E: Fn(TranscriptEvent),
 {
     tracing::info!("Transcription worker started");
+    let mut was_muted = false;
     let mut chunks_processed: u64 = 0;
     let mut seen_cut = speaker_cut
         .as_ref()
@@ -87,11 +90,37 @@ pub fn run_worker<E>(
             observer.as_mut(),
         );
 
+        // The meeting app's mute button wins over the microphone. Silence keeps the
+        // pipeline's clock running, so mic and system timestamps stay aligned.
+        let mut chunk = chunk;
+        let muted = labels.stream == crate::transcription::labels::MIC_STREAM
+            && mic_mute.as_ref().is_some_and(MicMuteGate::is_muted);
+        if muted != was_muted {
+            was_muted = muted;
+            tracing::info!(muted, "Microphone follows the meeting app's mute button");
+            if muted {
+                // Commit what was said before the mute instead of holding it open.
+                cut_in_flight_utterance(
+                    &mut pipeline,
+                    labels,
+                    &emit,
+                    &segment_counter,
+                    observer.as_mut(),
+                );
+            }
+        }
+        if muted {
+            chunk.fill(0.0);
+        }
+
         // Mic and system levels are separate: the mic icon follows only the mic,
         // and each silence banner hides on its own stream's level.
-        if labels.stream == crate::transcription::labels::MIC_STREAM {
+        if muted {
+            // Muted silence is not a missing Microphone permission.
+            emit(TranscriptEvent::MicLevel(MicLevel { rms: 0.0, muted: true }));
+        } else if labels.stream == crate::transcription::labels::MIC_STREAM {
             let rms = mic_input::compute_rms(&chunk);
-            emit(TranscriptEvent::MicLevel(MicLevel { rms }));
+            emit(TranscriptEvent::MicLevel(MicLevel { rms, muted: false }));
             mic_peak_rms = mic_peak_rms.max(rms);
             mic_samples_seen += chunk.len();
             if !mic_silence_warned && mic_samples_seen >= MIC_SILENCE_CHECK_SAMPLES {
@@ -118,7 +147,7 @@ pub fn run_worker<E>(
         } else if labels.stream == crate::transcription::labels::SYSTEM_STREAM {
             // [silent-loopback diagnostic] see block comment above `system_samples_seen`
             let rms = mic_input::compute_rms(&chunk);
-            emit(TranscriptEvent::SystemLevel(MicLevel { rms }));
+            emit(TranscriptEvent::SystemLevel(MicLevel { rms, muted: false }));
             system_peak_rms = system_peak_rms.max(rms);
             system_samples_seen += chunk.len();
             if !system_silence_warned && system_samples_seen >= SYSTEM_SILENCE_CHECK_SAMPLES {
@@ -298,6 +327,38 @@ where
     }
 
     emitted_commits
+}
+
+/// Commit the in-flight utterance without ending the session.
+fn cut_in_flight_utterance<E>(
+    pipeline: &mut StreamingPipeline,
+    labels: StreamLabels,
+    emit: &E,
+    segment_counter: &Arc<AtomicU64>,
+    mut observer: Option<&mut Box<dyn StreamObserver>>,
+) where
+    E: Fn(TranscriptEvent),
+{
+    match pipeline.cut_utterance() {
+        Ok(Some(output)) => {
+            for commit in emit_process_output(
+                &output.committed,
+                &output.tentative,
+                labels,
+                emit,
+                segment_counter,
+                false,
+            ) {
+                if let Some(obs) = observer.as_mut() {
+                    obs.on_commit(&commit);
+                }
+            }
+        }
+        Ok(None) => {}
+        Err(error) => {
+            tracing::warn!(error = %error, "Failed to cut utterance on mute");
+        }
+    }
 }
 
 /// Finalize the in-flight system utterance when the speaker set changed.
@@ -590,6 +651,7 @@ mod tests {
                 counter,
                 None,
                 Some(cut_flag),
+                None,
             );
         });
 
@@ -651,6 +713,7 @@ mod tests {
             Arc::new(AtomicU64::new(0)),
             None,
             None,
+            None,
         );
 
         let events = events.lock().unwrap();
@@ -673,5 +736,145 @@ mod tests {
             levels[1] > 0.01,
             "a loud chunk is the signal that hides the system banner"
         );
+    }
+    struct MuteProbe {
+        pushed: Arc<Mutex<Vec<Vec<f32>>>>,
+        cuts: Arc<AtomicU64>,
+    }
+
+    impl crate::transcription::pipeline::StreamingAsr for MuteProbe {
+        fn push_mono(
+            &mut self,
+            samples: &[f32],
+        ) -> anyhow::Result<Option<crate::transcription::pipeline::AsrOutput>> {
+            self.pushed.lock().unwrap().push(samples.to_vec());
+            Ok(None)
+        }
+
+        fn finish(&mut self) -> anyhow::Result<crate::transcription::pipeline::AsrOutput> {
+            Ok(crate::transcription::pipeline::AsrOutput::default())
+        }
+
+        fn cut_utterance(
+            &mut self,
+        ) -> anyhow::Result<Option<crate::transcription::pipeline::AsrOutput>> {
+            self.cuts.fetch_add(1, Ordering::Relaxed);
+            Ok(Some(crate::transcription::pipeline::AsrOutput {
+                committed: vec![word("before mute", 0.0, 1.0)],
+                tentative: Vec::new(),
+            }))
+        }
+    }
+
+    fn wait_for_pushed(pushed: &Arc<Mutex<Vec<Vec<f32>>>>, count: usize) {
+        let started = std::time::Instant::now();
+        while pushed.lock().unwrap().len() < count {
+            assert!(
+                started.elapsed() < std::time::Duration::from_secs(2),
+                "worker did not push chunk {count}"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+    }
+
+    #[test]
+    fn a_muted_meeting_app_silences_the_mic_and_releases_on_unmute() {
+        let (tx, rx) = std::sync::mpsc::sync_channel::<Vec<f32>>(1);
+        let pushed = Arc::new(Mutex::new(Vec::new()));
+        let cuts = Arc::new(AtomicU64::new(0));
+        let events = Arc::new(Mutex::new(Vec::new()));
+        let events_emit = events.clone();
+        let muted = Arc::new(AtomicBool::new(false));
+        let gate_flag = muted.clone();
+        let pipeline = StreamingPipeline::new(Box::new(MuteProbe {
+            pushed: pushed.clone(),
+            cuts: cuts.clone(),
+        }));
+        let handle = std::thread::spawn(move || {
+            run_worker(
+                rx,
+                pipeline,
+                mic_labels(),
+                move |event| events_emit.lock().unwrap().push(event),
+                Arc::new(AtomicBool::new(false)),
+                Arc::new(AtomicU64::new(0)),
+                None,
+                None,
+                Some(MicMuteGate::new(move || gate_flag.load(Ordering::Relaxed))),
+            );
+        });
+
+        tx.send(vec![0.5; 480]).unwrap();
+        wait_for_pushed(&pushed, 1);
+
+        muted.store(true, Ordering::Relaxed);
+        // Longer than the silence-permission check, so a false banner would show.
+        tx.send(vec![0.5; 48_000]).unwrap();
+        wait_for_pushed(&pushed, 2);
+
+        muted.store(false, Ordering::Relaxed);
+        tx.send(vec![0.5; 480]).unwrap();
+        wait_for_pushed(&pushed, 3);
+        drop(tx);
+        handle.join().unwrap();
+
+        let pushed = pushed.lock().unwrap();
+        assert_eq!(pushed[0].len(), 480);
+        assert!(pushed[0].iter().all(|sample| *sample == 0.5));
+        assert_eq!(pushed[1].len(), 48_000, "muted audio keeps its length");
+        assert!(pushed[1].iter().all(|sample| *sample == 0.0));
+        assert!(pushed[2].iter().all(|sample| *sample == 0.5));
+        assert_eq!(cuts.load(Ordering::Relaxed), 1, "cut once, on the mute edge");
+
+        let events = events.lock().unwrap();
+        assert!(events.iter().any(|event| matches!(
+            event,
+            TranscriptEvent::Commit(commit) if commit.text == "before mute"
+        )));
+        assert!(
+            !events
+                .iter()
+                .any(|event| matches!(event, TranscriptEvent::Status(_))),
+            "a muted mic must not raise the silent-microphone banner"
+        );
+        let flags: Vec<bool> = events
+            .iter()
+            .filter_map(|event| match event {
+                TranscriptEvent::MicLevel(level) => Some(level.muted),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            flags,
+            vec![false, true, false],
+            "the mic icon sees muted only for the muted chunk"
+        );
+    }
+
+    #[test]
+    fn the_gate_never_touches_the_system_stream() {
+        let (tx, rx) = std::sync::mpsc::sync_channel::<Vec<f32>>(1);
+        let pushed = Arc::new(Mutex::new(Vec::new()));
+        let pipeline = StreamingPipeline::new(Box::new(MuteProbe {
+            pushed: pushed.clone(),
+            cuts: Arc::new(AtomicU64::new(0)),
+        }));
+        tx.send(vec![0.5; 16]).unwrap();
+        drop(tx);
+        run_worker(
+            rx,
+            pipeline,
+            StreamLabels {
+                speaker: labels::REMOTE,
+                stream: labels::SYSTEM_STREAM,
+            },
+            |_| {},
+            Arc::new(AtomicBool::new(false)),
+            Arc::new(AtomicU64::new(0)),
+            None,
+            None,
+            Some(MicMuteGate::new(|| true)),
+        );
+        assert!(pushed.lock().unwrap()[0].iter().all(|sample| *sample == 0.5));
     }
 }

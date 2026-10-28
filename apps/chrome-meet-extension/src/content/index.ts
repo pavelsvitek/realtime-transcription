@@ -2,6 +2,7 @@
 
 import { PORT_NAME, type ContentEvent, type HeartbeatHealth, type SelectorOverride } from "../protocol";
 import { detectCall } from "./call";
+import { readMicMuted } from "./mic";
 import { createDetector } from "./detector";
 import { watchMeters, type MeterWatch } from "./meters";
 import { readRoster } from "./roster";
@@ -26,6 +27,7 @@ const participantChanges = new Map<string, number[]>();
 const detector = createDetector();
 let participants = readRoster(document, selectors, []);
 let meters: MeterWatch | null = null;
+let micMuted: boolean | null = null;
 
 function connectPort() {
   if (port) return;
@@ -88,7 +90,20 @@ function publishSpeaking(heartbeat: boolean) {
     speaking,
     visibility: document.visibilityState === "visible" ? "visible" : "hidden",
     health: health(),
+    mic_muted: micMuted,
   });
+}
+
+/**
+ * The mic button is not a meter, so it gets its own read. Posts only on change. A button
+ * that cannot be found keeps the last answer: Meet re-renders its toolbar, and flipping
+ * on every gap would record muted speech.
+ */
+function syncMic() {
+  const next = readMicMuted(document);
+  if (next == null || next === micMuted) return;
+  micMuted = next;
+  if (joined) post({ type: "mic", muted: next });
 }
 
 function health(): HeartbeatHealth {
@@ -148,6 +163,7 @@ function announcePresence(code: string | null) {
 }
 
 function syncCall(heartbeat: boolean) {
+  syncMic();
   const detected = detectCall(location.pathname, document, selectors);
   if (detected.inCall) {
     missingSince = null;
@@ -205,6 +221,11 @@ function restartMeters() {
 }
 
 restartMeters();
+new MutationObserver(syncMic).observe(document.documentElement, {
+  subtree: true,
+  attributes: true,
+  attributeFilter: ["data-is-muted", "aria-label"],
+});
 window.setInterval(() => syncCall(true), 1_000);
 window.addEventListener("pagehide", () => {
   if (!joined) return;
