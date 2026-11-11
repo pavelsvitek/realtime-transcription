@@ -21,8 +21,8 @@ const BLUETOOTH_HEADSET_KINDS: DeviceKind[] = [
 ];
 
 const MIC_COLORS = {
-  error: "#ef4444",
-  recording: "#ef4444",
+  error: "#cf4a3c",
+  recording: "#cf4a3c",
   // Amber, not red: red means "recording you", muted means the opposite.
   muted: "#f59e0b",
   idle: "#9ca3af",
