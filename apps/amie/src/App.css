@@ -266,6 +266,17 @@ body,
   justify-content: center;
 }
 
+/* The stop confirmation is a plain confirm, not a recording control: use the
+   primary color instead of the red status color of the Stop button. */
+.btn-stop.start-meeting-dialog-stop {
+  background: var(--brand-primary);
+  color: var(--brand-on-primary);
+}
+
+.btn-stop.start-meeting-dialog-stop:hover:not(:disabled) {
+  background: var(--brand-primary-hover);
+}
+
 .short-meeting-dialog {
   max-width: 380px;
 }
