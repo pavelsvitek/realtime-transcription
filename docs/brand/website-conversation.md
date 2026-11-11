@@ -13,11 +13,13 @@ Four people. First names on the site; full names only in this file. The local ca
 | Id | Name | Role | Color | Notes |
 | --- | --- | --- | --- | --- |
 | `me` | me | Local | `--color-dark-text-primary` (`#E5E5E5`) | Local camera on **this Mac**. Zoom / Teams tile **me**. In the real app this speaker is tagged **You**. No lines in the live transcript — listening. |
-| `sam` | Sam Rivera | Product | `--color-dark-speaker-user` (`#EE99A4`) | On the call from product. MCP cites **Sam**. |
-| `maya` | Maya Chen | Engineering | `--color-dark-speaker-remote` (`#F0A090`) | On Zoom from the engineering side. Asks what’s in for the sprint, then checks local latency. Active speaker in the Zoom / Teams frames. |
-| `jordan` | Jordan Hale | Design | `#8EC8F0` | On Zoom from design. Owns transcript chrome / export readability. |
+| `sam` | Sam Rivera | Product | `--color-dark-speaker-user` (`#6FB0DE`, blue) | On the call from product. MCP cites **Sam**. |
+| `maya` | Maya Chen | Engineering | `--color-dark-speaker-remote` (`#B4BEC7`, cool gray) | On Zoom from the engineering side. Asks what’s in for the sprint, then checks local latency. Active speaker in the Zoom / Teams frames. |
+| `jordan` | Jordan Hale | Design | `--color-dark-speaker-third` (`#A9A5E0`, lavender) | On Zoom from design. Owns transcript chrome / export readability. |
 
 Do not reintroduce **Alex**, **You**, or unnamed “User” labels on the website. The local tile is **me**.
+
+Colors follow the navy palette ([`docs/logo/README.md`](../logo/README.md)): Sam blue, Maya cool gray, Jordan lavender. All three are cool, and none is red. Red (`#CF4A3C`) is only for Stop and the mic. On the dark transcript surface (`#242424`) each speaker color is at least 6:1.
 
 ## Meetings
 
@@ -59,6 +61,33 @@ Use this wording exactly. The live line is mid-word on purpose (`hundr|`).
 | 0:38 | Sam | Sure, median was around two hundr\| *(live)* |
 
 Word-by-word crop: `0:15`–`0:38` of this table (decision cluster + live line).
+
+## Live hero script
+
+The hero Amie window plays this script on a loop, line by line, as if the call were happening now. It is the same meeting as the table above: the first five rows (0:08–0:31 and the start of 0:38) are the canon wording and must not change. Everything else is connective conversation that adds **no new decisions**. **me** never speaks.
+
+Duration: **1:15** of meeting time. The window shows the timestamp, speaker name in the speaker color, then the line typed in word by word at speech pace (about 2.5 words per second, with a short pause between turns).
+
+| Time | Speaker | Line |
+| --- | --- | --- |
+| 0:02 | Jordan | Morning, everyone. Can you all hear me? |
+| 0:05 | Sam | Loud and clear. Let’s get started. |
+| 0:08 | Maya | So for this sprint, what’s actually in? |
+| 0:15 | Sam | Local capture first. Cloud fallback can wait. |
+| 0:22 | Jordan | Then freeze the transcript chrome so summaries stay readable. |
+| 0:31 | Maya | Local is fine if latency holds. What’s median looking like? |
+| 0:38 | Sam | Sure, median was around two hundred milliseconds on the last build. |
+| 0:46 | Maya | That’s fine for me. If it spikes, does anything leave the Mac? |
+| 0:52 | Sam | No. It all stays on device. Cloud fallback waits, like we said. |
+| 0:58 | Jordan | Then I’ll put speaker names on every line in the export. |
+| 1:05 | Maya | Anything else before we wrap? |
+| 1:10 | Sam | Not from me. |
+| 1:12 | Jordan | Same. Thanks, everyone. |
+| 1:15 | Maya | Thanks. Talk soon. |
+
+Loop: after the last line, hold about 3 seconds, fade the transcript out, then start again from 0:02. The header chip and the footer stay on **Capturing mic + system audio...** the whole time.
+
+**Continuity (open):** the static frames stop at `0:38` with Sam mid-word (`hundr|`), and the meeting summary says the recording stopped at that point and does not state a median number. The hero plays on past `0:38` and has Sam finish the sentence (“two hundred milliseconds”). Decide one of: (a) keep the hero as a longer take and accept that the static frames and summary show an earlier moment, or (b) update the summary and Local MCP replies so the call ends after `1:15` and Sam’s median is in the **Open** and **Latency** bullets.
 
 ## MCP story
 
@@ -149,7 +178,7 @@ Variants A–B show the title + Executive Summary. **C · Full Summary** is the 
 
 | Surface | Uses |
 | --- | --- |
-| Hero Amie window | Full live transcript, title **Sprint planning**, speakers **Sam / Maya / Jordan** |
+| Hero Amie window | Live script above (1:15, looping), title **Sprint planning**, speakers **Sam / Maya / Jordan** |
 | Word-by-word crop | `0:15`–`0:38`, same wording |
 | Local MCP chat | **Claude Cowork Window — Dark**. The two queries and replies above |
 | Speaker ID (Zoom / Teams) | **A · Color lock** on the landing, before meeting summary. Four tiles: **me**, Sam, Maya, Jordan. Maya speaking. Same name color on Zoom chips and the transcript crop. |

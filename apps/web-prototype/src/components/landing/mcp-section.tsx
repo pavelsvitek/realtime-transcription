@@ -54,14 +54,14 @@ export function McpSection() {
           </div>
           <div className="flex min-h-0 flex-1 items-center overflow-hidden">
             <div className="mcp-stage relative h-[720px] w-full origin-left">
-              <div className="absolute top-0 left-12">
+              <div className="pointer-events-none absolute top-0 left-12 select-none">
                 <ChatPopup phase={phase} progress={progress} />
               </div>
               <div className="absolute top-16 left-[448px]">
                 <DataFlow flow={flow} progress={progress} scene={scene} />
               </div>
               <div
-                className="absolute top-[266px] left-[780px] flex w-[200px] flex-col items-center gap-4"
+                className="pointer-events-none absolute top-[266px] left-[780px] flex w-[200px] flex-col items-center gap-4 select-none"
                 style={{
                   transform:
                     flow === "lookup"

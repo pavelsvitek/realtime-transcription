@@ -5,7 +5,7 @@ export type AmieNavId = "home" | "transcription" | "meetings" | "settings";
 
 export function AmieWindowFrame({ children }: { children: ReactNode }) {
   return (
-    <div className="flex h-[680px] w-[1040px] overflow-hidden rounded-lg bg-dark-surface-shell shadow-[0_0_0_1px_#FFFFFF29,0_40px_120px_#000000B3]">
+    <div className="pointer-events-none flex select-none h-[680px] w-[1040px] overflow-hidden rounded-lg bg-dark-surface-shell shadow-[0_0_0_1px_#FFFFFF29,0_40px_120px_#000000B3]">
       {children}
     </div>
   );

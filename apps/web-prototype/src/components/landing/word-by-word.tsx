@@ -40,7 +40,7 @@ export function WordByWord() {
         </div>
       </div>
 
-      <div className="flex h-fit w-[820px] shrink-0 flex-col overflow-hidden rounded-lg bg-raycast-surface shadow-[0_0_0_1px_#FFFFFF29,0_32px_80px_#0000008C]">
+      <div className="pointer-events-none flex h-fit w-[820px] shrink-0 flex-col overflow-hidden rounded-lg bg-raycast-surface select-none shadow-[0_0_0_1px_#FFFFFF29,0_32px_80px_#0000008C]">
         <div className="flex h-[52px] shrink-0 items-center justify-between border-b border-raycast-hairline-soft px-5">
           <div className="flex h-[52px] items-center gap-5">
             <span className="text-sm leading-[13px] font-medium text-raycast-mute">
@@ -53,11 +53,6 @@ export function WordByWord() {
               <span className="text-sm leading-[13px] font-semibold text-raycast-ink">
                 Transcript (live)
               </span>
-            </span>
-          </div>
-          <div className="flex h-7 shrink-0 items-center rounded-sm border border-raycast-hairline-strong px-2.5">
-            <span className="text-xs leading-3 font-medium tracking-[0.1px] text-raycast-on-dark-mute">
-              ASR: Local (Nemotron)
             </span>
           </div>
         </div>

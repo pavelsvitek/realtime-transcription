@@ -26,7 +26,7 @@ export const SPEAKERS: Record<
     name: "Jordan",
     fullName: "Jordan Hale",
     role: "Design",
-    className: "text-[#6FB0DE]",
+    className: "text-dark-speaker-third",
   },
 };
 
@@ -201,3 +201,55 @@ export const SUMMARY = {
 
 export const settledLines = TRANSCRIPT.filter((line) => !line.live);
 export const liveLine = TRANSCRIPT.find((line) => line.live)!;
+
+/**
+ * Live hero script. Mirrors "Live hero script" in docs/brand/website-conversation.md.
+ * `at` is meeting time in seconds. The first canon lines keep their exact wording;
+ * the rest is connective conversation that adds no new decisions.
+ */
+export type LiveScriptLine = { at: number; speaker: SpeakerId; text: string };
+
+export const LIVE_SCRIPT: readonly LiveScriptLine[] = [
+  { at: 2, speaker: "jordan", text: "Morning, everyone. Can you all hear me?" },
+  { at: 5, speaker: "sam", text: "Loud and clear. Let’s get started." },
+  { at: 8, speaker: "maya", text: "So for this sprint, what’s actually in?" },
+  { at: 15, speaker: "sam", text: "Local capture first. Cloud fallback can wait." },
+  {
+    at: 22,
+    speaker: "jordan",
+    text: "Then freeze the transcript chrome so summaries stay readable.",
+  },
+  {
+    at: 31,
+    speaker: "maya",
+    text: "Local is fine if latency holds. What’s median looking like?",
+  },
+  {
+    at: 38,
+    speaker: "sam",
+    text: "Sure, median was around two hundred milliseconds on the last build.",
+  },
+  {
+    at: 46,
+    speaker: "maya",
+    text: "That’s fine for me. If it spikes, does anything leave the Mac?",
+  },
+  {
+    at: 52,
+    speaker: "sam",
+    text: "No. It all stays on device. Cloud fallback waits, like we said.",
+  },
+  {
+    at: 58,
+    speaker: "jordan",
+    text: "Then I’ll put speaker names on every line in the export.",
+  },
+  { at: 65, speaker: "maya", text: "Anything else before we wrap?" },
+  { at: 70, speaker: "sam", text: "Not from me." },
+  { at: 72, speaker: "jordan", text: "Same. Thanks, everyone." },
+  { at: 75, speaker: "maya", text: "Thanks. Talk soon." },
+];
+
+export function formatClock(seconds: number): string {
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+}
