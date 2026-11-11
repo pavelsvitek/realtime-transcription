@@ -8,12 +8,14 @@ const DEBOUNCE_MS = 300;
 
 export function useMicLevel(isActive: boolean) {
   const [micActive, setMicActive] = useState(false);
+  const [micMuted, setMicMuted] = useState(false);
   const lastAboveRef = useRef(0);
   const unlistenRef = useRef<UnlistenFn | null>(null);
 
   useEffect(() => {
     if (!isActive) {
       setMicActive(false);
+      setMicMuted(false);
       return;
     }
 
@@ -24,6 +26,13 @@ export function useMicLevel(isActive: boolean) {
         EVENT_TRANSCRIPTION_MIC_LEVEL,
         (event) => {
           if (!mounted) return;
+          const muted = event.payload.muted === true;
+          setMicMuted(muted);
+          if (muted) {
+            lastAboveRef.current = 0;
+            setMicActive(false);
+            return;
+          }
           const now = Date.now();
           if (rmsIndicatesSound(event.payload.rms)) {
             lastAboveRef.current = now;
@@ -44,5 +53,5 @@ export function useMicLevel(isActive: boolean) {
     };
   }, [isActive]);
 
-  return micActive;
+  return { micActive, micMuted };
 }

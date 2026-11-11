@@ -7,6 +7,9 @@ const WEB_VIEW: &str = "RenderWidgetHostViewCocoa";
 const ROSTER_ITEM: &str = "calling-roster-item";
 const ROSTER_NAME_WRAP: &str = "roster-avatar-img";
 const ROSTER_BUTTON: &str = "roster-button";
+/// The in-call mic toggle. Its title is the action it offers: "Mute mic" while
+/// live, "Unmute mic" while muted.
+const MIC_BUTTON: &str = "microphone-button";
 const VIDEO_OCCLUSION: &str = "vdi-occlusion";
 const SPEAKING_FRAME: &str = "vdi-frame-occlusion";
 
@@ -19,6 +22,9 @@ pub struct TeamsRead {
     pub speakers: BTreeSet<String>,
     /// Remote participant names visible in the tree, speaking or not.
     pub present: BTreeSet<String>,
+    /// The local user's mic in the call, `None` when the tree does not say
+    /// (no call window, tree still closed).
+    pub self_muted: Option<bool>,
 }
 
 pub fn read(root: &AxNode) -> TeamsRead {
@@ -46,7 +52,47 @@ pub fn read(root: &AxNode) -> TeamsRead {
         requested_manual_accessibility,
         speakers,
         present,
+        self_muted: self_muted(root),
     }
+}
+
+/// Whether the local user is muted in this Teams call.
+///
+/// The toolbar button wins: its `AXDOMIdentifier` is stable and its title does
+/// not carry a name. The "Myself video, <name>, Muted" gallery tile backs it up
+/// when the toolbar is hidden (for example while presenting).
+pub fn self_muted(root: &AxNode) -> Option<bool> {
+    mic_button_muted(root).or_else(|| self_tile_muted(root))
+}
+
+fn mic_button_muted(node: &AxNode) -> Option<bool> {
+    if node.dom_id.as_deref() == Some(MIC_BUTTON) {
+        let label = node.title.as_deref().or(node.description.as_deref())?;
+        let label = label.trim().to_lowercase();
+        if label.starts_with("unmute") {
+            return Some(true);
+        }
+        if label.starts_with("mute") {
+            return Some(false);
+        }
+    }
+    node.children.iter().find_map(mic_button_muted)
+}
+
+fn self_tile_muted(node: &AxNode) -> Option<bool> {
+    if node.role == "AXMenuItem" {
+        if let Some(raw) = node.title.as_deref().or(node.description.as_deref()) {
+            let mut parts = raw.split(',').map(|part| part.trim().to_lowercase());
+            if parts.next().is_some_and(|first| is_self_chrome(&first)) {
+                return parts.find_map(|part| match part.as_str() {
+                    "muted" => Some(true),
+                    "unmuted" => Some(false),
+                    _ => None,
+                });
+            }
+        }
+    }
+    node.children.iter().find_map(self_tile_muted)
 }
 
 /// Open People only when the video gallery is not in the tree. Gallery tiles
@@ -736,5 +782,82 @@ mod tests {
             read(&root).speakers.into_iter().collect::<Vec<_>>(),
             vec!["Ada Lovelace", "Richardson, Bob"]
         );
+    }
+
+    fn mic_button(title: &str) -> AxNode {
+        AxNode::new("AXButton")
+            .titled(title)
+            .described(title)
+            .id(MIC_BUTTON)
+    }
+
+    fn call_toolbar(mic_title: &str) -> AxNode {
+        AxNode::new("AXGroup")
+            .child(mic_button(mic_title))
+            .child(AxNode::new("AXButton").titled("Open audio options").id("audio-button-configure"))
+    }
+
+    #[test]
+    fn the_mic_button_title_says_whether_you_are_muted() {
+        let live = AxNode::new("AXWindow").child(call_toolbar("Mute mic"));
+        let muted = AxNode::new("AXWindow").child(call_toolbar("Unmute mic"));
+        assert_eq!(self_muted(&live), Some(false));
+        assert_eq!(self_muted(&muted), Some(true));
+        assert_eq!(read(&muted).self_muted, Some(true));
+    }
+
+    #[test]
+    fn the_mic_button_is_matched_by_id_not_by_any_mute_titled_node() {
+        let other = AxNode::new("AXWindow")
+            .child(AxNode::new("AXButton").titled("Unmute mic").id("something-else"));
+        assert_eq!(self_muted(&other), None);
+    }
+
+    #[test]
+    fn a_mic_button_with_an_unknown_title_is_not_read() {
+        let odd = AxNode::new("AXWindow").child(call_toolbar("Mikrofon stummschalten"));
+        assert_eq!(self_muted(&odd), None);
+    }
+
+    #[test]
+    fn the_self_tile_backs_up_a_hidden_toolbar() {
+        assert_eq!(self_muted(&live_teams_gallery(false)), Some(true));
+        let unmuted = AxNode::new("AXWindow").child(gallery_person(
+            "Myself video, Pavel Svitek, Unmuted, video is on, Fit to frame, Has context menu",
+            false,
+        ));
+        assert_eq!(self_muted(&unmuted), Some(false));
+    }
+
+    #[test]
+    fn only_the_self_tile_counts_not_a_muted_remote() {
+        let remote_only = AxNode::new("AXWindow").child(gallery_person(
+            "Ale, Cristine, video is on, Has control of production tools, muted, Context menu is available",
+            false,
+        ));
+        assert_eq!(self_muted(&remote_only), None);
+    }
+
+    #[test]
+    fn the_toolbar_wins_over_a_disagreeing_tile() {
+        let root = AxNode::new("AXWindow")
+            .child(call_toolbar("Mute mic"))
+            .child(gallery_person(
+                "Myself video, Pavel Svitek, Muted, video is on, Fit to frame, Has context menu",
+                false,
+            ));
+        assert_eq!(self_muted(&root), Some(false));
+    }
+
+    #[test]
+    fn no_call_window_and_a_closed_web_view_do_not_say_muted() {
+        let idle = AxNode::new("AXWindow").child(AxNode::new("AXButton").titled("People").id("roster-button"));
+        assert_eq!(self_muted(&idle), None);
+        let closed = AxNode::new("AXWindow").child(
+            AxNode::new("AXGroup")
+                .titled("RenderWidgetHostViewCocoa")
+                .frame(800.0, 600.0),
+        );
+        assert_eq!(read(&closed).self_muted, None);
     }
 }
