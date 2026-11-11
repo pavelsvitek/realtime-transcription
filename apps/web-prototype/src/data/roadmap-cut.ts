@@ -26,7 +26,7 @@ export const SPEAKERS: Record<
     name: "Jordan",
     fullName: "Jordan Hale",
     role: "Design",
-    className: "text-[#8EC8F0]",
+    className: "text-[#6FB0DE]",
   },
 };
 

@@ -5,11 +5,11 @@ export function PrimaryNav() {
     <nav className="relative z-20 flex h-14 w-full shrink-0 items-center justify-between border-b border-raycast-hairline-soft px-12">
       <a href="#top" className="flex items-center gap-2.5">
         <Image
-          src="/amie-icon.png"
+          src="/amie-app-icon.png"
           alt=""
           width={28}
           height={28}
-          className="size-7 rounded-md"
+          className="size-7"
         />
         <span className="text-base leading-[22px] font-semibold text-raycast-ink">
           Amie

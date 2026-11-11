@@ -18,10 +18,10 @@ export function StripeWaveform() {
           y2="400"
           gradientUnits="userSpaceOnUse"
         >
-          <stop offset="0" stopColor="#ff5757" stopOpacity="0" />
-          <stop offset="0.3" stopColor="#ff5757" stopOpacity="0.9" />
-          <stop offset="0.7" stopColor="#a1131a" stopOpacity="0.9" />
-          <stop offset="1" stopColor="#a1131a" stopOpacity="0" />
+          <stop offset="0" stopColor="#6fb0de" stopOpacity="0" />
+          <stop offset="0.3" stopColor="#6fb0de" stopOpacity="0.9" />
+          <stop offset="0.7" stopColor="#1b4a6b" stopOpacity="0.9" />
+          <stop offset="1" stopColor="#1b4a6b" stopOpacity="0" />
         </linearGradient>
       </defs>
       <path

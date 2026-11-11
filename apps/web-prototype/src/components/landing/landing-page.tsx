@@ -1,4 +1,5 @@
 import { AmieWindow } from "@/components/landing/amie-window";
+import { Footer } from "@/components/landing/footer";
 import { Hero } from "@/components/landing/hero";
 import { McpSection } from "@/components/landing/mcp-section";
 import { MeetingSummary } from "@/components/landing/meeting-summary";
@@ -31,6 +32,7 @@ export function LandingPage() {
         <SpeakerId />
         <MeetingSummary />
         <McpSection />
+        <Footer />
       </div>
     </main>
   );

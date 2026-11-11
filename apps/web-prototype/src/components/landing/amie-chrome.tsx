@@ -117,7 +117,7 @@ function MicIcon() {
 function LiveMeetingButton({ listening }: { listening: boolean }) {
   return (
     <div
-      className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-primary-foreground shadow-[0_0_0_1px_#FBAD7D40,0_8px_28px_#E2788873]"
+      className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-primary-foreground shadow-[0_0_0_1px_#FFFFFF1F,0_6px_20px_#00000066]"
       style={{
         backgroundImage:
           "linear-gradient(in oklab 120deg, var(--color-peach) 0%, var(--color-coral) 45%, var(--color-primary) 100%)",
@@ -147,11 +147,11 @@ export function AmieSidebar({
       </div>
       <div className="flex items-center gap-2.5 px-1 pt-1 pb-3.5">
         <Image
-          src="/amie-icon.png"
+          src="/amie-app-icon.png"
           alt=""
           width={32}
           height={32}
-          className="size-8 rounded-md shadow-[0_1px_2px_#0F172A1F]"
+          className="size-8"
         />
         <span className="text-md leading-[18px] font-bold tracking-tight text-dark-text-primary">
           Amie

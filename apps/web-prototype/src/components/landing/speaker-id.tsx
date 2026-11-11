@@ -63,7 +63,7 @@ function NameChip({
       : speaker === "maya"
         ? "border-dark-speaker-remote/70"
         : speaker === "jordan"
-          ? "border-[#8EC8F0]/55"
+          ? "border-[#6FB0DE]/55"
           : "border-dark-text-primary/35";
 
   return (
@@ -190,10 +190,10 @@ export function SpeakerId() {
               <span className="h-[11px] w-3.5 rounded-[3px] bg-[#E8E8E8]" />
             </Tool>
             <div className="flex w-14 shrink-0 flex-col items-center gap-1.5">
-              <div className="flex size-9 items-center justify-center rounded-full bg-[#E03838]">
+              <div className="flex size-9 items-center justify-center rounded-full bg-[#CF4A3C]">
                 <span className="h-2 w-4 rounded-[2px] bg-white" />
               </div>
-              <span className="text-[11px] leading-[11px] font-medium text-[#E03838]">
+              <span className="text-[11px] leading-[11px] font-medium text-[#CF4A3C]">
                 Leave
               </span>
             </div>

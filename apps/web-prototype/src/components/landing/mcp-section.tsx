@@ -9,11 +9,11 @@ import { useMcpStory, type McpFlow } from "@/hooks/use-mcp-story";
 function engineGlow(flow: McpFlow, progress: number): string {
   if (flow === "lookup") {
     const a = 0.15 + progress * 0.2;
-    return `0 0 0 2px var(--color-raycast-accent-blue), 0 0 48px rgba(87, 193, 255, ${a})`;
+    return `0 0 0 2px var(--color-raycast-accent-blue), 0 0 48px rgba(111, 176, 222, ${a})`;
   }
   if (flow === "request") {
     const a = progress * 0.22;
-    return a > 0.02 ? `0 0 32px rgba(87, 193, 255, ${a})` : "none";
+    return a > 0.02 ? `0 0 32px rgba(111, 176, 222, ${a})` : "none";
   }
   return "none";
 }
