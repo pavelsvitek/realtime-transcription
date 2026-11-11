@@ -1,6 +1,7 @@
 use serde::Serialize;
 
 use super::identity::{app_identity, SignatureKind};
+use super::meet_bridge::{installed_status, GoogleMeetExtensionStatus};
 use super::meeting::running_meeting_app;
 use super::permission;
 
@@ -15,6 +16,10 @@ pub struct SpeakerTagsStatus {
     pub bundle_id: Option<String>,
     pub signature: SignatureKind,
     pub signer: Option<String>,
+    /// Designated requirement for this binary (TCC identity), when known.
+    pub code_requirement: Option<String>,
+    /// Google Meet Chrome extension speaker-tracking (`meet_bridge`), when a DEV build is listening.
+    pub google_meet_extension: GoogleMeetExtensionStatus,
 }
 
 pub fn status() -> SpeakerTagsStatus {
@@ -30,5 +35,7 @@ pub fn status() -> SpeakerTagsStatus {
         bundle_id: identity.bundle_id.clone(),
         signature: identity.signature.kind,
         signer: identity.signature.signer.clone(),
+        code_requirement: identity.signature.requirement.clone(),
+        google_meet_extension: installed_status(),
     }
 }

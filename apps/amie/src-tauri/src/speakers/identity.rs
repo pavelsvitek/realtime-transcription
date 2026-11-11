@@ -30,6 +30,9 @@ pub struct Signature {
     pub kind: SignatureKind,
     /// Leaf certificate name, e.g. `Developer ID Application: …`.
     pub signer: Option<String>,
+    /// Designated requirement macOS uses for TCC, e.g. `cdhash H"…"` or
+    /// `identifier "com.pavel.amie" and certificate leaf = H"…"`.
+    pub requirement: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -66,6 +69,7 @@ fn resolve() -> AppIdentity {
             .unwrap_or(Signature {
                 kind: SignatureKind::Unknown,
                 signer: None,
+                requirement: None,
             }),
         bundle_path,
     }
@@ -105,24 +109,44 @@ fn bundle_strings() -> (Option<String>, Option<String>) {
 
 #[cfg(target_os = "macos")]
 fn read_signature(path: &Path) -> Signature {
-    match std::process::Command::new("/usr/bin/codesign")
+    let details = match std::process::Command::new("/usr/bin/codesign")
         .args(["-dv", "--verbose=2"])
         .arg(path)
         .output()
     {
         Ok(output) => {
             // codesign reports on stderr.
-            let text = String::from_utf8_lossy(&output.stderr);
-            parse_codesign_output(&text)
+            String::from_utf8_lossy(&output.stderr).into_owned()
         }
         Err(error) => {
             tracing::warn!(%error, "Could not run codesign to read the app signature");
-            Signature {
+            return Signature {
                 kind: SignatureKind::Unknown,
                 signer: None,
-            }
+                requirement: None,
+            };
         }
-    }
+    };
+    let requirement = read_designated_requirement(path);
+    let mut signature = parse_codesign_output(&details);
+    signature.requirement = requirement;
+    signature
+}
+
+#[cfg(target_os = "macos")]
+fn read_designated_requirement(path: &Path) -> Option<String> {
+    let output = std::process::Command::new("/usr/bin/codesign")
+        .args(["-d", "-r-"])
+        .arg(path)
+        .output()
+        .ok()?;
+    // Requirement text is on stdout; some codesign versions mix on stderr.
+    let text = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    parse_designated_requirement(&text)
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -130,6 +154,7 @@ fn read_signature(_path: &Path) -> Signature {
     Signature {
         kind: SignatureKind::Unknown,
         signer: None,
+        requirement: None,
     }
 }
 
@@ -139,6 +164,7 @@ fn parse_codesign_output(text: &str) -> Signature {
         return Signature {
             kind: SignatureKind::Unsigned,
             signer: None,
+            requirement: None,
         };
     }
     let adhoc = text
@@ -148,6 +174,7 @@ fn parse_codesign_output(text: &str) -> Signature {
         return Signature {
             kind: SignatureKind::AdHoc,
             signer: None,
+            requirement: None,
         };
     }
     // The first Authority line is the leaf certificate.
@@ -158,12 +185,25 @@ fn parse_codesign_output(text: &str) -> Signature {
         Some(signer) => Signature {
             kind: SignatureKind::Identity,
             signer: Some(signer.to_string()),
+            requirement: None,
         },
         None => Signature {
             kind: SignatureKind::Unknown,
             signer: None,
+            requirement: None,
         },
     }
+}
+
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+fn parse_designated_requirement(text: &str) -> Option<String> {
+    text.lines().find_map(|line| {
+        let line = line.trim().trim_start_matches('#').trim();
+        line.strip_prefix("designated => ")
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_string)
+    })
 }
 
 #[cfg(test)]
@@ -182,7 +222,8 @@ mod tests {
             parse_codesign_output(tauri_default),
             Signature {
                 kind: SignatureKind::AdHoc,
-                signer: None
+                signer: None,
+                requirement: None,
             }
         );
     }
@@ -201,7 +242,8 @@ mod tests {
             parse_codesign_output(signed),
             Signature {
                 kind: SignatureKind::Identity,
-                signer: Some("Developer ID Application: Pavel Svitek (ABCDE12345)".into())
+                signer: Some("Developer ID Application: Pavel Svitek (ABCDE12345)".into()),
+                requirement: None,
             }
         );
     }
@@ -213,6 +255,23 @@ mod tests {
             SignatureKind::Unsigned
         );
         assert_eq!(parse_codesign_output("").kind, SignatureKind::Unknown);
+    }
+
+    #[test]
+    fn designated_requirement_is_parsed_from_codesign_r() {
+        // `codesign -d -r-` prefixes the requirement with `# ` on stderr.
+        let adhoc = "Executable=/Applications/Amie.app/Contents/MacOS/amie\n\
+            # designated => cdhash H\"4084ac8c8b3bdf6d8738e4630a533cc13a486dab\"\n";
+        assert_eq!(
+            parse_designated_requirement(adhoc).as_deref(),
+            Some("cdhash H\"4084ac8c8b3bdf6d8738e4630a533cc13a486dab\"")
+        );
+        let cert = "designated => identifier \"com.pavel.amie\" and certificate leaf = H\"abc\"\n";
+        assert_eq!(
+            parse_designated_requirement(cert).as_deref(),
+            Some("identifier \"com.pavel.amie\" and certificate leaf = H\"abc\"")
+        );
+        assert_eq!(parse_designated_requirement(""), None);
     }
 
     #[test]

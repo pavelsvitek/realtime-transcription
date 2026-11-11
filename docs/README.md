@@ -13,6 +13,7 @@ This is not a passive transcript viewer or generic chat assistant. The product h
   - [Website conversation](./brand/website-conversation.md) — people and roadmap-cut meeting on the marketing site
 - [Entity API naming](./technical/entity-api-naming.md) — React/Rust CRUD verbs (`getAll` / `get` / `patch` / `delete`)
 - [xAI Transcribe 2.0](./technical/xai-speech-to-text.md) — dual-backend WebSocket STT alongside local Nemotron
+- [Meet speaker labels via browser extension](./technical/meet-browser-extension.md) — plan: Chrome/Brave extension streams Meet's speaking set to Amie over localhost
 - [NOTSOFAR eval-small](./eval/dataset-notsofar.md) — local ASR WER on 10 far-field meetings
 - [Feature Specs](./features/README.md) — detailed UX and behavior specs
   - [Live Suggestion Cards](./features/live-suggestion-cards.md) — card layout, item lifecycle, generation rules, and state preservation

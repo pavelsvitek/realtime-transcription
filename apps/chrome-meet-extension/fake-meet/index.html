@@ -1,0 +1,383 @@
+<!-- Google Meet extension speaker-tracking — fake Meet tiles and level meters. Not Zoom/Teams. -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Fake Google Meet · abc-defg-hij</title>
+    <style>
+      :root {
+        --meet-bg: #202124;
+        --meet-surface: #3c4043;
+        --meet-tile: #3c4043;
+        --meet-text: #e8eaed;
+        --meet-muted: #9aa0a6;
+        --meet-accent: #8ab4f8;
+        --meet-speaking: #34a853;
+        --meet-danger: #ea4335;
+        --meet-bar: #202124;
+      }
+
+      * { box-sizing: border-box; }
+      html, body {
+        height: 100%;
+        margin: 0;
+        background: var(--meet-bg);
+        color: var(--meet-text);
+        font: 14px/1.4 "Google Sans", "Segoe UI", system-ui, sans-serif;
+      }
+
+      .app {
+        min-height: 100%;
+        display: grid;
+        grid-template-rows: auto 1fr auto auto;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 12px 20px;
+        background: rgba(0, 0, 0, 0.25);
+      }
+      .topbar-title {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .topbar-title strong {
+        font-size: 15px;
+        font-weight: 500;
+        letter-spacing: 0.01em;
+      }
+      .meeting-code {
+        color: var(--meet-muted);
+        font-variant-numeric: tabular-nums;
+        letter-spacing: 0.04em;
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: var(--meet-surface);
+        color: var(--meet-muted);
+        font-size: 12px;
+      }
+      .pill-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--meet-speaking);
+        box-shadow: 0 0 0 3px rgba(52, 168, 83, 0.2);
+      }
+
+      .stage {
+        display: grid;
+        place-items: center;
+        padding: 24px clamp(16px, 4vw, 48px) 16px;
+      }
+
+      .grid {
+        width: min(1100px, 100%);
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+      }
+
+      .tile {
+        position: relative;
+        aspect-ratio: 16 / 10;
+        border-radius: 12px;
+        background:
+          radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.06), transparent 45%),
+          var(--meet-tile);
+        border: 2px solid transparent;
+        overflow: hidden;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+        transition: border-color 120ms ease, box-shadow 120ms ease;
+      }
+      .tile.speaking {
+        border-color: var(--meet-speaking);
+        box-shadow:
+          0 0 0 2px rgba(52, 168, 83, 0.35),
+          0 0 24px rgba(52, 168, 83, 0.28),
+          0 8px 24px rgba(0, 0, 0, 0.35);
+      }
+
+      .avatar {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+      }
+      .avatar-circle {
+        width: min(112px, 36%);
+        aspect-ratio: 1;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        font-size: clamp(28px, 5vw, 40px);
+        font-weight: 500;
+        color: #fff;
+        user-select: none;
+      }
+      .avatar-ada { background: #1a73e8; }
+      .avatar-sam { background: #188038; }
+      .avatar-pavel { background: #c5221f; }
+
+      .tile-footer {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 10px 12px;
+        background: linear-gradient(transparent, rgba(0, 0, 0, 0.65));
+      }
+      .tile-footer .notranslate {
+        font-size: 13px;
+        font-weight: 500;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+      }
+      .you-tag {
+        color: var(--meet-muted);
+        font-weight: 400;
+        margin-left: 4px;
+      }
+
+      /* Level meters stay in the DOM for the extension; keep them small and unobtrusive. */
+      [jsname="QgSmzd"] {
+        width: 28px;
+        height: 10px;
+        border-radius: 3px;
+        background: rgba(255, 255, 255, 0.18);
+        flex-shrink: 0;
+      }
+      #toolbar-meter {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .controls {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 12px;
+        padding: 16px 20px 22px;
+        background: var(--meet-bar);
+      }
+      .ctrl {
+        width: 48px;
+        height: 48px;
+        border: 0;
+        border-radius: 50%;
+        background: var(--meet-surface);
+        color: var(--meet-text);
+        cursor: default;
+        display: grid;
+        place-items: center;
+        padding: 0;
+      }
+      .ctrl svg {
+        width: 22px;
+        height: 22px;
+        fill: currentColor;
+      }
+      .ctrl-leave {
+        background: var(--meet-danger);
+        width: auto;
+        min-width: 72px;
+        padding: 0 18px;
+        border-radius: 24px;
+        font-size: 13px;
+        font-weight: 500;
+        color: #fff;
+      }
+
+      .dev-strip {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 16px;
+        background: #111;
+        border-top: 1px solid #333;
+        color: var(--meet-muted);
+        font-size: 12px;
+      }
+      .dev-strip strong {
+        color: var(--meet-accent);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        font-size: 11px;
+      }
+      .dev-strip button {
+        margin: 0;
+        padding: 6px 12px;
+        border: 1px solid #444;
+        border-radius: 6px;
+        background: #1b1b1b;
+        color: var(--meet-text);
+        font: inherit;
+        cursor: pointer;
+      }
+      .dev-strip button.active {
+        border-color: var(--meet-speaking);
+        background: rgba(52, 168, 83, 0.15);
+        color: #81c995;
+      }
+
+      @media (max-width: 720px) {
+        .grid { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="topbar-title">
+          <strong>Fake Google Meet</strong>
+          <span class="meeting-code">abc-defg-hij</span>
+        </div>
+        <div class="pill"><span class="pill-dot" aria-hidden="true"></span> In call · DEV</div>
+      </header>
+
+      <main class="stage">
+        <div class="grid">
+          <div
+            class="tile"
+            id="ada-tile"
+            data-participant-id="spaces/fake/devices/1"
+            role="listitem"
+            aria-label="Ada Lovelace"
+          >
+            <div class="avatar">
+              <div class="avatar-circle avatar-ada" aria-hidden="true">A</div>
+            </div>
+            <div class="tile-footer">
+              <span class="notranslate">Ada Lovelace</span>
+              <div jsname="QgSmzd" id="ada-meter" class="gjg47c"></div>
+            </div>
+          </div>
+
+          <div
+            class="tile"
+            id="sam-tile"
+            data-participant-id="spaces/fake/devices/3"
+            role="listitem"
+            aria-label="Sam Rivera"
+          >
+            <div class="avatar">
+              <div class="avatar-circle avatar-sam" aria-hidden="true">S</div>
+            </div>
+            <div class="tile-footer">
+              <span class="notranslate">Sam Rivera</span>
+              <div jsname="QgSmzd" id="sam-meter" class="gjg47c"></div>
+            </div>
+          </div>
+
+          <div
+            class="tile"
+            id="pavel-tile"
+            data-participant-id="spaces/fake/devices/2"
+            role="listitem"
+            aria-label="Pavel Svitek (You)"
+          >
+            <div class="avatar">
+              <div class="avatar-circle avatar-pavel" aria-hidden="true">P</div>
+            </div>
+            <div class="tile-footer">
+              <span>
+                <span class="notranslate">Pavel Svitek</span><span class="you-tag">(You)</span>
+              </span>
+              <div jsname="QgSmzd" id="self-meter" class="gjg47c"></div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <!-- Toolbar mic meter for self-correlation; hidden from the Meet chrome. -->
+      <div jsname="QgSmzd" id="toolbar-meter" class="gjg47c"></div>
+
+      <nav class="controls" aria-label="Call controls">
+        <button id="mic-toggle" class="ctrl" type="button" title="Microphone" aria-label="Turn off microphone" data-is-muted="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V21h2v-3.1A7 7 0 0 0 19 11h-2z"/></svg>
+        </button>
+        <button class="ctrl" type="button" title="Camera" aria-label="Camera">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 10.5V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3.5l4 4v-11l-4 4z"/></svg>
+        </button>
+        <button class="ctrl" type="button" title="Present now" aria-label="Present now">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 5.4V4h-2v1.4A8 8 0 0 0 4 13h2a6 6 0 0 1 12 0h2a8 8 0 0 0-7-7.6zM12 16a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm-7 2h14v2H5v-2z"/></svg>
+        </button>
+        <button class="ctrl ctrl-leave" type="button" title="Leave call">Leave</button>
+      </nav>
+
+      <aside class="dev-strip" aria-label="DEV speaker toggles">
+        <strong>DEV</strong>
+        <span>Simulate speaking for the Amie extension</span>
+        <button id="ada-talk" type="button">Ada talks</button>
+        <button id="sam-talk" type="button">Sam talks</button>
+        <button id="pavel-talk" type="button">Pavel talks</button>
+      </aside>
+    </div>
+
+    <script>
+      const levels = ["HX2H7", "OgVli", "Oaajhc", "wEsLMd"];
+
+      function bindTalk(buttonId, meterId, tileId, extraMeterIds = []) {
+        let timer = null;
+        const button = document.getElementById(buttonId);
+        const meter = document.getElementById(meterId);
+        const extras = extraMeterIds.map((id) => document.getElementById(id)).filter(Boolean);
+        const tile = document.getElementById(tileId);
+
+        const setMeters = (className) => {
+          meter.className = className;
+          for (const extra of extras) extra.className = className;
+        };
+
+        button.addEventListener("click", () => {
+          if (timer) {
+            clearInterval(timer);
+            timer = null;
+            setMeters("gjg47c");
+            tile.classList.remove("speaking");
+            button.classList.remove("active");
+            return;
+          }
+          let index = 0;
+          tile.classList.add("speaking");
+          button.classList.add("active");
+          // Same level-class cycle Ada uses — detector watches class flicker on [jsname="QgSmzd"].
+          timer = setInterval(() => {
+            setMeters(levels[index % levels.length]);
+            index += 1;
+          }, 100);
+        });
+      }
+
+      // Same toggle shape as the real Meet toolbar: data-is-muted plus a Turn on/off label.
+      const micToggle = document.getElementById("mic-toggle");
+      micToggle.addEventListener("click", () => {
+        const muted = micToggle.getAttribute("data-is-muted") !== "true";
+        micToggle.setAttribute("data-is-muted", String(muted));
+        micToggle.setAttribute("aria-label", muted ? "Turn on microphone" : "Turn off microphone");
+        micToggle.classList.toggle("active", muted);
+      });
+
+      bindTalk("ada-talk", "ada-meter", "ada-tile");
+      bindTalk("sam-talk", "sam-meter", "sam-tile");
+      // Self tile + toolbar mic meter (lockstep), matching real Meet self-correlation cues.
+      bindTalk("pavel-talk", "self-meter", "pavel-tile", ["toolbar-meter"]);
+    </script>
+  </body>
+</html>

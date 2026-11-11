@@ -65,9 +65,41 @@ On first launch, grant permissions when prompted by macOS:
 
 `pnpm tauri dev` launches via a dev `.app` bundle (`src-tauri/target/debug/amie-dev.app`, **Amie Dev**, bundle id `com.pavel.amie.dev`) using `open`, so macOS attributes microphone, system-audio and Accessibility permission to the app instead of the terminal. Running the raw `target/debug/amie` binary from a terminal will not trigger the permission prompt and loopback will be silent.
 
+The onboarding dialog opens automatically whenever the speech model is not downloaded yet (every launch until it is). Force it anytime with `--show-onboarding` (or `AMIE_SHOW_ONBOARDING=1`), e.g. `pnpm tauri dev -- -- --show-onboarding`. After the model is on disk, a `localStorage` key `amie-onboarding-seen` (same prefs pattern as ASR backend / color scheme) keeps it from reappearing; clear that key to replay the permissions step.
+
 Stopping `pnpm tauri dev` (or a Cargo rebuild) quits that window. The runner kills the previous `amie-dev.app` process before launching so you do not stack extra instances.
 
 The **ASR** dropdown on New chat selects **Local (Nemotron)** or **xAI Transcribe 2.0** (persisted in `localStorage`). For xAI, save an API key on **Settings** (stored under Application Support) or set `XAI_API_KEY`. Details: [docs/technical/xai-speech-to-text.md](../../docs/technical/xai-speech-to-text.md).
+
+## Local MCP
+
+`amie_mcp` is a stdio MCP server over the meetings database. It does not open a port. stdout is the protocol.
+
+```bash
+cargo build --manifest-path apps/amie/src-tauri/Cargo.toml --bin amie_mcp
+```
+
+Claude Code:
+
+```bash
+claude mcp add amie -- /absolute/path/to/amie_mcp
+```
+
+Cursor or Codex (`~/.cursor/mcp.json` / `~/.codex/config.toml`):
+
+```json
+{
+  "mcpServers": {
+    "amie": {
+      "command": "/absolute/path/to/amie_mcp"
+    }
+  }
+}
+```
+
+The server reads meetings and can edit a meeting's title, context and summary and archive or unarchive it. It cannot delete meetings, edit transcripts, or change a meeting while it is being recorded. Add `--read-only` (or set `AMIE_MCP_READ_ONLY=1`) to drop the editing and archive tools. It never creates or migrates the database: launch Amie once first, and again after upgrading it.
+
+Set `AMIE_DB_PATH` to point at a different `meetings.db`. The default is `~/Library/Application Support/com.pavel.amie/meetings.db`. Tool list: [docs/research/amie-local-mcp.md](../../docs/research/amie-local-mcp.md).
 
 ## Production build
 
@@ -81,8 +113,53 @@ That writes:
 
 - `apps/amie/src-tauri/target/release/bundle/macos/Amie.app`
 - `apps/amie/src-tauri/target/release/bundle/dmg/Amie_0.1.0_aarch64.dmg`
+- With `createUpdaterArtifacts`: `Amie.app.tar.gz` + `.sig` for the in-app updater
 
 `pnpm tauri build` refuses to run without a signing identity (see below), signs the bundle with it, and checks the result. Drag **Amie.app** into `/Applications`.
+
+## Check for Updates
+
+The macOS **Amie** menu includes **Check for Updates…**. It uses `tauri-plugin-updater` against the public GitHub Releases feed:
+
+`https://github.com/pavelsvitek/realtime-transcription/releases/latest/download/latest.json`
+
+Until a signed Release exists, the menu still works: you get “up to date” or a clear network/404 error. `pnpm tauri dev` overlays **empty** updater endpoints (`src-tauri/tauri.dev.conf.json`) so local debug builds never poll production. A trailing `pnpm … tauri dev --` is fine; the wrapper keeps that overlay ahead of any `--` so Cargo never sees the JSON as its own `--config`.
+
+### Minisign pubkey
+
+`src-tauri/tauri.conf.json` → `plugins.updater.pubkey` holds the real minisign public key (also mirrored at the repo root as `app.pub.key` for convenience; config is source of truth).
+
+Store the matching **private** key only as GitHub Actions secret `TAURI_SIGNING_PRIVATE_KEY` (and an encrypted offline backup). Never commit private key files (`app.priv.key`, `*.priv.key`, or `TAURI_SIGNING_PRIVATE_KEY`).
+
+Losing the private key bricks updates for already-shipped clients until they manually install a build with a new pubkey.
+
+## Releasing (GitHub Actions)
+
+Tag-driven CI: [`.github/workflows/amie-release.yml`](../../.github/workflows/amie-release.yml).
+
+1. Bump **in lockstep**: `src-tauri/tauri.conf.json` → `version`, `src-tauri/Cargo.toml` → `version`, and this package’s `package.json` → `version`.
+2. Commit on the release branch, then tag and push:
+   ```bash
+   git tag app-v0.1.0   # must match the bumped version
+   git push origin app-v0.1.0
+   ```
+3. The workflow runs on `macos-latest`, builds **Apple Silicon only** (`aarch64-apple-darwin`), builds the Nemotron sidecar, then runs `tauri-apps/tauri-action@v1` with `uploadUpdaterJson: true` and `releaseDraft: true`.
+4. Inspect the **draft** Release assets before publishing:
+   - `Amie_*_aarch64.dmg` (first install)
+   - `Amie.app.tar.gz` + `.sig` (updater payload)
+   - `latest.json` (discovery for `tauri-plugin-updater`)
+
+### Secrets
+
+| Secret | Required for | Notes |
+| --- | --- | --- |
+| `TAURI_SIGNING_PRIVATE_KEY` | Signing updater artifacts / `latest.json` | Minisign private key. Workflow fails fast if missing. |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Optional | Only if the key was generated with a password. |
+| `GITHUB_TOKEN` | Creating the draft Release | Provided by Actions; needs `contents: write` (set on the workflow). |
+
+Apple Developer ID / notarization secrets are **not** wired here (next PR). Until then CI sets `AMIE_ALLOW_ADHOC=1` and `APPLE_SIGNING_IDENTITY=-` (ad-hoc). Draft artifacts are for pipeline smoke tests only — Gatekeeper will complain on clean Macs; do not publish for end users.
+
+You can also run the workflow via **Actions → amie-release → Run workflow** (`workflow_dispatch`).
 
 ## Permissions and code signing
 
@@ -110,7 +187,14 @@ It uses the first of: `Developer ID Application`, `Apple Development` (Xcode →
 
 Swapping to a different certificate (for example local → Developer ID) counts as a different app: grant Accessibility once more.
 
-**Accessibility shows Off although an Amie entry is on.** First check it is the right entry: the dev build and the release app are listed separately, as **Amie Dev** and **Amie**, and `pnpm tauri dev` needs **Amie Dev**. The banner and Settings → Speaker names name the entry this build needs. If the right entry is on and the app still says Off, the entry was recorded for an older signature (typically a pre-certificate ad-hoc build): select it in the list, remove it with **−**, quit and reopen the app so it registers itself again, then click **Allow Accessibility**. Amie never deletes the entry itself, because a running app caches its answer and cannot put a deleted entry back until it is relaunched.
+**Accessibility shows Off although an Amie entry is on.** First check it is the right entry: the dev build and the release app are listed separately, as **Amie Dev** and **Amie**, and `pnpm tauri dev` needs **Amie Dev**. The banner and Settings → System access name the entry and path this process needs. If the right *name* is on and the app still says Off, the entry was recorded for an older signature (typically a GitHub ad-hoc DMG or a pre-certificate build): select every stale **Amie** row, remove it with **−**, click **Allow Accessibility** so this binary reappears, enable the new row, then quit and reopen. Amie never deletes the entry itself, because a running app caches its answer and cannot put a deleted entry back until it is relaunched.
+
+To print what the **currently running** binary reports (trust + signature + designated requirement):
+
+```bash
+/Applications/Amie.app/Contents/MacOS/amie --print-accessibility-status
+# exit 0 = trusted for this process; exit 2 = not trusted (banner should show)
+```
 
 To reset permissions by hand:
 

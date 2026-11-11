@@ -1,19 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { rmsIndicatesSound } from "../lib/audio-level";
 import type { MicLevelPayload } from "../lib/transcript-types";
 import { EVENT_TRANSCRIPTION_MIC_LEVEL } from "../lib/tauri-events";
 
-const RMS_THRESHOLD = 0.01;
 const DEBOUNCE_MS = 300;
 
 export function useMicLevel(isActive: boolean) {
   const [micActive, setMicActive] = useState(false);
+  const [micMuted, setMicMuted] = useState(false);
   const lastAboveRef = useRef(0);
   const unlistenRef = useRef<UnlistenFn | null>(null);
 
   useEffect(() => {
     if (!isActive) {
       setMicActive(false);
+      setMicMuted(false);
       return;
     }
 
@@ -24,8 +26,15 @@ export function useMicLevel(isActive: boolean) {
         EVENT_TRANSCRIPTION_MIC_LEVEL,
         (event) => {
           if (!mounted) return;
+          const muted = event.payload.muted === true;
+          setMicMuted(muted);
+          if (muted) {
+            lastAboveRef.current = 0;
+            setMicActive(false);
+            return;
+          }
           const now = Date.now();
-          if (event.payload.rms > RMS_THRESHOLD) {
+          if (rmsIndicatesSound(event.payload.rms)) {
             lastAboveRef.current = now;
             setMicActive(true);
           } else if (now - lastAboveRef.current > DEBOUNCE_MS) {
@@ -44,5 +53,5 @@ export function useMicLevel(isActive: boolean) {
     };
   }, [isActive]);
 
-  return micActive;
+  return { micActive, micMuted };
 }

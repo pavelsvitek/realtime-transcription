@@ -16,8 +16,14 @@ import { MicIndicator } from "../components/MicIndicator";
 import { Spinner } from "../components/Spinner";
 import { TranscriptFeed } from "../components/TranscriptFeed";
 import { useAudioDevice } from "../hooks/useAudioDevice";
+import { silenceSourceOf } from "../lib/capture-notices";
 import { useMicLevel } from "../hooks/useMicLevel";
+import { useSpeechModelDownload } from "../hooks/useSpeechModelDownload";
 import { useTranscription } from "../hooks/useTranscription";
+import {
+  downloadFooterStatus,
+  formatTranscriptionError,
+} from "../lib/onboarding";
 import type { FollowUpSeed } from "../lib/meetings";
 import {
   finishedMeetingTitle,
@@ -69,7 +75,8 @@ export function TranscribePage({
     isActive,
     isLoading,
     isStopping,
-    error,
+    notices,
+    dismissNotice,
     model,
     sessionSource,
     sessionBackend,
@@ -78,10 +85,11 @@ export function TranscribePage({
     clear,
   } = useTranscription();
   const { device, error: deviceError } = useAudioDevice();
+  const modelDownload = useSpeechModelDownload();
   const [tab, setTab] = useState<MeetingDetailTab>("transcript");
   const [isFinishing, setIsFinishing] = useState(false);
   const stopping = isStopping || isFinishing;
-  const micActive = useMicLevel(isActive && !stopping);
+  const { micActive, micMuted } = useMicLevel(isActive && !stopping);
   const queryClient = useQueryClient();
   const liveQuery = useGetLiveMeetingQuery(true);
   const liveMeeting = liveQuery.data ?? null;
@@ -236,7 +244,11 @@ export function TranscribePage({
           <MicIndicator
             isActive={isActive && !stopping}
             micActive={micActive}
-            error={error}
+            micMuted={micMuted}
+            error={
+              notices.find((notice) => silenceSourceOf(notice.message) === null)?.message ??
+              null
+            }
             deviceName={device?.name ?? null}
             deviceKind={device?.kind ?? null}
             deviceError={deviceError}
@@ -266,11 +278,21 @@ export function TranscribePage({
         </div>
       </header>
 
-      {error && (
-        <div className="error-banner">
-          {error}
+      {notices.map((notice) => (
+        <div className="error-banner" key={notice.id} role="status">
+          <span className="error-banner-text">
+            {formatTranscriptionError(notice.message, modelDownload.downloading)}
+          </span>
+          <button
+            type="button"
+            className="error-banner-close"
+            aria-label="Close"
+            onClick={() => dismissNotice(notice.id)}
+          >
+            ×
+          </button>
         </div>
-      )}
+      ))}
 
       <SpeakerNamesPrompt />
 
@@ -340,14 +362,16 @@ export function TranscribePage({
           {stopping
             ? "Stopping..."
             : isActive
-            ? audioSource === "both"
-              ? "Capturing mic + system audio..."
-              : audioSource === "system"
-                ? "Capturing Chrome audio..."
-                : "Listening..."
-            : segments.length > 0
-              ? `${segments.filter((s) => !s.isPartial).length} segments`
-              : "Ready"}
+              ? audioSource === "both"
+                ? "Capturing mic + system audio..."
+                : audioSource === "system"
+                  ? "Capturing Chrome audio..."
+                  : "Listening..."
+              : modelDownload.downloading
+                ? downloadFooterStatus(modelDownload.percent)
+                : segments.length > 0
+                  ? `${segments.filter((s) => !s.isPartial).length} segments`
+                  : "Ready"}
         </span>
       </footer>
     </main>

@@ -57,6 +57,9 @@ pub struct TranscriptionSnapshot {
 #[derive(Debug, Clone, Serialize)]
 pub struct MicLevel {
     pub rms: f32,
+    /// The meeting app's mute button is on, so this stream is silence by design.
+    /// Always `false` on the system-audio meter.
+    pub muted: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -84,6 +87,9 @@ pub enum TranscriptEvent {
     Commit(TranscriptCommit),
     Status(TranscriptionStatus),
     MicLevel(MicLevel),
+    /// System-audio RMS. Same payload as the mic meter, on its own event so the
+    /// mic icon stays tied to the microphone.
+    SystemLevel(MicLevel),
     Device(AudioDevicePayload),
 }
 
@@ -93,6 +99,7 @@ pub mod event_names {
     pub const COMMIT: &str = "transcript/commit";
     pub const STATUS: &str = "transcription/status";
     pub const MIC_LEVEL: &str = "transcription/mic_level";
+    pub const SYSTEM_LEVEL: &str = "transcription/system_level";
     pub const DEVICE: &str = "transcription/device";
 }
 

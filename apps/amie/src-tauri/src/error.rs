@@ -1,5 +1,10 @@
 use thiserror::Error;
 
+use crate::transcription::nemotron;
+
+pub const MODEL_STILL_DOWNLOADING_USER_MESSAGE: &str =
+    "The transcription model is still being downloaded. Check the progress in footer.";
+
 #[derive(Debug, Error)]
 pub enum AppError {
     #[error("Transcription is already running")]
@@ -32,11 +37,23 @@ impl AppError {
             Self::NotRunning => "Transcription is not running.".into(),
             Self::Capture(msg) => format!("Microphone error: {msg}"),
             Self::Asr(msg) => format!("Transcription engine error: {msg}"),
-            Self::ModelLoad(msg) => format!("Failed to load model: {msg}"),
+            Self::ModelLoad(msg) => {
+                if nemotron::download_in_flight() || looks_like_incomplete_model_install(msg) {
+                    MODEL_STILL_DOWNLOADING_USER_MESSAGE.into()
+                } else {
+                    format!("Failed to load model: {msg}")
+                }
+            }
             Self::Io(err) => format!("File error: {err}"),
             Self::Store(msg) => format!("Couldn't save the meeting: {msg}"),
         }
     }
+}
+
+fn looks_like_incomplete_model_install(msg: &str) -> bool {
+    msg.contains("setup-nemotron")
+        || msg.contains("model component")
+        || msg.contains("model bundle not found")
 }
 
 #[cfg(test)]
@@ -73,5 +90,13 @@ mod tests {
         let user_msg = err.to_user_message();
         assert!(user_msg.starts_with("Microphone error:"));
         assert!(user_msg.contains("permission denied"));
+    }
+
+    #[test]
+    fn incomplete_model_install_points_at_footer_progress() {
+        let err = AppError::ModelLoad(
+            "Nemotron model component config.json is missing at /tmp/x/config.json. Run apps/amie/scripts/setup-nemotron.sh.".into(),
+        );
+        assert_eq!(err.to_user_message(), MODEL_STILL_DOWNLOADING_USER_MESSAGE);
     }
 }
