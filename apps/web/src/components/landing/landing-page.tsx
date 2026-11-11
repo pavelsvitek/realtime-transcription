@@ -8,6 +8,7 @@ import { PrimaryNav } from "@/components/landing/primary-nav";
 import { SpeakerId } from "@/components/landing/speaker-id";
 import { StripeWaveform } from "@/components/landing/stripe-waveform";
 import { WordByWord } from "@/components/landing/word-by-word";
+import { WorksWith } from "@/components/landing/works-with";
 
 export function LandingPage() {
   return (
@@ -26,6 +27,7 @@ export function LandingPage() {
                 "linear-gradient(in oklab 180deg, oklab(13.4% -.0007 -0.005 / 0%) 0%, var(--color-raycast-canvas) 100%)",
             }}
           />
+          <WorksWith />
           <div className="absolute top-[512px] left-[200px] z-10">
             <AmieWindow />
           </div>
