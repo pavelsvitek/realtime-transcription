@@ -133,13 +133,14 @@ export function SpeakerId() {
           </span>
         </h2>
         <p className="w-[380px] text-lg text-raycast-body">
-          Amie reads Zoom and Teams names as people talk. Automatic speaker
-          recognition makes meeting summaries more actionable.
+          Amie reads Zoom, Teams and Google Meet names as people talk.
+          Automatic speaker recognition makes meeting summaries more
+          actionable.
         </p>
         <div className="flex h-7 shrink-0 items-center gap-2 self-start rounded-sm border border-raycast-hairline-strong px-2.5">
           <span className="size-1.5 shrink-0 rounded-full bg-raycast-accent-red" />
           <span className="text-sm leading-[13px] font-medium tracking-[0.1px] text-raycast-on-dark-mute">
-            Zoom · Teams
+            Zoom · Teams · Meet
           </span>
         </div>
       </div>
