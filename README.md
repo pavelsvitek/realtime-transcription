@@ -1,14 +1,13 @@
 # Realtime Transcription
 
-pnpm workspace for a real-time transcription product: a local macOS desktop app, a web prototype, and a Cloudflare API.
+pnpm workspace for a real-time transcription product: a local macOS desktop app, a marketing website, and a Cloudflare API.
 
 ## Apps
 
 | Package | Path | Role |
 | --- | --- | --- |
 | `amie` | [`apps/amie`](./apps/amie) | Local macOS transcription app (Tauri + React) |
-| `web` | [`apps/web`](./apps/web) | Next.js suggestion-card prototype |
-| `web-prototype` | [`apps/web-prototype`](./apps/web-prototype) | Marketing landing (Paper → React) |
+| `web` | [`apps/web`](./apps/web) | Marketing landing (Paper → React) |
 | `server` | [`apps/server`](./apps/server) | Cloudflare Workers API (Hono) — routes not added yet |
 
 ## Setup
@@ -25,8 +24,7 @@ From the repo root:
 
 ```bash
 pnpm dev:desktop   # Tauri desktop app
-pnpm dev:web       # Next.js prototype
-pnpm dev:web-prototype  # Marketing landing (localhost:3001)
+pnpm dev:web       # Marketing landing (localhost:3001)
 pnpm dev:server    # Cloudflare Worker (wrangler)
 ```
 

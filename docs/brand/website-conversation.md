@@ -183,6 +183,6 @@ Variants A–B show the title + Executive Summary. **C · Full Summary** is the 
 | Local MCP chat | **Claude Cowork Window — Dark**. The two queries and replies above |
 | Speaker ID (Zoom / Teams) | **A · Color lock** on the landing, before meeting summary. Four tiles: **me**, Sam, Maya, Jordan. Maya speaking. Same name color on Zoom chips and the transcript crop. |
 | Meeting summary | Full Amie window, Meetings detail, Summary tab. Real Amie markdown; names **Sam / Maya / Jordan** bold (optionally speaker-colored). |
-| Code | [`apps/web-prototype/src/data/roadmap-cut.ts`](../../apps/web-prototype/src/data/roadmap-cut.ts) — keep in sync with this file |
+| Code | [`apps/web/src/data/roadmap-cut.ts`](../../apps/web/src/data/roadmap-cut.ts) — keep in sync with this file |
 
 When speaker ID or follow-up meetings land on the site, reuse this cast. The follow-up is the **cut review** with me, Sam, Maya, and Jordan — not a new team.
