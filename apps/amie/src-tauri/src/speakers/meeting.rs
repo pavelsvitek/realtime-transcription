@@ -46,17 +46,27 @@ pub fn is_teams_app_path(path: &str) -> bool {
     }
 }
 
-/// Remote display names marked speaking, or an empty set when no meeting app
-/// is running. `Err` means the accessibility read failed and the previous
+/// One accessibility read of the running meeting app.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct MeetingRead {
+    /// Remote display names marked speaking.
+    pub speakers: BTreeSet<String>,
+    /// The local user's mic, `None` when the app does not say. Only Teams
+    /// reports it so far.
+    pub self_muted: Option<bool>,
+}
+
+/// Speakers and mic state of the running meeting app, empty when none is
+/// running. `Err` means the accessibility read failed and the previous
 /// timeline entry should be left alone.
-pub fn read_speakers() -> Result<BTreeSet<String>, String> {
+pub fn read_meeting() -> Result<MeetingRead, String> {
     #[cfg(target_os = "macos")]
     {
-        read_speakers_macos()
+        read_meeting_macos()
     }
     #[cfg(not(target_os = "macos"))]
     {
-        Ok(BTreeSet::new())
+        Ok(MeetingRead::default())
     }
 }
 
@@ -78,17 +88,17 @@ pub fn running_meeting_app() -> Option<MeetingApp> {
 }
 
 #[cfg(target_os = "macos")]
-fn read_speakers_macos() -> Result<BTreeSet<String>, String> {
+fn read_meeting_macos() -> Result<MeetingRead, String> {
     let zoom = process::pid_for(process::ZOOM_BUNDLE);
     let teams_pid = process::teams_pid();
     match (zoom, teams_pid) {
-        (None, None) => Ok(BTreeSet::new()),
+        (None, None) => Ok(MeetingRead::default()),
         (Some(pid), None) => read_zoom(pid),
         (None, Some(pid)) => read_teams(pid),
         (Some(zoom_pid), Some(teams_pid)) => {
-            let zoom_names = read_zoom(zoom_pid)?;
-            if !zoom_names.is_empty() {
-                Ok(zoom_names)
+            let zoom = read_zoom(zoom_pid)?;
+            if !zoom.speakers.is_empty() {
+                Ok(zoom)
             } else {
                 read_teams(teams_pid)
             }
@@ -97,12 +107,15 @@ fn read_speakers_macos() -> Result<BTreeSet<String>, String> {
 }
 
 #[cfg(target_os = "macos")]
-fn read_zoom(pid: i32) -> Result<BTreeSet<String>, String> {
-    ax::application_tree(pid, false).map(|tree| zoom::speaking_names(&tree))
+fn read_zoom(pid: i32) -> Result<MeetingRead, String> {
+    ax::application_tree(pid, false).map(|tree| MeetingRead {
+        speakers: zoom::speaking_names(&tree),
+        self_muted: None,
+    })
 }
 
 #[cfg(target_os = "macos")]
-fn read_teams(pid: i32) -> Result<BTreeSet<String>, String> {
+fn read_teams(pid: i32) -> Result<MeetingRead, String> {
     let tree = ax::application_tree(pid, true)?;
     if teams::needs_roster_open(&tree) {
         match ax::press_dom_id(pid, "roster-button") {
@@ -134,7 +147,10 @@ fn read_teams(pid: i32) -> Result<BTreeSet<String>, String> {
             );
         }
     }
-    Ok(read.speakers)
+    Ok(MeetingRead {
+        speakers: read.speakers,
+        self_muted: read.self_muted,
+    })
 }
 
 #[cfg(test)]

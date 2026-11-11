@@ -13,7 +13,7 @@ use crate::llm::service::meeting_skips_auto_summary;
 use crate::llm::{emitter_from_app, SummaryService};
 use crate::meetings::{now_ms, MeetingStore};
 use crate::speakers::{
-    speaker_for_segment, start_speaker_watch, MeetBridge, SpeakerSink, SpeakerTimeline,
+    speaker_for_segment, start_speaker_watch, AppMute, MeetBridge, SpeakerSink, SpeakerTimeline,
     SpeakerWatch,
 };
 use crate::transcription::asr::LoadedEngine;
@@ -218,9 +218,12 @@ impl TranscriptionService {
             }
         };
         let speaker_cut = Arc::new(AtomicU64::new(0));
+        // Muted in Google Meet (extension) or in Teams (Accessibility).
+        let app_mute = AppMute::default();
         let mic_mute = {
             let meet_bridge = self.meet_bridge.clone();
-            MicMuteGate::new(move || meet_bridge.self_muted())
+            let app_mute = app_mute.clone();
+            MicMuteGate::new(move || meet_bridge.self_muted() || app_mute.is_muted())
         };
 
         let (mic, system) = match source {
@@ -300,7 +303,12 @@ impl TranscriptionService {
                     Arc::clone(&speaker_cut),
                 );
                 self.meet_bridge.attach_session(sink.clone());
-                start_speaker_watch(sink, stop_flag.clone(), self.meet_bridge.clone())
+                start_speaker_watch(
+                    sink,
+                    stop_flag.clone(),
+                    self.meet_bridge.clone(),
+                    app_mute,
+                )
             })
         });
 

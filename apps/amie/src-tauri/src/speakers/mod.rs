@@ -1,3 +1,4 @@
+mod app_mute;
 mod identity;
 mod label;
 pub mod meet_bridge;
@@ -12,6 +13,7 @@ mod tree;
 mod watch;
 mod zoom;
 
+pub use app_mute::AppMute;
 pub use identity::app_identity;
 pub use label::speaker_for_segment;
 pub use meet_bridge::{GoogleMeetExtensionStatus, MeetBridge};

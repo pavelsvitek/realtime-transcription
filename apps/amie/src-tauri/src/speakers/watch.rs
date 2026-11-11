@@ -4,6 +4,7 @@ use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
+use super::app_mute::AppMute;
 use super::meet_bridge::MeetBridge;
 use super::meeting;
 use super::sink::SpeakerSink;
@@ -39,16 +40,27 @@ impl Drop for SpeakerWatch {
     }
 }
 
-pub fn start(sink: SpeakerSink, stop: Arc<AtomicBool>, meet_bridge: MeetBridge) -> SpeakerWatch {
+/// `app_mute` receives the local user's mic state from Teams on every poll.
+pub fn start(
+    sink: SpeakerSink,
+    stop: Arc<AtomicBool>,
+    meet_bridge: MeetBridge,
+    app_mute: AppMute,
+) -> SpeakerWatch {
     let handle = std::thread::Builder::new()
         .name("speaker-watch".into())
-        .spawn(move || poll_loop(sink, stop, meet_bridge))
+        .spawn(move || poll_loop(sink, stop, meet_bridge, app_mute))
         .inspect_err(|error| tracing::error!(%error, "Failed to start speaker watch"))
         .ok();
     SpeakerWatch { handle }
 }
 
-fn poll_loop(sink: SpeakerSink, stop: Arc<AtomicBool>, meet_bridge: MeetBridge) {
+fn poll_loop(
+    sink: SpeakerSink,
+    stop: Arc<AtomicBool>,
+    meet_bridge: MeetBridge,
+    app_mute: AppMute,
+) {
     let mut warned = false;
     let mut hold = SpeakerHold::default();
     while !stop.load(Ordering::Relaxed) {
@@ -56,8 +68,10 @@ fn poll_loop(sink: SpeakerSink, stop: Arc<AtomicBool>, meet_bridge: MeetBridge) 
         // This loop stays the Zoom/Teams Accessibility writer, and it records an
         // empty set when Meet has no live extension (there is no Meet AX path).
         if !meet_bridge.is_live() {
-            match meeting::read_speakers() {
-                Ok(names) => {
+            match meeting::read_meeting() {
+                Ok(read) => {
+                    app_mute.set(read.self_muted);
+                    let names = read.speakers;
                     if !meet_bridge.is_live() {
                         let app_running = meeting::running_meeting_app().is_some();
                         if let Some(names) = hold.publish(app_running, names) {
@@ -66,6 +80,7 @@ fn poll_loop(sink: SpeakerSink, stop: Arc<AtomicBool>, meet_bridge: MeetBridge) 
                     }
                 }
                 Err(error) => {
+                    app_mute.set(None);
                     if !warned {
                         warned = true;
                         tracing::warn!(error = %error, "Speaker names unavailable");
@@ -74,6 +89,9 @@ fn poll_loop(sink: SpeakerSink, stop: Arc<AtomicBool>, meet_bridge: MeetBridge) 
                     }
                 }
             }
+        } else {
+            // Meet owns the call, and its own mute state reaches the gate.
+            app_mute.set(None);
         }
         let slice = Duration::from_millis(10);
         let mut waited = Duration::ZERO;
