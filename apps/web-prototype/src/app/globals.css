@@ -115,6 +115,7 @@
 }
 
 html {
+  scroll-behavior: smooth;
   background: var(--color-raycast-canvas);
   color: var(--color-raycast-ink);
   font-synthesis: none;
@@ -242,5 +243,11 @@ body {
   .msg-in,
   .dash-flow {
     animation: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
   }
 }

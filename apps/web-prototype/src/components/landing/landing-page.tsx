@@ -1,5 +1,6 @@
 import { AmieWindow } from "@/components/landing/amie-window";
 import { Footer } from "@/components/landing/footer";
+import { GridBackground } from "@/components/landing/grid-background";
 import { Hero } from "@/components/landing/hero";
 import { McpSection } from "@/components/landing/mcp-section";
 import { MeetingSummary } from "@/components/landing/meeting-summary";
@@ -11,7 +12,8 @@ import { WordByWord } from "@/components/landing/word-by-word";
 export function LandingPage() {
   return (
     <main id="top" className="min-h-screen bg-raycast-canvas text-raycast-ink">
-      <div className="relative mx-auto w-full max-w-[1440px]">
+      <div className="relative isolate mx-auto w-full max-w-[1440px]">
+        <GridBackground />
         <section className="relative h-[1256px] overflow-x-clip">
           <PrimaryNav />
           <Hero />
