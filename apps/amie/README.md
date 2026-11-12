@@ -157,9 +157,36 @@ Tag-driven CI: [`.github/workflows/amie-release.yml`](../../.github/workflows/am
 | `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Optional | Only if the key was generated with a password. |
 | `GITHUB_TOKEN` | Creating the draft Release | Provided by Actions; needs `contents: write` (set on the workflow). |
 
-Apple Developer ID / notarization secrets are **not** wired here (next PR). Until then CI sets `AMIE_ALLOW_ADHOC=1` and `APPLE_SIGNING_IDENTITY=-` (ad-hoc). Draft artifacts are for pipeline smoke tests only — Gatekeeper will complain on clean Macs; do not publish for end users.
+Developer ID signing and notarization secrets are listed in the next section; the workflow fails fast if any is missing.
 
 You can also run the workflow via **Actions → amie-release → Run workflow** (`workflow_dispatch`).
+
+### Developer ID signing and notarization
+
+Without this, a downloaded DMG or update triggers Gatekeeper's "unidentified developer" prompt. One-time setup (needs a paid Apple Developer Program membership; creating a Developer ID certificate needs the Account Holder or Admin role):
+
+1. **Certificate.** Xcode → Settings → Accounts → your team → Manage Certificates → **+** → **Developer ID Application**. (Or developer.apple.com → Certificates → Developer ID Application, with a CSR from Keychain Access.)
+2. **Export.** Keychain Access → My Certificates → right-click "Developer ID Application: …" → Export as `.p12` with a password. Then:
+   ```bash
+   base64 -i DeveloperID.p12 | pbcopy   # paste as APPLE_CERTIFICATE
+   security find-identity -v -p codesigning   # copy the full "Developer ID Application: Name (TEAMID)" string
+   ```
+3. **App-specific password.** appleid.apple.com → Sign-In and Security → App-Specific Passwords.
+4. **Team ID.** developer.apple.com → Membership details.
+5. **GitHub secrets** (Settings → Secrets and variables → Actions): `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID`.
+6. Delete the `.p12` afterwards (keep an encrypted backup).
+
+Local release build with the real certificate: `APPLE_SIGNING_IDENTITY="Developer ID Application: …" APPLE_ID=… APPLE_PASSWORD=… APPLE_TEAM_ID=… pnpm tauri build` (omit the three notarization variables to sign without notarizing).
+
+Verify a built app:
+
+```bash
+codesign --verify --deep --strict --verbose=2 Amie.app
+spctl --assess --type execute --verbose Amie.app    # "accepted, source=Notarized Developer ID"
+xcrun stapler validate Amie.app
+```
+
+The updater payload is still verified by the minisign key; Developer ID only affects Gatekeeper. The Developer ID requirement differs from the old ad-hoc/local one, so the first update onto it asks for Accessibility once more.
 
 ## Permissions and code signing
 
