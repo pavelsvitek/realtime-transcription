@@ -75,6 +75,24 @@ export type AudioDeviceInfo = {
   transport: string;
 };
 
+export type AudioDeviceEntry = {
+  id: string;
+  name: string;
+};
+
+export type AudioDeviceList = {
+  inputs: AudioDeviceEntry[];
+  outputs: AudioDeviceEntry[];
+  defaultInputId: string | null;
+  defaultOutputId: string | null;
+};
+
+/** `null` follows the system default. */
+export type AudioDeviceChoice = {
+  input: string | null;
+  output: string | null;
+};
+
 export type AudioDevicePayload = {
   device: AudioDeviceInfo;
 };

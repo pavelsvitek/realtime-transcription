@@ -101,6 +101,8 @@ pub mod event_names {
     pub const MIC_LEVEL: &str = "transcription/mic_level";
     pub const SYSTEM_LEVEL: &str = "transcription/system_level";
     pub const DEVICE: &str = "transcription/device";
+    /// The device list or a system default changed.
+    pub const DEVICES_CHANGED: &str = "transcription/devices_changed";
 }
 
 #[cfg(test)]

@@ -110,6 +110,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             greet,
             commands::audio_device::get_default_input_device_command,
+            commands::audio_device::list_audio_devices_command,
+            commands::audio_device::set_audio_devices,
             commands::transcription::start_transcription,
             commands::transcription::stop_transcription,
             commands::transcription::get_transcription_status,

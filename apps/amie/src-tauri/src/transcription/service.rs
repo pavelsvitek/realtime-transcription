@@ -6,6 +6,7 @@ use std::thread::JoinHandle;
 
 use tauri::{AppHandle, Emitter};
 
+use crate::audio_device::DeviceSelection;
 use crate::config::AppConfig;
 use crate::error::AppError;
 use crate::ipc::transcript::*;
@@ -20,7 +21,7 @@ use crate::transcription::asr::LoadedEngine;
 use crate::transcription::audio_source::AudioSource;
 use crate::transcription::backend::AsrBackend;
 use crate::transcription::capture;
-use crate::transcription::cpal_capture::CaptureCounters;
+use crate::transcription::cpal_capture::{CaptureCounters, CaptureOptions};
 use crate::transcription::debug_dump::{DebugSession, StreamCaptureStats};
 use crate::transcription::flac_convert::convert_wav_to_flac_background;
 use crate::transcription::mic_mute::MicMuteGate;
@@ -34,6 +35,8 @@ const AUDIO_CHANNEL_BOUND: usize = 8_192;
 struct StreamPair {
     worker_handle: JoinHandle<()>,
     _capture: capture::OpenedCapture,
+    /// Kept so a replacement capture can feed the same worker (device hot-swap).
+    audio_tx: mpsc::SyncSender<Vec<f32>>,
     stream: String,
     counters: CaptureCounters,
     sample_rate: u32,
@@ -60,6 +63,8 @@ pub struct TranscriptionService {
     meetings: Option<MeetingStore>,
     summaries: Option<SummaryService>,
     meet_bridge: MeetBridge,
+    /// Devices the user picked. Applied at start and on hot-swap.
+    devices: Mutex<DeviceSelection>,
 }
 
 impl TranscriptionService {
@@ -73,6 +78,7 @@ impl TranscriptionService {
             meetings: None,
             summaries: None,
             meet_bridge: MeetBridge::new(),
+            devices: Mutex::new(DeviceSelection::default()),
         }
     }
 
@@ -208,6 +214,7 @@ impl TranscriptionService {
         let models = models_guard.as_ref().unwrap();
         let model_name = models.model_name.clone();
 
+        let selection = self.devices.lock().unwrap().clone();
         let stop_flag = Arc::new(AtomicBool::new(false));
         let counter = self.segment_counter.clone();
         let transcript = self.transcript.clone();
@@ -230,6 +237,7 @@ impl TranscriptionService {
             AudioSource::Both => {
                 let mic = spawn_stream_worker(
                     AudioSource::Mic,
+                    &selection,
                     models,
                     stop_flag.clone(),
                     counter.clone(),
@@ -244,6 +252,7 @@ impl TranscriptionService {
                 )?;
                 let system = spawn_stream_worker(
                     AudioSource::SystemAudio,
+                    &selection,
                     models,
                     stop_flag.clone(),
                     counter,
@@ -261,6 +270,7 @@ impl TranscriptionService {
             AudioSource::Mic => {
                 let pair = spawn_stream_worker(
                     AudioSource::Mic,
+                    &selection,
                     models,
                     stop_flag.clone(),
                     counter,
@@ -278,6 +288,7 @@ impl TranscriptionService {
             AudioSource::SystemAudio => {
                 let pair = spawn_stream_worker(
                     AudioSource::SystemAudio,
+                    &selection,
                     models,
                     stop_flag.clone(),
                     counter,
@@ -382,6 +393,75 @@ impl TranscriptionService {
         }
 
         Ok(())
+    }
+
+    /// Records the user's device choice. While a session runs, streams whose
+    /// device changed are reopened on the new device without stopping the
+    /// session. `None` for a side means "follow the system default".
+    pub fn set_devices(
+        &self,
+        app_handle: Option<&AppHandle>,
+        selection: DeviceSelection,
+    ) -> Result<(), AppError> {
+        *self.devices.lock().unwrap() = selection;
+        self.reapply_devices(app_handle)
+    }
+
+    /// Reopens running streams whose resolved device differs from the current
+    /// selection or system default. Cheap no-op when nothing changed, so it is
+    /// also called on every Core Audio default/device-list change.
+    pub fn reapply_devices(&self, app_handle: Option<&AppHandle>) -> Result<(), AppError> {
+        let selection = self.devices.lock().unwrap().clone();
+        let mut running = self.running.lock().unwrap();
+        let Some(state) = running.as_mut() else {
+            return Ok(());
+        };
+
+        let mut first_error = None;
+        for (source, pair) in [
+            (AudioSource::Mic, state.mic.as_mut()),
+            (AudioSource::SystemAudio, state.system.as_mut()),
+        ] {
+            let Some(pair) = pair else { continue };
+            let wanted = match source {
+                AudioSource::Mic => crate::audio_device::resolve_input(&selection.input),
+                _ => crate::audio_device::resolve_output(&selection.output),
+            }
+            .and_then(|device| crate::audio_device::device_key(&device));
+            if wanted.is_none() || wanted == pair._capture.device_key {
+                continue;
+            }
+
+            let options = CaptureOptions {
+                counters: Some(pair.counters.clone()),
+                target_rate: Some(pair.sample_rate),
+            };
+            match capture::open_capture(source, pair.audio_tx.clone(), &selection, options) {
+                Ok(opened) => {
+                    tracing::info!(
+                        stream = %pair.stream,
+                        from = %pair._capture.device_name,
+                        to = %opened.device_name,
+                        "Switched audio device"
+                    );
+                    // Replacing drops the old capture, which closes its stream.
+                    pair._capture = opened;
+                }
+                Err(e) => {
+                    tracing::error!(stream = %pair.stream, error = %format!("{e:#}"), "Failed to switch audio device");
+                    first_error.get_or_insert(AppError::Capture(format!("{e:#}")));
+                }
+            }
+        }
+        drop(running);
+
+        if let Some(app) = app_handle {
+            crate::audio_device::emit_device_update(app);
+        }
+        match first_error {
+            Some(e) => Err(e),
+            None => Ok(()),
+        }
     }
 
     pub fn stop(&self, app_handle: Option<&AppHandle>) -> Result<TranscriptExport, AppError> {
@@ -581,6 +661,7 @@ impl TranscriptionService {
 /// `source` must be `Mic` or `SystemAudio` — never `Both`.
 fn spawn_stream_worker(
     source: AudioSource,
+    selection: &DeviceSelection,
     models: &LoadedEngine,
     stop_flag: Arc<AtomicBool>,
     segment_counter: Arc<AtomicU64>,
@@ -596,7 +677,8 @@ fn spawn_stream_worker(
     super::cpal_capture::reset_capture_stats();
     let (audio_tx, audio_rx) = mpsc::sync_channel::<Vec<f32>>(AUDIO_CHANNEL_BOUND);
     let opened =
-        capture::open_capture(source, audio_tx).map_err(|e| AppError::Capture(format!("{e:#}")))?;
+        capture::open_capture(source, audio_tx.clone(), selection, CaptureOptions::default())
+            .map_err(|e| AppError::Capture(format!("{e:#}")))?;
     let stream_name = source.as_str().to_string();
     let counters = opened.counters.clone();
     let sample_rate = opened.sample_rate;
@@ -664,6 +746,7 @@ fn spawn_stream_worker(
     Ok(StreamPair {
         worker_handle,
         _capture: opened,
+        audio_tx,
         stream: stream_name,
         counters,
         sample_rate,
