@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import Image from "next/image";
 
 export type AmieNavId = "home" | "transcription" | "meetings" | "settings";
 
@@ -146,7 +145,7 @@ export function AmieSidebar({
         <span className="size-3 shrink-0 rounded-full bg-[#28C840]" />
       </div>
       <div className="flex items-center gap-2.5 px-1 pt-1 pb-3.5">
-        <Image
+        <img
           src="/amie-app-icon.png"
           alt=""
           width={32}

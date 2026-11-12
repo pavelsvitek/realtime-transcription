@@ -11,9 +11,12 @@
 # testing
 /coverage
 
-# next.js
-/.next/
-/out/
+# build output
+/dist/
+/.output/
+/.wrangler/
+/.tanstack/
+src/routeTree.gen.ts
 
 # production
 /build
@@ -30,10 +33,10 @@ yarn-error.log*
 
 # env files
 .env*
-
-# vercel
-.vercel
+!env.example
+.dev.vars*
+!.dev.vars.example
 
 # typescript
 *.tsbuildinfo
-next-env.d.ts
+

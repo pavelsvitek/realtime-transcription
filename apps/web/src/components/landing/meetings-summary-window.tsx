@@ -152,7 +152,7 @@ export function MeetingsSummaryWindow() {
                             indent
                           >
                             <Inline
-                              speaker={child.speaker}
+                              speaker={(child as SummaryInline).speaker}
                               text={child.text}
                             />
                           </Bullet>

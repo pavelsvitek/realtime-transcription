@@ -29,6 +29,7 @@ export function StripeWaveform() {
         fill="none"
         stroke="url(#hero-stripe)"
         strokeWidth="3"
+        vectorEffect="non-scaling-stroke"
         style={{ stroke: "url(#hero-stripe)" }}
       />
     </svg>
