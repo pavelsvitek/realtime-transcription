@@ -7,6 +7,7 @@ import {
   SupportEmail,
   type LegalSection,
 } from "@/components/legal/legal-page";
+import { seo } from "@/lib/seo";
 
 const sections: LegalSection[] = [
   {
@@ -353,14 +354,11 @@ function TermsPage() {
 }
 
 export const Route = createFileRoute("/terms")({
-  head: () => ({
-    meta: [
-      { title: "Terms and Conditions — Amie" },
-      {
-        name: "description",
-        content: "The terms for using Amie, the Amie for Google Meet extension and this website.",
-      },
-    ],
-  }),
+  head: () =>
+    seo({
+      title: "Terms and Conditions — Amie",
+      description: "The terms for using Amie, the Amie for Google Meet extension and this website.",
+      path: "/terms",
+    }),
   component: TermsPage,
 });

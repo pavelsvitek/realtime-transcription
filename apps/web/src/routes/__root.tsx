@@ -12,12 +12,6 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Amie — your meetings, transcribed on your Mac" },
-      {
-        name: "description",
-        content:
-          "Amie writes every word as it’s said, from your mic and your calls. Local by default.",
-      },
     ],
     links: [{ rel: "stylesheet", href: appCss }],
   }),
