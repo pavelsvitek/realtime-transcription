@@ -32,6 +32,17 @@ const sections: LegalSection[] = [
           confirm you are allowed to. If you do not agree, do not use Amie.
         </p>
         <p>
+          If you got Amie from the Mac App Store, Apple’s{" "}
+          <a
+            href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/"
+            rel="noreferrer"
+          >
+            Licensed Application End User License Agreement
+          </a>{" "}
+          governs your license to the app. These terms apply alongside it, and
+          if the two conflict, Apple’s agreement wins for the App Store copy.
+        </p>
+        <p>
           Our <Link href="/privacy">Privacy Policy</Link> explains how Amie
           handles data and is part of these terms.
         </p>
@@ -201,8 +212,9 @@ const sections: LegalSection[] = [
     title: "Updates and changes to Amie",
     body: (
       <p>
-        Amie checks for updates and may install them to fix bugs, improve
-        security or add features. We may also change or remove features, or
+        Amie gets updates to fix bugs, improve security or add features. The
+        version from this website checks for updates itself. The Mac App Store
+        version is updated through the App Store. We may also change or remove features, or
         stop offering Amie. If we stop, the version you already have will keep
         working on your Mac, but we will no longer support or update it.
       </p>

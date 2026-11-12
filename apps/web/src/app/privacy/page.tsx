@@ -197,9 +197,12 @@ const sections: LegalSection[] = [
             a normal file download. No meeting data is sent.
           </li>
           <li>
-            <strong>Update checks.</strong> Amie checks GitHub for new
-            releases and downloads updates from there. GitHub sees your IP
-            address and the request, as with any download.
+            <strong>Update checks.</strong> If you downloaded Amie from this
+            website, it checks GitHub for new releases and downloads updates
+            from there. GitHub sees your IP address and the request, as with
+            any download. If you got Amie from the Mac App Store, updates come
+            through the App Store instead, and Apple’s privacy policy covers
+            that.
           </li>
         </ul>
         <p>
