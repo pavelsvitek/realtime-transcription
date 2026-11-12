@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { SITE_URL } from "@/lib/site";
+
 import "./globals.css";
 
 const inter = Inter({
@@ -9,6 +11,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: "Amie — your meetings, transcribed on your Mac",
   description:
     "Amie writes every word as it’s said, from your mic and your calls. Local by default.",

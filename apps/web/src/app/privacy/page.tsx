@@ -4,6 +4,7 @@ import Link from "next/link";
 import {
   LegalPage,
   Placeholder,
+  SupportEmail,
   type LegalSection,
 } from "@/components/legal/legal-page";
 
@@ -304,7 +305,7 @@ const sections: LegalSection[] = [
           is nothing to opt out of.
         </p>
         <p>
-          To make a request, email <Placeholder>CONTACT EMAIL</Placeholder>. We
+          To make a request, email <SupportEmail />. We
           will answer within 30 days. You can also complain to your local data
           protection authority.
         </p>
@@ -353,7 +354,7 @@ const sections: LegalSection[] = [
     body: (
       <p>
         Questions about privacy? Email{" "}
-        <Placeholder>CONTACT EMAIL</Placeholder> or write to{" "}
+        <SupportEmail /> or write to{" "}
         <Placeholder>COMPANY LEGAL NAME</Placeholder>,{" "}
         <Placeholder>REGISTERED ADDRESS</Placeholder>.
       </p>

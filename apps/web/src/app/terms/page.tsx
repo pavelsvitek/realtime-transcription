@@ -4,6 +4,7 @@ import Link from "next/link";
 import {
   LegalPage,
   Placeholder,
+  SupportEmail,
   type LegalSection,
 } from "@/components/legal/legal-page";
 
@@ -331,7 +332,7 @@ const sections: LegalSection[] = [
     body: (
       <p>
         Questions about these terms? Email{" "}
-        <Placeholder>CONTACT EMAIL</Placeholder> or write to{" "}
+        <SupportEmail /> or write to{" "}
         <Placeholder>COMPANY LEGAL NAME</Placeholder>,{" "}
         <Placeholder>REGISTERED ADDRESS</Placeholder>.
       </p>

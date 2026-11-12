@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import {
   LegalPage,
-  Placeholder,
+  SupportEmail,
   type LegalSection,
 } from "@/components/legal/legal-page";
 
@@ -20,7 +20,7 @@ const sections: LegalSection[] = [
     body: (
       <>
         <p className="legal-callout">
-          Email <Placeholder>CONTACT EMAIL</Placeholder> with any question
+          Email <SupportEmail /> with any question
           or problem.
         </p>
         <p>To help us help you faster, include:</p>
@@ -165,7 +165,7 @@ const sections: LegalSection[] = [
     body: (
       <p>
         To ask about, correct or delete personal data we hold about you, email{" "}
-        <Placeholder>CONTACT EMAIL</Placeholder>. Your rights are explained in
+        <SupportEmail />. Your rights are explained in
         the <Link href="/privacy#your-rights">Privacy Policy</Link>.
       </p>
     ),

@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import { Footer } from "@/components/site/footer";
 import { PrimaryNav } from "@/components/site/primary-nav";
+import { SUPPORT_EMAIL } from "@/lib/site";
 
 export type LegalSection = {
   id: string;
@@ -20,6 +21,10 @@ type LegalPageProps = {
 /** Unfilled legal fact. Rendered visibly so it can't ship by accident. */
 export function Placeholder({ children }: { children: string }) {
   return <mark className="legal-placeholder">[{children}]</mark>;
+}
+
+export function SupportEmail() {
+  return <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>;
 }
 
 export function LegalPage({

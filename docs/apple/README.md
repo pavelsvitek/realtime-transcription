@@ -14,12 +14,12 @@ Status key: ✅ done · 🟡 partly done · ⬜ not started · 🔒 needs a fact
 
 | # | Requirement | Why | Status |
 | --- | --- | --- | --- |
-| A1 | **A public website on the company's own domain.** It must be live and have real content. Social media pages, near-empty sites and "domain for sale" pages are rejected. | Needed to enroll in the Developer Program as an organization. | 🔒 The site in `apps/web` qualifies once it's deployed on the company domain. |
-| A2 | **A work email address on that same domain.** | Enrollment requires a work email that matches the site's domain. It is also the contact address for the privacy policy, support and the EU DSA listing details. | 🔒 Shown as `[CONTACT EMAIL]` on the site. |
+| A1 | **A public website on the company's own domain.** It must be live and have real content. Social media pages, near-empty sites and "domain for sale" pages are rejected. | Needed to enroll in the Developer Program as an organization. | 🟡 Domain is **getamie.app** (`SITE_URL` in `apps/web/src/lib/site.ts`, also the site's `metadataBase`). Still to do: deploy the site there. |
+| A2 | **A work email address on that same domain.** | Enrollment requires a work email that matches the site's domain. It is also the contact address for the privacy policy, support and the EU DSA listing details. | ✅ **support@getamie.app** (`SUPPORT_EMAIL` in `apps/web/src/lib/site.ts`). The privacy policy, terms and support page all link to it. Check the mailbox actually receives mail. |
 | A3 | **A public Privacy Policy URL** (required). It must say what data is collected and how, who it's shared with (third-party AI providers are named explicitly), how long it's kept, how to delete it, and how to withdraw consent. It must also be easy to reach **inside the app**. | Guideline 5.1.1(i); App Information → Privacy Policy URL. | 🟡 `/privacy` is written. Placeholders still need filling. The in-app link is an app task (see C7). |
-| A4 | **A Support URL with real contact details** (required). | Guideline 1.5: "Make sure your app and its Support URL include an easy way to contact you." Some countries also require it by law. | 🟡 `/support` exists. The email is a placeholder. |
-| A5 | **A Marketing URL** (optional). | Shown on the listing. | ✅ The landing page `/`. |
-| A6 | **A Privacy Choices URL** (optional): a page where people can see or delete their data. | App Privacy → Privacy Choices URL. | ✅ Use `/privacy#your-rights`. |
+| A4 | **A Support URL with real contact details** (required). | Guideline 1.5: "Make sure your app and its Support URL include an easy way to contact you." Some countries also require it by law. | ✅ `https://getamie.app/support`, linked from the footer. |
+| A5 | **A Marketing URL** (optional). | Shown on the listing. | ✅ `https://getamie.app/`. |
+| A6 | **A Privacy Choices URL** (optional): a page where people can see or delete their data. | App Privacy → Privacy Choices URL. | ✅ `https://getamie.app/privacy#your-rights`. |
 | A7 | **Terms and license.** Apple's standard license agreement (EULA) applies to App Store apps unless you upload your own. | App Information → License Agreement. | 🟡 `/terms` says Apple's standard EULA applies to App Store copies. You still need to decide: Apple's standard license or a custom one. |
 | A8 | **Legal text that is accurate for the App Store version.** App Store apps must get every update through the App Store (2.4.5(vii)). | The policy and terms describe the GitHub updater. | 🟡 Both pages now cover both channels. Check them again once the App Store build exists. |
 | A9 | **The official "Download on the Mac App Store" badge** in place of the Download button, linking to the listing. | Apple marketing guidelines. | ⬜ Waits until the listing is live. |
@@ -47,7 +47,7 @@ Status key: ✅ done · 🟡 partly done · ⬜ not started · 🔒 needs a fact
 | Age rating | Answered through a questionnaire. |
 | Content rights | A declaration that you have the rights to third-party content in the app. |
 | License agreement | Apple's standard EULA or a custom one (see A7). |
-| Privacy Policy URL | Required (see A3). |
+| Privacy Policy URL | Required: `https://getamie.app/privacy` (see A3). |
 
 ### Version page
 
@@ -58,8 +58,8 @@ Status key: ✅ done · 🟡 partly done · ⬜ not started · 🔒 needs a fact
 | Description (required) | Up to 4,000 characters, plain text. |
 | Keywords (required) | Up to 100 bytes. Don't repeat the app or company name, and don't use other companies' names. |
 | Promotional text | Up to 170 characters. It can be changed without a new version. |
-| Support URL (required) | `/support` (see A4). |
-| Marketing URL | `/` (see A5). |
+| Support URL (required) | `https://getamie.app/support` (see A4). |
+| Marketing URL | `https://getamie.app/` (see A5). |
 | Copyright (required) | For example, `2026 [COMPANY LEGAL NAME]`. |
 | Version and release setting | Manual, automatic, or automatic on a date. |
 | "What's New" | Required for every version after the first. Up to 4,000 characters. |
