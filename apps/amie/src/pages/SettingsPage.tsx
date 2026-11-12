@@ -15,12 +15,13 @@ const PROVIDERS: { id: SummaryProvider; label: string }[] = [
   { id: "gemini", label: "Gemini" },
 ];
 
-type SettingsSection = "meeting-summary" | "mcp" | "system-access";
+type SettingsSection = "meeting-summary" | "mcp" | "system-access" | "privacy";
 
 const NAV_ITEMS: { id: SettingsSection; label: string }[] = [
   { id: "meeting-summary", label: "Meeting summary" },
   { id: "mcp", label: "MCP" },
   { id: "system-access", label: "System access" },
+  { id: "privacy", label: "Privacy" },
 ];
 
 const SECTION_IDS = NAV_ITEMS.map((item) => item.id);
@@ -59,6 +60,12 @@ type SystemAccessStatus = {
   googleMeetExtension: GoogleMeetExtensionStatus;
 };
 
+type AnalyticsStatus = {
+  enabled: boolean;
+  available: boolean;
+  disabledByEnv: boolean;
+};
+
 type McpStatus = {
   binaryFound: boolean;
   binaryPath: string | null;
@@ -79,6 +86,8 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
   const [saving, setSaving] = useState(false);
   const [systemAccess, setSystemAccess] = useState<SystemAccessStatus | null>(null);
   const [mcp, setMcp] = useState<McpStatus | null>(null);
+  const [analytics, setAnalytics] = useState<AnalyticsStatus | null>(null);
+  const [savingAnalytics, setSavingAnalytics] = useState(false);
   const [openingPane, setOpeningPane] = useState<string | null>(null);
   const { status: speakerStatus } = useSpeakerTagsStatus();
 
@@ -165,6 +174,26 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
     }
   }, []);
 
+  const refreshAnalytics = useCallback(async () => {
+    try {
+      setAnalytics(await invoke<AnalyticsStatus>("get_analytics_status"));
+    } catch (e) {
+      setError(String(e));
+    }
+  }, []);
+
+  const setAnalyticsEnabled = useCallback(async (enabled: boolean) => {
+    setSavingAnalytics(true);
+    setError(null);
+    try {
+      setAnalytics(await invoke<AnalyticsStatus>("set_analytics_enabled", { enabled }));
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setSavingAnalytics(false);
+    }
+  }, []);
+
   useEffect(() => {
     void refresh();
   }, [refresh]);
@@ -172,6 +201,7 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
   useEffect(() => {
     if (section === "system-access") void refreshSystemAccess();
     if (section === "mcp") void refreshMcp();
+    if (section === "privacy") void refreshAnalytics();
   }, [section, refreshSystemAccess, refreshMcp]);
 
   useEffect(() => {
@@ -678,6 +708,46 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
               </section>
             )}
 
+            {section === "privacy" && (
+              <section className="settings-section">
+                <h2 className="settings-pane-title">Privacy</h2>
+                <h3 className="settings-heading">Anonymous usage analytics</h3>
+                <p className="settings-copy">
+                  Helps us see how Amie is used so we can improve it. Amie sends a random install
+                  ID, your app and macOS version, and usage counts: how many meetings you record
+                  and how long they are, how many remote people spoke, which app held the
+                  microphone (for example Zoom or Chrome), and which Amie MCP tools were called.
+                  Your country is worked out from the connection; your IP address is not stored.
+                </p>
+                <p className="settings-copy">
+                  Amie never sends meeting titles, transcripts, summaries, context, participant
+                  names or anything an MCP tool reads or writes. Turning this off deletes the
+                  install ID and anything not yet sent.
+                </p>
+
+                <div className="settings-row">
+                  <span className="settings-label">Status</span>
+                  <span className="settings-value">{analyticsLabel(analytics)}</span>
+                </div>
+
+                {analytics?.available && !analytics.disabledByEnv && (
+                  <div className="settings-actions">
+                    <button
+                      className={analytics.enabled ? "btn btn-clear" : "btn btn-start"}
+                      disabled={savingAnalytics}
+                      onClick={() => void setAnalyticsEnabled(!analytics.enabled)}
+                    >
+                      {savingAnalytics
+                        ? "Saving…"
+                        : analytics.enabled
+                          ? "Turn off analytics"
+                          : "Turn on analytics"}
+                    </button>
+                  </div>
+                )}
+              </section>
+            )}
+
             {status && (
               <section className="settings-section">
                 <div className="settings-status">{status}</div>
@@ -693,6 +763,13 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
       </div>
     </main>
   );
+}
+
+function analyticsLabel(status: AnalyticsStatus | null): string {
+  if (!status) return "Loading…";
+  if (!status.available) return "Off in this build: nothing is sent";
+  if (status.disabledByEnv) return "Off (AMIE_ANALYTICS_DISABLED is set)";
+  return status.enabled ? "On" : "Off";
 }
 
 function BackIcon() {

@@ -13,6 +13,7 @@ This is not a passive transcript viewer or generic chat assistant. The product h
   - [Website conversation](./brand/website-conversation.md) — people and roadmap-cut meeting on the marketing site
 - [Mac App Store requirements](./apple/README.md) — what the website, the App Store Connect listing and the app need before submission
 - [Entity API naming](./technical/entity-api-naming.md) — React/Rust CRUD verbs (`getAll` / `get` / `patch` / `delete`)
+- [Usage analytics](./technical/analytics.md) — what the app sends to Flareboard, opt-out, and hosting Flareboard on Cloudflare
 - [xAI Transcribe 2.0](./technical/xai-speech-to-text.md) — dual-backend WebSocket STT alongside local Nemotron
 - [Meet speaker labels via browser extension](./technical/meet-browser-extension.md) — plan: Chrome/Brave extension streams Meet's speaking set to Amie over localhost
 - [NOTSOFAR eval-small](./eval/dataset-notsofar.md) — local ASR WER on 10 far-field meetings

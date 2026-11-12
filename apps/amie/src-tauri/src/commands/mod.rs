@@ -1,3 +1,4 @@
+pub mod analytics;
 pub mod audio_device;
 pub mod mcp;
 pub mod meetings;

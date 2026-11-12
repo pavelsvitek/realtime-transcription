@@ -1,3 +1,4 @@
+use crate::analytics::Analytics;
 use crate::llm::SummaryService;
 use crate::meetings::MeetingStore;
 use crate::speakers::MeetBridge;
@@ -8,11 +9,17 @@ pub struct TranscriptionHandle {
 }
 
 impl TranscriptionHandle {
-    pub fn new(store: MeetingStore, summaries: SummaryService, meet_bridge: MeetBridge) -> Self {
+    pub fn new(
+        store: MeetingStore,
+        summaries: SummaryService,
+        meet_bridge: MeetBridge,
+        analytics: Analytics,
+    ) -> Self {
         Self {
             service: TranscriptionService::with_store(store)
                 .with_summaries(summaries)
-                .with_meet_bridge(meet_bridge),
+                .with_meet_bridge(meet_bridge)
+                .with_analytics(analytics),
         }
     }
 }

@@ -28,6 +28,13 @@ src/
 │   ├── asr.rs              # Nemotron engine wrapper
 │   ├── nemotron.rs         # Swift helper protocol and process adapter
 │   └── labels.rs           # speaker constants (USER, MIC_STREAM)
+│
+├── analytics/              # opt-out usage analytics → Flareboard (docs/analytics.md)
+│   ├── mod.rs              # Analytics handle, flush to /api/batch, uploader task
+│   ├── settings.rs         # analytics.json: enabled + install id
+│   ├── store.rs            # analytics.db outbox + MCP call counts
+│   ├── payload.rs          # Flareboard batch item JSON
+│   └── meeting_app.rs      # which app held the mic during a recording
 ```
 
 ### Directory purposes

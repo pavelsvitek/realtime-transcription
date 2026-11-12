@@ -43,6 +43,15 @@ impl SpeakerTimeline {
         self.polls.len()
     }
 
+    /// How many different remote names were ever marked speaking.
+    pub fn distinct_speakers(&self) -> usize {
+        self.polls
+            .iter()
+            .flat_map(|(_, set)| set.iter())
+            .collect::<BTreeSet<_>>()
+            .len()
+    }
+
     pub fn resolve(&self, start_ms: u64, end_ms: u64) -> Option<String> {
         if self.polls.is_empty() || end_ms < start_ms {
             return None;
@@ -121,6 +130,17 @@ mod tests {
         assert_eq!(samples_to_ms(48_000, 48_000), 1_000);
         assert_eq!(samples_to_ms(16_000, 16_000), 1_000);
         assert_eq!(samples_to_ms(0, 48_000), 0);
+    }
+
+    #[test]
+    fn distinct_speakers_counts_each_name_once() {
+        let mut timeline = SpeakerTimeline::new();
+        assert_eq!(timeline.distinct_speakers(), 0);
+        timeline.push(0, ["Ada Lovelace"]);
+        timeline.push(100, ["Ada Lovelace", "Grace Hopper"]);
+        timeline.push(200, Vec::<String>::new());
+        timeline.push(300, ["Ada Lovelace"]);
+        assert_eq!(timeline.distinct_speakers(), 2);
     }
 
     #[test]

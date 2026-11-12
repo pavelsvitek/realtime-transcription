@@ -6,6 +6,7 @@ use std::thread::JoinHandle;
 
 use tauri::{AppHandle, Emitter};
 
+use crate::analytics::{Analytics, MeetingAppProbe};
 use crate::audio_device::DeviceSelection;
 use crate::config::AppConfig;
 use crate::error::AppError;
@@ -52,6 +53,17 @@ struct RunningState {
     debug: Option<Arc<DebugSession>>,
     meeting_id: Option<String>,
     speaker_watch: Option<SpeakerWatch>,
+    /// What `meeting_ended` reports. `None` when analytics is off.
+    usage: Option<MeetingUsage>,
+}
+
+/// Counts for the `meeting_ended` analytics event, gathered while recording.
+struct MeetingUsage {
+    started_ms: i64,
+    backend: AsrBackend,
+    has_context: bool,
+    speakers: Option<Arc<Mutex<SpeakerTimeline>>>,
+    meeting_app: MeetingAppProbe,
 }
 
 pub struct TranscriptionService {
@@ -65,6 +77,7 @@ pub struct TranscriptionService {
     meet_bridge: MeetBridge,
     /// Devices the user picked. Applied at start and on hot-swap.
     devices: Mutex<DeviceSelection>,
+    analytics: Option<Analytics>,
 }
 
 impl TranscriptionService {
@@ -79,7 +92,13 @@ impl TranscriptionService {
             summaries: None,
             meet_bridge: MeetBridge::new(),
             devices: Mutex::new(DeviceSelection::default()),
+            analytics: None,
         }
+    }
+
+    pub fn with_analytics(mut self, analytics: Analytics) -> Self {
+        self.analytics = Some(analytics);
+        self
     }
 
     pub fn with_store(store: MeetingStore) -> Self {
@@ -200,6 +219,7 @@ impl TranscriptionService {
             }
         }
 
+        let has_context = context.is_some_and(|text| !text.trim().is_empty());
         let meeting_id = if let Some(store) = &self.meetings {
             let id = uuid::Uuid::new_v4().to_string();
             store.insert_live_meeting_with_context(&id, now_ms(), "Untitled meeting", context)?;
@@ -305,6 +325,22 @@ impl TranscriptionService {
             }
         };
 
+        let usage = self
+            .analytics
+            .as_ref()
+            .filter(|analytics| analytics.status().is_active())
+            .and(meeting_id.as_ref())
+            .map(|_| {
+                let meet_bridge = self.meet_bridge.clone();
+                MeetingUsage {
+                    started_ms: now_ms(),
+                    backend,
+                    has_context,
+                    speakers: speakers.clone(),
+                    meeting_app: MeetingAppProbe::start(move || meet_bridge.is_live()),
+                }
+            });
+
         let speaker_watch = system.as_ref().and_then(|pair| {
             speakers.map(|timeline| {
                 let sink = SpeakerSink::new(
@@ -331,6 +367,7 @@ impl TranscriptionService {
             debug: debug_session,
             meeting_id,
             speaker_watch,
+            usage,
         });
 
         drop(models_guard);
@@ -547,6 +584,13 @@ impl TranscriptionService {
             }
         }
 
+        if let (Some(analytics), Some(usage)) = (&self.analytics, state.usage) {
+            analytics.track(
+                "meeting_ended",
+                meeting_ended_data(usage, state.source, now_ms()),
+            );
+        }
+
         // Summary HTTP lives in a spawned task — do not await it on this stop path.
         // Meetings under 5 minutes wait until the user generates a summary.
         if let (Some(summaries), Some(id)) = (self.summaries.as_ref(), state.meeting_id.clone()) {
@@ -751,6 +795,32 @@ fn spawn_stream_worker(
         counters,
         sample_rate,
     })
+}
+
+/// `meeting_ended` analytics fields. Counts and app names only: nothing a
+/// participant said, no title, no names.
+fn meeting_ended_data(
+    usage: MeetingUsage,
+    source: AudioSource,
+    ended_ms: i64,
+) -> serde_json::Map<String, serde_json::Value> {
+    let mut data = usage.meeting_app.finish().to_data();
+    let duration_s = (ended_ms - usage.started_ms).max(0) / 1_000;
+    data.insert("duration_s".into(), duration_s.into());
+    // Remote people the meeting app marked as speaking. Only known when
+    // system audio is captured and the app reports speakers (Zoom, Teams,
+    // Google Meet with the extension).
+    if let Some(count) = usage
+        .speakers
+        .as_ref()
+        .and_then(|timeline| timeline.lock().ok().map(|t| t.distinct_speakers()))
+    {
+        data.insert("remote_speakers".into(), (count as u64).into());
+    }
+    data.insert("audio_source".into(), source.as_str().into());
+    data.insert("asr_backend".into(), usage.backend.as_str().into());
+    data.insert("has_context".into(), usage.has_context.into());
+    data
 }
 
 fn label_event(event: &mut TranscriptEvent, timeline: &SpeakerTimeline) {

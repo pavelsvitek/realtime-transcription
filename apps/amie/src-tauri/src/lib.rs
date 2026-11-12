@@ -1,3 +1,4 @@
+pub mod analytics;
 mod app_menu;
 pub mod audio_device;
 mod commands;
@@ -60,19 +61,24 @@ pub fn run() {
     let meet_bridge = speakers::MeetBridge::new();
     meet_bridge.install_status_source();
     let meet_bridge_for_setup = meet_bridge.clone();
+    let analytics = analytics::Analytics::new_default();
+    let analytics_for_setup = analytics.clone();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_process::init())
         .manage(meeting_store.clone())
         .manage(summaries.clone())
+        .manage(analytics.clone())
         .manage(TranscriptionHandle::new(
             meeting_store,
             summaries,
             meet_bridge,
+            analytics,
         ))
         .setup(move |app| {
             meet_bridge_for_setup.start_listening();
+            analytics::spawn_uploader(analytics_for_setup);
             #[cfg(desktop)]
             {
                 // Production endpoints live in tauri.conf.json. Debug / `tauri dev`
@@ -138,6 +144,8 @@ pub fn run() {
             commands::system_access::get_system_access_status,
             commands::system_access::open_system_access_settings,
             commands::mcp::get_mcp_status,
+            commands::analytics::get_analytics_status,
+            commands::analytics::set_analytics_enabled,
             commands::updates::get_app_install_location,
             commands::onboarding::get_launch_flags,
             commands::onboarding::get_speech_model_status,

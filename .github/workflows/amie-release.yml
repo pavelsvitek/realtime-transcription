@@ -17,6 +17,12 @@
 #   TAURI_SIGNING_PRIVATE_KEY_PASSWORD
 #     Only if the private key was generated with a password.
 #
+# Optional repository variables (Settings → Secrets and variables → Actions →
+# Variables), baked into the app for usage analytics. Not secrets: they ship
+# inside every build. Without both, the build records and sends nothing.
+#   AMIE_ANALYTICS_HOST        Flareboard ingest origin, e.g. https://ingest.example.com
+#   AMIE_ANALYTICS_WEBSITE_ID  Flareboard website UUID for the Amie app
+#
 # Not in this workflow (PR3):
 #   APPLE_CERTIFICATE, APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY,
 #   notarization (APPLE_API_* / Apple ID). Until then CI uses ad-hoc Apple
@@ -101,6 +107,9 @@ jobs:
           # aarch64 builds succeed via apps/amie/scripts/tauri.sh.
           AMIE_ALLOW_ADHOC: "1"
           APPLE_SIGNING_IDENTITY: "-"
+          # Usage analytics endpoint (see header). Empty = analytics off.
+          AMIE_ANALYTICS_HOST: ${{ vars.AMIE_ANALYTICS_HOST }}
+          AMIE_ANALYTICS_WEBSITE_ID: ${{ vars.AMIE_ANALYTICS_WEBSITE_ID }}
         with:
           projectPath: apps/amie
           # Uses package.json "tauri" → scripts/tauri.sh (sidecar copy + signing gate).

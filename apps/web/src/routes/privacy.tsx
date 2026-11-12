@@ -202,8 +202,60 @@ const sections: LegalSection[] = [
           </li>
         </ul>
         <p>
-          The app has no analytics, no tracking and no crash reporting service
-          built in. We do not run accounts, so there is no Amie login.
+          The app also sends anonymous usage analytics, described in the next
+          section, which you can turn off. It has no advertising trackers and
+          no crash reporting service. We do not run accounts, so there is no
+          Amie login.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: "analytics",
+    title: "Usage analytics",
+    body: (
+      <>
+        <p>
+          To learn how Amie is used and what to improve, the app sends
+          anonymous usage analytics to our own analytics server (Flareboard,
+          which we run on Cloudflare). It is on by default. You can turn it off
+          at any time in Settings → Privacy.
+        </p>
+        <p>Amie sends:</p>
+        <ul>
+          <li>
+            a random install ID created by the app, which is not linked to
+            your name, email, Mac or Apple account;
+          </li>
+          <li>the Amie version, the macOS version and the type of Mac chip;</li>
+          <li>that the app was used on a given day;</li>
+          <li>
+            for each recorded meeting: how long it was, how many remote people
+            the meeting app showed as speaking, which app was using the
+            microphone (for example Zoom, Microsoft Teams, Google Chrome, or the
+            app’s identifier for other apps), whether system audio or the
+            microphone was recorded, whether transcription was local or used
+            xAI, and whether you added context;
+          </li>
+          <li>
+            for the local MCP server: which AI tool connected (for example
+            Claude Code or Cursor) and how many times each Amie tool was
+            called per day, with how many calls failed.
+          </li>
+        </ul>
+        <p>
+          Amie never sends audio, transcripts, summaries, meeting titles,
+          context, participant names, or anything an MCP tool reads or writes.
+        </p>
+        <p>
+          Our server works out your country from the connection, as Cloudflare
+          sees it. It does not store your IP address. Cloudflare processes
+          these requests for us as our hosting provider.
+        </p>
+        <p>
+          Turning analytics off deletes the install ID and anything Amie has
+          not sent yet. If you turn it on again, Amie starts with a new ID, so
+          the two periods cannot be linked.
         </p>
       </>
     ),
@@ -232,9 +284,11 @@ const sections: LegalSection[] = [
     body: (
       <>
         <p>
-          For the little data we do handle (website requests and emails you
-          send us), we rely on our legitimate interest in running the website
-          securely and answering you. We do not sell personal information, and
+          For the little data we do handle (website requests, emails you send
+          us and the app’s usage analytics), we rely on our legitimate
+          interest in running the website securely, answering you, and
+          understanding how Amie is used so we can improve it. You can object
+          to analytics at any time by turning it off in Settings → Privacy. We do not sell personal information, and
           we do not share it for cross‑context behavioral advertising.
         </p>
       </>
@@ -260,6 +314,11 @@ const sections: LegalSection[] = [
             with your request, then deleted within{" "}
             <Placeholder>EMAIL RETENTION PERIOD</Placeholder>. Hosting logs are
             kept for <Placeholder>HOSTING LOG RETENTION PERIOD</Placeholder>.
+          </li>
+          <li>
+            <strong>Usage analytics.</strong> Kept for{" "}
+            <Placeholder>ANALYTICS RETENTION PERIOD</Placeholder>, then
+            deleted.
           </li>
         </ul>
       </>

@@ -26,3 +26,8 @@ pub use sink::SpeakerSink;
 pub use status::{status, SpeakerTagsStatus};
 pub use timeline::SpeakerTimeline;
 pub use watch::{start as start_speaker_watch, SpeakerWatch};
+
+/// `"zoom"` or `"teams"` while one of them is running, for analytics.
+pub fn running_meeting_app_name() -> Option<&'static str> {
+    meeting::running_meeting_app().map(|app| app.as_str())
+}
