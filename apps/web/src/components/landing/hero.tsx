@@ -1,3 +1,8 @@
+import {
+  DownloadButton,
+  DownloadSupportNote,
+} from "@/components/site/download-button";
+
 /** A bot head with a slash: Amie listens on your Mac, nothing joins the call. */
 function NoBotIcon() {
   return (
@@ -24,7 +29,7 @@ function NoBotIcon() {
 
 export function Hero() {
   return (
-    <div className="relative z-10 flex flex-col items-center gap-[22px] pt-16">
+    <div className="relative z-10 flex flex-col items-center gap-[12px] pt-16">
       <div className="flex items-center gap-2">
         <div className="flex items-center gap-1.5 rounded px-2 py-0.5 bg-raycast-accent-red-soft">
           <span className="size-1.5 shrink-0 rounded-full bg-raycast-accent-red" />
@@ -51,16 +56,16 @@ export function Hero() {
         Amie writes every word as it’s said, from your mic and your calls. Local
         by default.
       </p>
-      <div id="download" className="flex items-center gap-3 pt-1">
-        <a
-          href="#download"
-          className="flex h-9 items-center justify-center rounded-md bg-raycast-primary px-4 text-base leading-[22px] font-semibold tracking-[0.014em] text-raycast-on-primary"
-        >
-          Download for Mac
-        </a>
+      <div id="download" className="flex items-start gap-3 pt-1">
+        <div className="flex flex-col items-center gap-2">
+          <DownloadButton className="flex h-11 cursor-pointer items-center justify-center rounded-lg bg-raycast-primary px-6 text-lg leading-6 font-semibold tracking-[0.014em] text-raycast-on-primary disabled:opacity-70">
+            Download for Mac
+          </DownloadButton>
+          <DownloadSupportNote />
+        </div>
         <a
           href="#word-by-word"
-          className="flex h-9 items-center justify-center rounded-md border border-raycast-hairline-strong px-4 text-base leading-[22px] font-semibold tracking-[0.014em] text-raycast-ink"
+          className="flex h-11 items-center justify-center rounded-lg border border-raycast-hairline-strong px-6 text-lg leading-6 font-semibold tracking-[0.014em] text-raycast-ink"
         >
           How it works
         </a>

@@ -1,3 +1,4 @@
+import { DownloadButton } from "@/components/site/download-button";
 import { SiteLink as Link } from "@/components/site/site-link";
 
 // Links are root-relative (`/#section`) so the same nav works on the landing
@@ -32,12 +33,9 @@ export function PrimaryNav() {
             {link.label}
           </Link>
         ))}
-        <Link
-          href="/#download"
-          className="flex h-9 items-center justify-center rounded-md bg-raycast-primary px-4 text-base leading-[22px] font-semibold tracking-[0.014em] text-raycast-on-primary"
-        >
+        <DownloadButton className="flex h-9 cursor-pointer items-center justify-center rounded-md bg-raycast-primary px-4 text-base leading-[22px] font-semibold tracking-[0.014em] text-raycast-on-primary disabled:opacity-70">
           Download
-        </Link>
+        </DownloadButton>
       </div>
     </nav>
   );
