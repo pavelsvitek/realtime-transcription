@@ -36,16 +36,18 @@ export function GridBackground() {
           WebkitMaskImage: `linear-gradient(to bottom, transparent 0, black ${FADE}px, black calc(100% - ${FADE}px), transparent 100%)`,
         }}
       />
-      {MARKS.map((mark) => (
-        <span
-          key={`${mark.x}-${mark.y}`}
-          className="absolute size-4"
-          style={{ left: mark.x - 8, top: mark.y - 8 - GRID_START }}
-        >
-          <span className="absolute top-0 left-[7px] h-4 w-0.5 bg-brand-accent/60" />
-          <span className="absolute top-[7px] left-0 h-0.5 w-4 bg-brand-accent/60" />
-        </span>
-      ))}
+      <div className="absolute inset-0 mx-auto w-[1440px]">
+        {MARKS.map((mark) => (
+          <span
+            key={`${mark.x}-${mark.y}`}
+            className="absolute size-4"
+            style={{ left: mark.x - 8, top: mark.y - 8 - GRID_START }}
+          >
+            <span className="absolute top-0 left-[7px] h-4 w-0.5 bg-brand-accent/60" />
+            <span className="absolute top-[7px] left-0 h-0.5 w-4 bg-brand-accent/60" />
+          </span>
+        ))}
+      </div>
     </div>
   );
 }

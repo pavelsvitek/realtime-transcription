@@ -10,14 +10,18 @@ import { StripeWaveform } from "@/components/landing/stripe-waveform";
 import { WordByWord } from "@/components/landing/word-by-word";
 import { WorksWith } from "@/components/landing/works-with";
 
+/**
+ * Layout for wide screens: the design is 1440px wide. On wider screens everything
+ * is scaled with CSS `zoom` (see `--page-zoom` in globals.css), while backdrops,
+ * the nav hairline and the footer run edge to edge. The pinned Local MCP scene is
+ * viewport-height based, so it sits outside the zoom and scales itself.
+ */
 export function LandingPage() {
   return (
     <main id="top" className="min-h-screen bg-raycast-canvas text-raycast-ink">
-      <div className="relative isolate mx-auto w-full max-w-[1440px]">
+      <div className="page-zoom relative isolate overflow-x-clip">
         <GridBackground />
         <section className="relative h-[1256px] overflow-x-clip">
-          <PrimaryNav />
-          <Hero />
           <StripeWaveform />
           <div
             aria-hidden
@@ -27,15 +31,27 @@ export function LandingPage() {
                 "linear-gradient(in oklab 180deg, oklab(13.4% -.0007 -0.005 / 0%) 0%, var(--color-raycast-canvas) 100%)",
             }}
           />
-          <WorksWith />
-          <div className="absolute top-[512px] left-[200px] z-10">
-            <AmieWindow />
+          <div
+            aria-hidden
+            className="absolute inset-x-0 top-[55px] z-20 h-px bg-raycast-hairline-soft"
+          />
+          <div className="relative mx-auto h-full w-[1440px]">
+            <PrimaryNav />
+            <Hero />
+            <WorksWith />
+            <div className="absolute top-[512px] left-[200px] z-10">
+              <AmieWindow />
+            </div>
           </div>
         </section>
-        <WordByWord />
-        <SpeakerId />
-        <MeetingSummary />
-        <McpSection />
+        <div className="mx-auto w-full max-w-[1440px]">
+          <WordByWord />
+          <SpeakerId />
+          <MeetingSummary />
+        </div>
+      </div>
+      <McpSection />
+      <div className="page-zoom">
         <Footer />
       </div>
     </main>

@@ -2,7 +2,7 @@ import Image from "next/image";
 
 export function PrimaryNav() {
   return (
-    <nav className="relative z-20 flex h-14 w-full shrink-0 items-center justify-between border-b border-raycast-hairline-soft px-12">
+    <nav className="relative z-20 flex h-14 w-full shrink-0 items-center justify-between px-12">
       <a href="#top" className="flex items-center gap-2.5">
         <Image
           src="/amie-app-icon.png"

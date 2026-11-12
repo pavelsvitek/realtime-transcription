@@ -217,8 +217,57 @@ body {
   }
 }
 
+/* Wide screens: the 1440px design is scaled up with CSS zoom. Each step is chosen
+   so 1440px x zoom still fits the viewport. */
+:root {
+  --page-zoom: 1;
+}
+
+@media (min-width: 1800px) {
+  :root {
+    --page-zoom: 1.25;
+  }
+}
+
+@media (min-width: 2200px) {
+  :root {
+    --page-zoom: 1.5;
+  }
+}
+
+@media (min-width: 2700px) {
+  :root {
+    --page-zoom: 1.75;
+  }
+}
+
+.page-zoom {
+  zoom: var(--page-zoom);
+}
+
 .mcp-stage {
   transform: scale(min(1, calc((100svh - 56px) / 720)));
+  zoom: var(--page-zoom);
+}
+
+/* Short wide screens (for example 2560x1080): the pinned scene must fit the
+   viewport height, so it zooms less than the rest of the page. */
+@media (min-width: 1800px) and (max-height: 1000px) {
+  .mcp-stage {
+    zoom: 1;
+  }
+}
+
+@media (min-width: 2200px) and (max-height: 1250px) {
+  .mcp-stage {
+    zoom: 1.25;
+  }
+}
+
+@media (min-width: 2200px) and (max-height: 1000px) {
+  .mcp-stage {
+    zoom: 1;
+  }
 }
 
 .summary-stage {
