@@ -1894,3 +1894,104 @@ a.settings-external {
   font-size: 13px;
   color: var(--text-secondary);
 }
+
+/* Audio device menu (chevron next to the mic icon) */
+.audio-menu {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-left: -4px;
+}
+
+.audio-menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.audio-menu-trigger:hover,
+.audio-menu-trigger[aria-expanded="true"] {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.audio-menu-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 1000;
+  width: 320px;
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid var(--border-input);
+  border-radius: 10px;
+  background: var(--surface-elevated);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+.audio-menu-section + .audio-menu-section {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border-input);
+}
+
+.audio-menu-heading {
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.audio-menu-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.audio-menu-row:hover {
+  background: var(--surface-hover);
+}
+
+.audio-menu-row-selected {
+  font-weight: 600;
+}
+
+.audio-menu-check {
+  width: 14px;
+  flex-shrink: 0;
+  color: var(--text-brand);
+}
+
+.audio-menu-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audio-menu-error {
+  margin-top: 6px;
+  padding: 6px 8px;
+  font-size: 12px;
+  color: #cf4a3c;
+}

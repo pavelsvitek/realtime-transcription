@@ -1,27 +1,33 @@
-use cpal::traits::HostTrait;
 use std::sync::mpsc;
 
-use super::cpal_capture;
+use super::cpal_capture::{self, CaptureOptions};
 
 /// Captured mic stream and the sample rate fed into the ASR pipeline (mono).
 pub struct OpenedMic {
     pub stream: cpal::Stream,
     pub sample_rate: u32,
     pub device_name: String,
+    /// Stable id of the device actually opened (what hot-swap compares against).
+    pub device_key: Option<String>,
     pub counters: super::cpal_capture::CaptureCounters,
 }
 
-pub fn open_mic_stream(sender: mpsc::SyncSender<Vec<f32>>) -> anyhow::Result<OpenedMic> {
-    let host = cpal::default_host();
-    let device = host
-        .default_input_device()
+/// Opens the selected microphone, or the system default when `selection` is `None`.
+pub fn open_mic_stream(
+    sender: mpsc::SyncSender<Vec<f32>>,
+    selection: &Option<String>,
+    options: CaptureOptions,
+) -> anyhow::Result<OpenedMic> {
+    let device = crate::audio_device::resolve_input(selection)
         .ok_or_else(|| anyhow::anyhow!("No input device available"))?;
+    let device_key = crate::audio_device::device_key(&device);
 
-    let opened = cpal_capture::open_input_stream(&device, sender)?;
+    let opened = cpal_capture::open_input_stream(&device, sender, options)?;
     Ok(OpenedMic {
         stream: opened.stream,
         sample_rate: opened.sample_rate,
         device_name: opened.device_name,
+        device_key,
         counters: opened.counters,
     })
 }

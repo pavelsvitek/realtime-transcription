@@ -1,5 +1,11 @@
 use serde::Serialize;
 
+pub mod devices;
+pub use devices::{
+    device_key, list_audio_devices, resolve_input, resolve_output, AudioDeviceEntry,
+    AudioDeviceList, DeviceSelection,
+};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum DeviceKind {

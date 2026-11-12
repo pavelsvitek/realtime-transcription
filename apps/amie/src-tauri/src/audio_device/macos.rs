@@ -7,13 +7,14 @@ use coreaudio::audio_unit::macos_helpers::{
 };
 use objc2_core_audio::{
     kAudioDevicePropertyDataSource, kAudioHardwareNoError,
-    kAudioHardwarePropertyDefaultInputDevice, kAudioObjectPropertyElementMain,
+    kAudioHardwarePropertyDefaultInputDevice, kAudioHardwarePropertyDefaultOutputDevice,
+    kAudioHardwarePropertyDevices, kAudioObjectPropertyElementMain,
     kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyScopeOutput,
     kAudioObjectSystemObject, kAudioDeviceTransportTypeBuiltIn, AudioDeviceID,
     AudioObjectAddPropertyListener, AudioObjectGetPropertyData, AudioObjectID,
     AudioObjectPropertyAddress, AudioObjectPropertyListenerProc,
 };
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 
 use crate::audio_device::{classify_device, AudioDeviceInfo, Transport};
 use crate::ipc::transcript::{event_names, AudioDevicePayload};
@@ -207,6 +208,30 @@ fn run_device_monitor(app_handle: AppHandle) {
         tracing::warn!(status, "Failed to register default input device listener");
     }
 
+    // The default output and the device list also matter: system-audio capture
+    // taps an output, and a newly plugged device should appear in the picker.
+    for selector in [
+        kAudioHardwarePropertyDefaultOutputDevice,
+        kAudioHardwarePropertyDevices,
+    ] {
+        let address = AudioObjectPropertyAddress {
+            mSelector: selector,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain,
+        };
+        let status = unsafe {
+            AudioObjectAddPropertyListener(
+                kAudioObjectSystemObject as AudioObjectID,
+                NonNull::from(&address),
+                state.default_input_listener,
+                state as *mut MonitorState as *mut _,
+            )
+        };
+        if status != kAudioHardwareNoError {
+            tracing::warn!(status, selector, "Failed to register audio device listener");
+        }
+    }
+
     if let (Some(listener), device_id) =
         (state.built_in_output_listener, state.built_in_output_device_id)
     {
@@ -252,5 +277,25 @@ unsafe extern "C-unwind" fn device_change_listener(
 ) -> i32 {
     let state = &*(client_data as *const MonitorState);
     emit_device_update(&state.app_handle);
+    notify_devices_changed(state.app_handle.clone());
     kAudioHardwareNoError
+}
+
+/// Tells the UI to refresh its device list and re-points running streams that
+/// follow the system default. Runs off the Core Audio callback thread: opening
+/// streams from inside a listener can deadlock the HAL.
+fn notify_devices_changed(app_handle: AppHandle) {
+    let _ = app_handle.emit(event_names::DEVICES_CHANGED, ());
+    let _ = std::thread::Builder::new()
+        .name("audio-device-reapply".into())
+        .spawn(move || {
+            // Let a connecting device finish activating and the default settle.
+            std::thread::sleep(std::time::Duration::from_millis(400));
+            let Some(state) = app_handle.try_state::<crate::state::TranscriptionHandle>() else {
+                return;
+            };
+            if let Err(error) = state.service.reapply_devices(Some(&app_handle)) {
+                tracing::warn!(%error, "Could not follow the audio device change");
+            }
+        });
 }

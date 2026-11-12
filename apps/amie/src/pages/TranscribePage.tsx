@@ -12,10 +12,12 @@ import {
   type MeetingDetailTab,
 } from "../components/MeetingTabs";
 import { LiveMeetingButton } from "../components/LiveMeetingButton";
+import { AudioDeviceMenu } from "../components/AudioDeviceMenu";
 import { MicIndicator } from "../components/MicIndicator";
 import { Spinner } from "../components/Spinner";
 import { TranscriptFeed } from "../components/TranscriptFeed";
 import { useAudioDevice } from "../hooks/useAudioDevice";
+import { useAudioDevices } from "../hooks/useAudioDevices";
 import { silenceSourceOf } from "../lib/capture-notices";
 import { useMicLevel } from "../hooks/useMicLevel";
 import { useSpeechModelDownload } from "../hooks/useSpeechModelDownload";
@@ -85,6 +87,7 @@ export function TranscribePage({
     clear,
   } = useTranscription();
   const { device, error: deviceError } = useAudioDevice();
+  const audioDevices = useAudioDevices();
   const modelDownload = useSpeechModelDownload();
   const [tab, setTab] = useState<MeetingDetailTab>("transcript");
   const [isFinishing, setIsFinishing] = useState(false);
@@ -229,18 +232,6 @@ export function TranscribePage({
               <option value="xai">xAI Transcribe 2.0</option>
             </select>
           </label>
-          <label className="source-select">
-            <span className="source-select-label">Input</span>
-            <select
-              value={audioSource}
-              onChange={(e) => setAudioSource(e.target.value as AudioSource)}
-              disabled={isActive || isLoading || stopping}
-            >
-              <option value="system">Chrome / system audio</option>
-              <option value="mic">Microphone</option>
-              <option value="both">Mic + system</option>
-            </select>
-          </label>
           <MicIndicator
             isActive={isActive && !stopping}
             micActive={micActive}
@@ -252,6 +243,20 @@ export function TranscribePage({
             deviceName={device?.name ?? null}
             deviceKind={device?.kind ?? null}
             deviceError={deviceError}
+          />
+          <AudioDeviceMenu
+            inputs={audioDevices.devices.inputs}
+            outputs={audioDevices.devices.outputs}
+            defaultInputId={audioDevices.devices.defaultInputId}
+            defaultOutputId={audioDevices.devices.defaultOutputId}
+            inputChoice={audioDevices.choice.input}
+            outputChoice={audioDevices.choice.output}
+            showInput
+            showOutput
+            error={audioDevices.error}
+            onChooseInput={audioDevices.chooseInput}
+            onChooseOutput={audioDevices.chooseOutput}
+            onOpen={() => void audioDevices.refresh()}
           />
           {isActive || stopping ? (
             <button
