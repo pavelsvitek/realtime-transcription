@@ -34,7 +34,9 @@ pub struct DeviceSelection {
 
 /// Private aggregate devices that Core Audio and cpal create for themselves.
 fn is_internal_device(name: &str) -> bool {
-    name.starts_with("CADefaultDeviceAggregate") || name.starts_with("Cpal loopback")
+    name.starts_with("CADefaultDeviceAggregate")
+        || name.starts_with("Cpal loopback")
+        || name.starts_with("Amie system audio tap")
 }
 
 fn entry(device: &cpal::Device) -> Option<AudioDeviceEntry> {

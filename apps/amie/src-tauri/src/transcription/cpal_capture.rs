@@ -125,30 +125,6 @@ pub fn open_input_stream(
     )
 }
 
-/// Opens a loopback stream on the default output device (macOS 15+).
-pub fn open_loopback_stream(
-    device: &cpal::Device,
-    sender: mpsc::SyncSender<Vec<f32>>,
-    options: CaptureOptions,
-) -> anyhow::Result<OpenedCpalStream> {
-    let device_name = device.name().unwrap_or_else(|_| "unknown".into());
-    let supported = device
-        .default_output_config()
-        .map_err(|e| anyhow::anyhow!("Failed to query output config for {device_name}: {e}"))?;
-
-    let channels = supported.channels();
-    let sample_format = supported.sample_format();
-    open_stream_with_config(
-        device,
-        &device_name,
-        supported.into(),
-        channels,
-        sample_format,
-        sender,
-        options,
-    )
-}
-
 fn open_stream_with_config(
     device: &cpal::Device,
     device_name: &str,

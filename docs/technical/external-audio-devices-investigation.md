@@ -1,6 +1,8 @@
 # External audio devices: investigation notes
 
-Status: **investigation only, no fix yet.** Collected 2026-11-12 on the developer's MacBook with a Logitech MeetUp
+Status: **fixed**. The device menu and the output-tap fix are described in `system-audio-output-tap.md`. This file is the original investigation, kept for the data.
+
+Original status: investigation only. Collected 2026-11-12 on the developer's MacBook with a Logitech MeetUp
 conferencing speakerphone and an external display connected. The Amie app was deliberately **not launched** during
 collection (the developer was in a meeting), so nothing below comes from a live Amie run. Everything is from Core
 Audio queries, `coreaudiod` logs, and reading the code. Section 6 lists what still has to be verified at runtime.
@@ -9,6 +11,8 @@ Reported symptom: after connecting an external display and an external mic and s
 not recognize the new mic and speakers and cannot transcribe from them.
 
 ## 1. Summary
+
+> Update: a further cause was found after the menu shipped. cpal's loopback reads a device's *microphone* when the output also has an input (USB headset, MeetUp), so system audio was silent on those devices. See `system-audio-output-tap.md`.
 
 The most likely cause is that Amie only ever follows the macOS **default** devices. It has no device selection and no
 awareness of other devices. Connecting the MeetUp did **not** change the macOS defaults, so Amie keeps using the

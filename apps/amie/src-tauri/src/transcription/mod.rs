@@ -10,6 +10,8 @@ pub mod labels;
 pub mod mic_input;
 pub mod mic_mute;
 pub mod nemotron;
+#[cfg(target_os = "macos")]
+pub mod output_tap;
 pub mod pipeline;
 pub mod service;
 pub mod system_audio;
