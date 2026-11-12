@@ -1,10 +1,10 @@
 import { AmieWindow } from "@/components/landing/amie-window";
-import { Footer } from "@/components/landing/footer";
+import { Footer } from "@/components/site/footer";
 import { GridBackground } from "@/components/landing/grid-background";
 import { Hero } from "@/components/landing/hero";
 import { McpSection } from "@/components/landing/mcp-section";
 import { MeetingSummary } from "@/components/landing/meeting-summary";
-import { PrimaryNav } from "@/components/landing/primary-nav";
+import { PrimaryNav } from "@/components/site/primary-nav";
 import { SpeakerId } from "@/components/landing/speaker-id";
 import { StripeWaveform } from "@/components/landing/stripe-waveform";
 import { WordByWord } from "@/components/landing/word-by-word";

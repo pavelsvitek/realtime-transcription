@@ -11,8 +11,9 @@ export default defineConfig({
     cloudflare({ viteEnvironment: { name: "ssr" } }),
     tailwindcss(),
     tanstackStart({
-      // The site is static: prerender `/` at build time.
-      prerender: { enabled: true, crawlLinks: true },
+      // The site is static: prerender every page at build time.
+      prerender: { enabled: true, crawlLinks: false },
+      pages: [{ path: "/" }, { path: "/privacy" }, { path: "/terms" }, { path: "/support" }],
     }),
     viteReact(),
   ],

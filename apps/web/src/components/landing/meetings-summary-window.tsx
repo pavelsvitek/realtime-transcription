@@ -151,10 +151,7 @@ export function MeetingsSummaryWindow() {
                             key={child.text}
                             indent
                           >
-                            <Inline
-                              speaker={(child as SummaryInline).speaker}
-                              text={child.text}
-                            />
+                            <Inline {...child} />
                           </Bullet>
                         ))}
                       </li>
