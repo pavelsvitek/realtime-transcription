@@ -6,6 +6,7 @@ import {
   SupportEmail,
   type LegalSection,
 } from "@/components/legal/legal-page";
+import { seo } from "@/lib/seo";
 
 const sections: LegalSection[] = [
   {
@@ -184,14 +185,11 @@ function SupportPage() {
 }
 
 export const Route = createFileRoute("/support")({
-  head: () => ({
-    meta: [
-      { title: "Support — Amie" },
-      {
-        name: "description",
-        content: "Get help with Amie: contact us, set up permissions, connect Google Meet and manage your data.",
-      },
-    ],
-  }),
+  head: () =>
+    seo({
+      title: "Support — Amie",
+      description: "Get help with Amie: contact us, set up permissions, connect Google Meet and manage your data.",
+      path: "/support",
+    }),
   component: SupportPage,
 });

@@ -7,6 +7,7 @@ import {
   SupportEmail,
   type LegalSection,
 } from "@/components/legal/legal-page";
+import { seo } from "@/lib/seo";
 
 const sections: LegalSection[] = [
   {
@@ -376,14 +377,11 @@ function PrivacyPage() {
 }
 
 export const Route = createFileRoute("/privacy")({
-  head: () => ({
-    meta: [
-      { title: "Privacy Policy — Amie" },
-      {
-        name: "description",
-        content: "What Amie does with your audio, transcripts and meeting data. Local by default.",
-      },
-    ],
-  }),
+  head: () =>
+    seo({
+      title: "Privacy Policy — Amie",
+      description: "What Amie does with your audio, transcripts and meeting data. Local by default.",
+      path: "/privacy",
+    }),
   component: PrivacyPage,
 });
