@@ -1,4 +1,3 @@
-import Image from "next/image";
 
 type FooterLink = { label: string; href: string };
 
@@ -38,7 +37,7 @@ export function Footer() {
         <div className="flex items-start justify-between">
           <div className="flex w-[420px] flex-col gap-[18px]">
             <div className="flex items-center gap-2.5">
-              <Image
+              <img
                 src="/amie-logo.svg"
                 alt=""
                 width={32}
