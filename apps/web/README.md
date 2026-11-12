@@ -1,36 +1,36 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Amie website prototype
 
-## Getting Started
+Landing page translated from Paper: hero, word-by-word, speaker ID (Zoom Color lock), meeting summary (full Amie window, Summary tab), then a scroll-driven Local MCP data-flow in Claude Cowork (two queries: roadmap meetings, then decisions).
 
-First, run the development server:
+Cast and meeting copy live in [`docs/brand/website-conversation.md`](../../docs/brand/website-conversation.md) and [`src/data/roadmap-cut.ts`](src/data/roadmap-cut.ts). Keep those in sync.
+
+Built with [TanStack Start](https://tanstack.com/start) (Vite, file-based routes in `src/routes`), Tailwind v4, and deployed to Cloudflare Workers via `@cloudflare/vite-plugin`.
+
+## Develop
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm --filter web dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3001](http://localhost:3001).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Script           | What it does                                              |
+| ---------------- | --------------------------------------------------------- |
+| `pnpm dev`       | Vite dev server (runs in the Workers runtime)             |
+| `pnpm build`     | Production build + prerender of static pages to `dist/`   |
+| `pnpm preview`   | Serve the built Worker locally                            |
+| `pnpm deploy`    | Build, then `wrangler deploy`                             |
+| `pnpm typecheck` | `tsc --noEmit`                                            |
+| `pnpm lint`      | ESLint                                                    |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Deploy to Cloudflare
 
-## Learn More
+1. `pnpm --filter web exec wrangler login` (once).
+2. `pnpm --filter web deploy`. The Worker is named `amie-web` (see `wrangler.jsonc`).
+3. Attach a custom domain in the Cloudflare dashboard (Workers & Pages → amie-web → Settings → Domains) or add a `routes` entry to `wrangler.jsonc`.
 
-To learn more about Next.js, take a look at the following resources:
+The home page is prerendered at build time and served as a static asset; the Worker handles anything else.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Environment and secrets
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The site needs none today. See [`env.example`](env.example) for how to add them (`.dev.vars` locally, `wrangler secret put` in production; never `VITE_`-prefixed for secrets).
