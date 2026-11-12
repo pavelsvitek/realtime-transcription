@@ -18,6 +18,39 @@ const MARKS: { x: number; y: number }[] = [
   { x: 1368, y: 4280 },
 ];
 
+/**
+ * The grid itself. Fills its parent and fades at the chosen edges. Keep the parent
+ * small (one screen) where it sits behind animation: a tall masked layer is
+ * expensive to repaint while scrolling.
+ */
+export function GridPattern({
+  fade = "both",
+  fadeSize = FADE,
+}: {
+  fade?: "both" | "top" | "none";
+  fadeSize?: number;
+}) {
+  const mask =
+    fade === "none"
+      ? undefined
+      : fade === "top"
+        ? `linear-gradient(to bottom, transparent 0, black ${fadeSize}px)`
+        : `linear-gradient(to bottom, transparent 0, black ${fadeSize}px, black calc(100% - ${fadeSize}px), transparent 100%)`;
+  return (
+    <div
+      className="absolute inset-0"
+      style={{
+        backgroundImage:
+          "linear-gradient(rgb(111 176 222 / 9%) 1px, transparent 1px), linear-gradient(90deg, rgb(111 176 222 / 9%) 1px, transparent 1px)",
+        backgroundSize: "64px 64px",
+        backgroundPosition: "8px 8px",
+        maskImage: mask,
+        WebkitMaskImage: mask,
+      }}
+    />
+  );
+}
+
 export function GridBackground() {
   return (
     <div
@@ -25,17 +58,7 @@ export function GridBackground() {
       className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 select-none"
       style={{ top: GRID_START }}
     >
-      <div
-        className="absolute inset-0"
-        style={{
-          backgroundImage:
-            "linear-gradient(rgb(111 176 222 / 9%) 1px, transparent 1px), linear-gradient(90deg, rgb(111 176 222 / 9%) 1px, transparent 1px)",
-          backgroundSize: "64px 64px",
-          backgroundPosition: "8px 8px",
-          maskImage: `linear-gradient(to bottom, transparent 0, black ${FADE}px, black calc(100% - ${FADE}px), transparent 100%)`,
-          WebkitMaskImage: `linear-gradient(to bottom, transparent 0, black ${FADE}px, black calc(100% - ${FADE}px), transparent 100%)`,
-        }}
-      />
+      <GridPattern />
       <div className="absolute inset-0 mx-auto w-[1440px]">
         {MARKS.map((mark) => (
           <span
