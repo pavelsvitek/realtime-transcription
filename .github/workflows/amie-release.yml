@@ -145,3 +145,35 @@ jobs:
           prerelease: false
           uploadUpdaterJson: true
           uploadUpdaterSignatures: true
+
+      # Tauri notarizes and staples Amie.app but not the DMG that wraps it, so a
+      # downloaded DMG is "Unnotarized Developer ID" to Gatekeeper. Notarize and
+      # staple it here, then replace the draft Release's DMG with the stapled one.
+      # The updater payload (Amie.app.tar.gz) is unaffected.
+      - name: Notarize and staple DMG, re-upload to the draft Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          dmg="$(find apps/amie/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg -name '*.dmg' | head -n 1)"
+          test -n "$dmg" || { echo "::error::No DMG found to notarize"; exit 1; }
+
+          # notarytool exits 0 even for an Invalid submission, so check the status.
+          result="$(xcrun notarytool submit "$dmg" \
+            --apple-id "$APPLE_ID" --password "$APPLE_PASSWORD" --team-id "$APPLE_TEAM_ID" \
+            --wait --timeout 30m --output-format json)"
+          echo "$result"
+          status="$(echo "$result" | jq -r .status)"
+          if [ "$status" != "Accepted" ]; then
+            echo "::error::DMG notarization finished with status: $status"
+            exit 1
+          fi
+
+          xcrun stapler staple "$dmg"
+          xcrun stapler validate "$dmg"
+
+          version="$(jq -r .version apps/amie/src-tauri/tauri.conf.json)"
+          gh release upload "app-v${version}" "$dmg" --clobber
