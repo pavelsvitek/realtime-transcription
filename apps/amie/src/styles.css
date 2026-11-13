@@ -1,14 +1,9 @@
 /*
- * Tailwind entry and design tokens for the Amie desktop app.
- * Migration plan: docs/technical/amie-tailwind-migration.md
- *
- * Preflight (Tailwind's reset) is left out on purpose while App.css still
- * styles the app: App.css has its own reset, and Preflight would restyle
- * buttons, headings, lists and inline SVGs. Add it back once App.css is gone.
+ * The only stylesheet of the Amie desktop app: Tailwind (with Preflight),
+ * design tokens and a few base rules. Components style themselves with
+ * utilities. History: docs/technical/amie-tailwind-migration.md
  */
-@layer theme, base, components, utilities;
-@import "tailwindcss/theme.css" layer(theme);
-@import "tailwindcss/utilities.css" layer(utilities);
+@import "tailwindcss";
 
 /* Only scan the UI. Rust sources, tests and fixtures would add stray utilities. */
 @source not "../src-tauri";
@@ -71,17 +66,40 @@
   --status-danger-banner-text: light-dark(#8e2f24, #f2a99d);
 }
 
-/*
- * App reset. It lives in the base layer so Tailwind's margin and padding
- * utilities can override it; unlayered, it would beat every utility.
- */
+/* Base rules on top of Preflight. */
 @layer base {
-  *,
-  *::before,
-  *::after {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
+  :root {
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+      Helvetica, Arial, sans-serif;
+    /* The app's type scale is built on 14px; see the pixel scales below. */
+    font-size: 14px;
+    line-height: 1.5;
+    font-weight: 400;
+    color: var(--text-primary);
+    background-color: var(--surface-shell);
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  /*
+   * Preflight's `font: inherit` would give form controls the page's 1.5 line
+   * height and make every button a few pixels taller. Keep the native one;
+   * a leading-* utility still overrides it where a control needs another.
+   */
+  button,
+  input,
+  select,
+  optgroup,
+  textarea {
+    line-height: normal;
   }
 }
 
@@ -104,7 +122,7 @@
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
   /*
-   * The app's root font size is 14px (App.css :root), so Tailwind's rem-based
+   * The app's root font size is 14px (:root above), so Tailwind's rem-based
    * scales would come out 12.5% small: p-5 = 17.5px, rounded-md = 5.25px.
    * Pin spacing, radius and type to pixels so p-5 = 20px, rounded-md = 6px,
    * text-sm = 14px, matching the CSS this replaces. Arbitrary rem values such

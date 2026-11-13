@@ -24,11 +24,6 @@ use tracing_subscriber::EnvFilter;
 #[cfg(target_os = "macos")]
 use crate::audio_device::spawn_device_monitor;
 
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     if std::env::args().any(|arg| arg == "--print-accessibility-status") {
@@ -108,7 +103,6 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            greet,
             commands::audio_device::get_default_input_device_command,
             commands::audio_device::list_audio_devices_command,
             commands::audio_device::set_audio_devices,

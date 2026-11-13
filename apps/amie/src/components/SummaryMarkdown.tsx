@@ -21,7 +21,12 @@ function renderInline(parts: SummaryInline[]): ReactNode[] {
 
 function renderItems(items: SummaryListItem[], nested = false): ReactNode {
   return (
-    <ul className={cn("flex flex-col gap-3 pl-[18px]", nested && "mt-2 gap-2")}>
+    <ul
+      className={cn(
+        "flex list-disc flex-col gap-3 pl-[18px]",
+        nested && "mt-2 list-[circle] gap-2",
+      )}
+    >
       {items.map((item, index) => (
         <li key={index}>
           {renderInline(item.text)}

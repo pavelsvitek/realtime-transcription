@@ -1,6 +1,6 @@
 # Amie desktop: migrate App.css to Tailwind
 
-Status: steps 1–6 done. Scope: `apps/amie` (the Tauri desktop app) only.
+Status: done (steps 1–7). Scope: `apps/amie` (the Tauri desktop app) only.
 
 ## Where we are
 
@@ -52,9 +52,12 @@ Each step is one PR that ships on its own and leaves the app looking the same.
 4. **Home and Transcription** (done). `HomePage`, `TranscribePage`, `TranscriptFeed`, `AudioDeviceMenu`, `SpeakerNamesPrompt` and the footer. Error banners became `ui/ErrorBanner`, used by Meetings and Settings too. Empty-panel text became `ui/EmptyCopy`.
 5. **Meetings** (done). `MeetingsPage` (list and detail), `MeetingTitle`, `MeetingContextEditor`, `MeetingOverflowMenu` and `SummaryMarkdown`, plus the shared rules left from step 4. The summary needed no typography plugin: `SummaryMarkdown` renders a few known elements, so each gets its classes directly (nested lists through a `nested` flag).
 6. **Settings and onboarding** (done). `SettingsPage`, `OnboardingDialog` and `UpdateDialog` contents, and `.page`. Each former `settings-*` class is one entry in an `S` constant at the top of `SettingsPage`, so repeated styles stay in one place. Splitting `SettingsPage` into section components was left out to keep this step a pure style change; it is a separate refactor. After this step `App.css` holds only the root font settings and the full-height rule.
-7. **Remove App.css.** Delete what is left, move any survivors into `styles.css`, and remove the now-unused Vite/Tauri/React demo assets and the `greet` command.
+7. **Remove App.css** (done). The root font settings and full-height rule moved into `@layer base` in `styles.css`, which now imports all of Tailwind including Preflight, and `App.css` is gone. The Vite/Tauri/React demo assets and the `greet` command are removed. Preflight needed three adjustments to keep the look: form controls keep the native `line-height: normal` (a base rule), the "New chat" and "Meetings" titles say `font-bold` (Preflight resets heading weights), and the summary lists say `list-disc` / `list-[circle]` (Preflight removes bullets).
 
 ## How to check each step
+
+Step 7 used a computed-style snapshot: with a mocked Tauri `invoke`, a script walked Home, Transcription, the Meetings list, three detail tabs, the ⋯ menu, three Settings sections and the Start dialog, and recorded 33 computed properties for each of the 883 visible elements. It ran once before and again after the change, and listed every difference. That is a cheap way to check the next big CSS change too.
+
 
 - `pnpm --filter amie build` (runs `tsc` and `vite build`) and `pnpm --filter amie test`.
 - Run Amie Dev (`pnpm tauri dev`) and compare each touched screen against the frames on the Paper page "Amie Desktop · Current UI" in light, dark and system-dark. The page has a frame for nearly every screen and state, including dialogs, menus and update states, so it works as the visual baseline.

@@ -220,7 +220,7 @@ export function TranscribePage({
     <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <header className="relative z-[2] flex shrink-0 items-center justify-between overflow-visible px-4 py-3">
         <div className="flex items-center gap-2.5">
-          <h1 className="text-[12px]">New chat</h1>
+          <h1 className="text-[12px] font-bold">New chat</h1>
           {model && (
             <span className="rounded-[10px] bg-surface-muted px-2 py-0.5 text-[11px] text-text-muted">
               {model}

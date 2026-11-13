@@ -717,7 +717,7 @@ export function MeetingsPage({
     <>
     <main className="flex min-h-0 flex-1 flex-col overflow-hidden bg-surface-content">
       <header className="relative z-[2] flex shrink-0 items-center justify-between overflow-visible px-4 py-3">
-        <h1 className="text-[12px]">Meetings</h1>
+        <h1 className="text-[12px] font-bold">Meetings</h1>
       </header>
 
       {displayError && <ErrorBanner>{displayError}</ErrorBanner>}

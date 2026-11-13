@@ -8,7 +8,6 @@ import { MeetingsPage } from "./pages/MeetingsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { TranscribePage } from "./pages/TranscribePage";
 import type { FollowUpSeed } from "./lib/meetings";
-import "./App.css";
 
 function App() {
   const [page, setPage] = useState<AppPage>("home");
