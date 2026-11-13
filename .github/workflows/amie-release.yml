@@ -113,6 +113,7 @@ jobs:
           exit "$missing"
 
       - name: Build and upload draft GitHub Release
+        id: tauri
         uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -148,16 +149,26 @@ jobs:
 
       # Tauri notarizes and staples Amie.app but not the DMG that wraps it, so a
       # downloaded DMG is "Unnotarized Developer ID" to Gatekeeper. Notarize and
-      # staple it here, then replace the draft Release's DMG with the stapled one.
+      # staple it here, then replace the DMG on the Release tauri-action just
+      # created. The Release is addressed by id (never by tag, which can match a
+      # different, already published Release) and must still be a draft.
       # The updater payload (Amie.app.tar.gz) is unaffected.
       - name: Notarize and staple DMG, re-upload to the draft Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_ID: ${{ steps.tauri.outputs.releaseId }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           set -euo pipefail
+          test -n "$RELEASE_ID" || { echo "::error::tauri-action did not report a releaseId"; exit 1; }
+          repo="${GITHUB_REPOSITORY}"
+          if [ "$(gh api "repos/$repo/releases/$RELEASE_ID" --jq .draft)" != "true" ]; then
+            echo "::error::Release $RELEASE_ID is not a draft; refusing to modify a published Release."
+            exit 1
+          fi
+
           dmg="$(find apps/amie/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg -name '*.dmg' | head -n 1)"
           test -n "$dmg" || { echo "::error::No DMG found to notarize"; exit 1; }
 
@@ -175,5 +186,10 @@ jobs:
           xcrun stapler staple "$dmg"
           xcrun stapler validate "$dmg"
 
-          version="$(jq -r .version apps/amie/src-tauri/tauri.conf.json)"
-          gh release upload "app-v${version}" "$dmg" --clobber
+          name="$(basename "$dmg")"
+          old_id="$(gh api "repos/$repo/releases/$RELEASE_ID/assets" --jq ".[] | select(.name == \"$name\") | .id")"
+          if [ -n "$old_id" ]; then
+            gh api -X DELETE "repos/$repo/releases/assets/$old_id"
+          fi
+          gh api -X POST "https://uploads.github.com/repos/$repo/releases/$RELEASE_ID/assets?name=$name" \
+            -H "Content-Type: application/x-apple-diskimage" --input "$dmg" --jq .name
