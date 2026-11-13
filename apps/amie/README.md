@@ -137,29 +137,38 @@ Losing the private key bricks updates for already-shipped clients until they man
 
 Tag-driven CI: [`.github/workflows/amie-release.yml`](../../.github/workflows/amie-release.yml).
 
-1. Bump **in lockstep**: `src-tauri/tauri.conf.json` → `version`, `src-tauri/Cargo.toml` → `version`, and this package’s `package.json` → `version`.
-2. Commit on the release branch, then tag and push:
+1. Bump **in lockstep**: `src-tauri/tauri.conf.json` → `version` and `src-tauri/Cargo.toml` → `version` (the workflow fails if they differ or do not match the tag).
+2. Merge to `main`, then tag and push:
    ```bash
-   git tag app-v0.1.0   # must match the bumped version
-   git push origin app-v0.1.0
+   git tag app-v0.2.1   # must match the bumped version
+   git push origin app-v0.2.1
    ```
-3. The workflow runs on `macos-latest`, builds **Apple Silicon only** (`aarch64-apple-darwin`), builds the Nemotron sidecar, then runs `tauri-apps/tauri-action@v1` with `uploadUpdaterJson: true` and `releaseDraft: true`.
-4. Inspect the **draft** Release assets before publishing:
-   - `Amie_*_aarch64.dmg` (first install)
-   - `Amie.app.tar.gz` + `.sig` (updater payload)
-   - `latest.json` (discovery for `tauri-plugin-updater`)
+3. The pipeline (Apple Silicon only) runs in stages. Nothing is uploaded to a Release until every artifact is final:
 
-### Secrets
+   | Job | What it does |
+   | --- | --- |
+   | `preflight` | Version matches tag and no Release exists for it; all secrets present **and working** (the `.p12` opens, has its private key, matches `APPLE_SIGNING_IDENTITY`, is not expired; Apple accepts the notarization credentials). Fails in seconds, before any build. |
+   | `build` | Builds the sidecar and the app, signs with Developer ID (hardened runtime), Tauri notarizes and staples `Amie.app`, builds the DMG and updater payload, then the workflow notarizes and staples the **DMG**. Verifies the app, the extracted updater payload and the DMG (`spctl`, `stapler`, `codesign`), checks the sidecar launches under hardened runtime, and generates `latest.json`. |
+   | `draft` | Creates the **draft** Release with all four assets in one go and checks names and sizes against what was built. |
+   | `publish` | Waits for your approval of the `release` Environment, publishes the draft as Latest, then confirms the public `latest.json` shows the new version. |
 
-| Secret | Required for | Notes |
-| --- | --- | --- |
-| `TAURI_SIGNING_PRIVATE_KEY` | Signing updater artifacts / `latest.json` | Minisign private key. Workflow fails fast if missing. |
-| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Optional | Only if the key was generated with a password. |
-| `GITHUB_TOKEN` | Creating the draft Release | Provided by Actions; needs `contents: write` (set on the workflow). |
+4. When the run reaches `publish` it pauses: open the run, **Review deployments**, approve. Before approving, download the DMG from the draft and try it (the build job cannot exercise models).
 
-Developer ID signing and notarization secrets are listed in the next section; the workflow fails fast if any is missing.
+**Dry run:** *Actions → amie-release → Run workflow* builds, signs, notarizes and verifies, but creates no Release. The files are kept as the `amie-release` run artifact for 14 days.
 
-You can also run the workflow via **Actions → amie-release → Run workflow** (`workflow_dispatch`).
+Release assets:
+- `Amie_<v>_aarch64.dmg` (first install, notarized and stapled)
+- `Amie_<v>_aarch64.app.tar.gz` + `.sig` (updater payload, stapled app)
+- `latest.json` (discovery for `tauri-plugin-updater`)
+
+### Secrets and settings
+
+| Name | Notes |
+| --- | --- |
+| `TAURI_SIGNING_PRIVATE_KEY` | Minisign private key for updater artifacts. |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Optional; only if the key has a password. |
+| `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID` | Developer ID signing and notarization, see the next section. |
+| Environment `release` | Settings → Environments. Must have a **required reviewer**; that is the approval gate before publishing. |
 
 ### Developer ID signing and notarization
 
