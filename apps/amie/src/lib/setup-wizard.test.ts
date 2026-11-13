@@ -5,6 +5,7 @@ import {
   microphoneStepState,
   nextWizardStep,
   previousWizardStep,
+  stepAfter,
   readyRows,
   showsBackgroundModelStatus,
   summaryProviderLabel,
@@ -29,6 +30,13 @@ describe("setup wizard steps", () => {
     expect(nextWizardStep("welcome")).toBe("model");
     expect(nextWizardStep("speakers")).toBe("ready");
     expect(nextWizardStep("ready")).toBeNull();
+  });
+
+  it("returns to Ready after a step opened from the recap", () => {
+    expect(stepAfter("systemAudio", true)).toBe("ready");
+    expect(stepAfter("model", true)).toBe("ready");
+    expect(stepAfter("systemAudio", false)).toBe("summaries");
+    expect(stepAfter("welcome", true)).toBe("model");
   });
 
   it("goes back one step, with no Back on Welcome or Ready", () => {
@@ -115,7 +123,7 @@ describe("readyRows", () => {
       ["System audio", true, "tested"],
       ["Summaries", true, "xAI"],
       ["Speaker names", true, "Zoom & Teams"],
-      ["Google Meet speaker names", false, undefined],
+      ["Google Meet speaker names", false, "not connected"],
     ]);
   });
 
@@ -133,6 +141,7 @@ describe("readyRows", () => {
     expect(byLabel["System audio"]).toMatchObject({ done: false, step: "systemAudio" });
     expect(byLabel["Summaries"]).toMatchObject({ done: false, step: "summaries" });
     expect(byLabel["Speaker names"]).toMatchObject({ done: false, step: "speakers" });
+    expect(byLabel["Google Meet speaker names"]).toMatchObject({ done: false, step: "speakers" });
   });
 
   it("counts a failed sound test as not done", () => {

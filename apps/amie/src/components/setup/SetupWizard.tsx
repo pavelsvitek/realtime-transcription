@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useSpeechModelDownload } from "../../hooks/useSpeechModelDownload";
 import {
-  nextWizardStep,
   previousWizardStep,
   showsBackgroundModelStatus,
+  stepAfter,
   type SystemAudioTestResult,
   type WizardStep,
 } from "../../lib/setup-wizard";
@@ -25,13 +25,24 @@ type SetupWizardProps = {
 
 /** First-run setup on Home ("B · Setup wizard" in Paper). */
 export function SetupWizard({ step, onStepChange, onStartMeeting }: SetupWizardProps) {
-  const back = previousWizardStep(step);
   const model = useSpeechModelDownload();
   // Kept here so Back and the Ready recap remember the sound test.
   const [systemAudio, setSystemAudio] = useState<SystemAudioTestResult>(null);
+  // Set when a step is opened from the recap: Continue, Skip and Back lead back to it.
+  const [returnToReady, setReturnToReady] = useState(false);
+  const back = returnToReady && step !== "ready" ? "ready" : previousWizardStep(step);
+
+  const goTo = (target: WizardStep) => {
+    if (target === "ready") setReturnToReady(false);
+    onStepChange(target);
+  };
   const next = () => {
-    const following = nextWizardStep(step);
-    if (following) onStepChange(following);
+    const following = stepAfter(step, returnToReady);
+    if (following) goTo(following);
+  };
+  const revisit = (target: WizardStep) => {
+    setReturnToReady(true);
+    onStepChange(target);
   };
 
   return (
@@ -40,7 +51,7 @@ export function SetupWizard({ step, onStepChange, onStartMeeting }: SetupWizardP
         <button
           type="button"
           className="absolute top-[22px] left-7 flex cursor-pointer items-center gap-1.5 text-[13px] leading-[19px] font-medium text-text-secondary hover:text-text-primary"
-          onClick={() => onStepChange(back)}
+          onClick={() => goTo(back)}
         >
           <Icon size={14}>
             <path d="M19 12H5" />
@@ -59,7 +70,7 @@ export function SetupWizard({ step, onStepChange, onStartMeeting }: SetupWizardP
       {step === "summaries" ? <SummariesStep onNext={next} /> : null}
       {step === "speakers" ? <SpeakersStep onNext={next} /> : null}
       {step === "ready" ? (
-        <ReadyStep systemAudio={systemAudio} onGoTo={onStepChange} onStartMeeting={onStartMeeting} />
+        <ReadyStep systemAudio={systemAudio} onGoTo={revisit} onStartMeeting={onStartMeeting} />
       ) : null}
 
       {showsBackgroundModelStatus(step) ? <BackgroundModelStatus model={model} /> : null}

@@ -36,6 +36,15 @@ export function nextWizardStep(step: WizardStep): WizardStep | null {
   return WIZARD_STEPS[WIZARD_STEPS.indexOf(step) + 1] ?? null;
 }
 
+/**
+ * Where Continue or Skip leads. A step opened from the "You're all set" recap
+ * goes straight back to it instead of through the steps after it.
+ */
+export function stepAfter(step: WizardStep, returnToReady: boolean): WizardStep | null {
+  if (returnToReady && step !== "welcome" && step !== "ready") return "ready";
+  return nextWizardStep(step);
+}
+
 /** Back goes one step; Welcome and Ready have no Back. */
 export function previousWizardStep(step: WizardStep): WizardStep | null {
   if (step === "welcome" || step === "ready") return null;
@@ -97,9 +106,9 @@ export type SystemAudioTestResult = "heard" | "silent" | null;
 export type ReadyRow = {
   label: string;
   done: boolean;
-  /** Short note on the right of a finished row ("tested", "xAI"). */
+  /** Short note on the right ("tested", "xAI", "downloading"). */
   detail?: string;
-  /** Where "Finish later" goes for an unfinished row. */
+  /** Where "Set up" goes for an unfinished row. */
   step: WizardStep;
 };
 
@@ -142,6 +151,11 @@ export function readyRows(state: {
       detail: state.accessibilityAllowed ? "Zoom & Teams" : undefined,
       step: "speakers",
     },
-    { label: "Google Meet speaker names", done: state.meetConnected, step: "speakers" },
+    {
+      label: "Google Meet speaker names",
+      done: state.meetConnected,
+      detail: state.meetConnected ? undefined : "not connected",
+      step: "speakers",
+    },
   ];
 }

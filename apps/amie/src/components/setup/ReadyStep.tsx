@@ -74,11 +74,11 @@ export function ReadyStep({ systemAudio, onGoTo, onStartMeeting }: ReadyStepProp
             >
               {row.label}
             </span>
-            {row.done || row.detail ? (
+            {row.detail ? (
               <span className="text-[12.5px] leading-[18px] text-text-muted">{row.detail}</span>
-            ) : row.label === "Google Meet speaker names" ? (
-              <span className="text-[12.5px] leading-[18px] text-text-muted">Not connected</span>
-            ) : (
+            ) : null}
+            {row.done ? null : (
+              // Every unfinished row leads back to its step; Continue there returns here.
               <TextLink
                 className="text-[12.5px] text-text-brand hover:text-text-brand"
                 onClick={() => onGoTo(row.step)}
