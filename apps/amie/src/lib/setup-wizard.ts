@@ -153,3 +153,29 @@ export function readyRows(state: {
     },
   ];
 }
+
+const SYSTEM_AUDIO_TEST_KEY = "amie-system-audio-test";
+
+/** Last system audio test result on this Mac, so Home and later launches know it. */
+export function loadSystemAudioTest(): SystemAudioTestResult {
+  try {
+    const value = localStorage.getItem(SYSTEM_AUDIO_TEST_KEY);
+    return value === "heard" || value === "silent" ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveSystemAudioTest(result: SystemAudioTestResult): void {
+  try {
+    if (result) localStorage.setItem(SYSTEM_AUDIO_TEST_KEY, result);
+    else localStorage.removeItem(SYSTEM_AUDIO_TEST_KEY);
+  } catch {
+    // Storage can be unavailable; the result then lasts for this run only.
+  }
+}
+
+/** Unfinished recap rows; empty when setup is complete. */
+export function unfinishedRows(rows: ReadyRow[]): ReadyRow[] {
+  return rows.filter((row) => !row.done);
+}

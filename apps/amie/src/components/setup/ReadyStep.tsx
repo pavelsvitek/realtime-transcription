@@ -1,16 +1,8 @@
-import { useEffect, useState } from "react";
 import { useSpeechModelDownload } from "../../hooks/useSpeechModelDownload";
 import { cn } from "../../lib/cn";
-import {
-  readyRows,
-  type ProviderKeys,
-  type SummaryProviderId,
-  type SystemAudioTestResult,
-  type WizardStep,
-} from "../../lib/setup-wizard";
-import { loadSummarySetup } from "./SummariesStep";
+import type { SystemAudioTestResult, WizardStep } from "../../lib/setup-wizard";
 import { CheckBadge, MicIcon, PrimaryButton, StepBars, TextLink } from "./ui";
-import { useSystemAccess } from "./useSystemAccess";
+import { useSetupStatus } from "./useSetupStatus";
 
 type ReadyStepProps = {
   systemAudio: SystemAudioTestResult;
@@ -20,27 +12,7 @@ type ReadyStepProps = {
 
 export function ReadyStep({ systemAudio, onGoTo, onStartMeeting }: ReadyStepProps) {
   const model = useSpeechModelDownload();
-  const { status } = useSystemAccess(false);
-  const [summary, setSummary] = useState<{ provider: SummaryProviderId; keys: ProviderKeys } | null>(
-    null,
-  );
-
-  useEffect(() => {
-    loadSummarySetup()
-      .then((setup) => setSummary({ provider: setup.provider, keys: setup.keys }))
-      .catch(() => setSummary(null));
-  }, []);
-
-  const rows = readyRows({
-    modelReady: model.ready,
-    modelDownloading: model.downloading,
-    microphoneAllowed: status?.microphone === "authorized",
-    systemAudio,
-    summaryProvider: summary?.provider ?? null,
-    providerKeys: summary?.keys ?? { xai: false, openai: false, gemini: false },
-    accessibilityAllowed: status?.accessibility.trusted === true,
-    meetConnected: status?.googleMeetExtension.connected === true,
-  });
+  const rows = useSetupStatus(systemAudio) ?? [];
 
   return (
     <section className="flex w-[560px] max-w-full flex-col items-start" aria-labelledby="wizard-title">

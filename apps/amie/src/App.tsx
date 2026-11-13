@@ -23,13 +23,21 @@ function App() {
   const stopMeetingRef = useRef<(() => void) | null>(null);
   const followUpSeedRef = useRef<FollowUpSeed | null>(null);
   // First-run setup on Home: decided once at launch, ended by starting a meeting.
+  // Home's "Finish setup" reopens it on the summary, where Back returns to Home.
   const wizardOnLaunch = useSetupWizardOnLaunch();
   const [wizardStep, setWizardStep] = useState<WizardStep>("welcome");
   const [wizardDone, setWizardDone] = useState(false);
-  const wizardActive = wizardOnLaunch === true && !wizardDone;
+  const [wizardReopened, setWizardReopened] = useState(false);
+  const wizardActive = (wizardOnLaunch === true || wizardReopened) && !wizardDone;
   const finishWizard = useCallback(() => {
     markOnboardingSeen();
     setWizardDone(true);
+    setWizardReopened(false);
+  }, []);
+  const openSetupSummary = useCallback(() => {
+    setWizardStep("ready");
+    setWizardDone(false);
+    setWizardReopened(true);
   }, []);
   const handleLiveSessionChange = useCallback(
     (session: { listening: boolean; loading: boolean }) => {
@@ -77,11 +85,13 @@ function App() {
               finishWizard();
               startMeeting();
             }}
+            onExit={wizardReopened ? finishWizard : undefined}
           />
         ) : (
           <HomePage
             onStartMeeting={startMeeting}
             meetingInProgress={listening || starting}
+            onOpenSetup={openSetupSummary}
           />
         )
       ) : null}

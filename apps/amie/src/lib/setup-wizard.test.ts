@@ -1,7 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import {
   downloadedMegabytes,
   isOptionalStep,
+  loadSystemAudioTest,
+  saveSystemAudioTest,
+  unfinishedRows,
   microphoneStepState,
   nextWizardStep,
   previousWizardStep,
@@ -139,5 +142,55 @@ describe("readyRows", () => {
   it("counts a failed sound test as not done", () => {
     const rows = readyRows({ ...allDone, systemAudio: "silent" });
     expect(rows.find((row) => row.label === "System audio")?.done).toBe(false);
+  });
+});
+
+describe("system audio test memory", () => {
+  beforeEach(() => {
+    const store = new Map<string, string>();
+    Object.defineProperty(globalThis, "localStorage", {
+      configurable: true,
+      value: {
+        getItem: (key: string) => store.get(key) ?? null,
+        setItem: (key: string, value: string) => void store.set(key, value),
+        removeItem: (key: string) => void store.delete(key),
+      },
+    });
+  });
+
+  it("starts with no result and remembers the last one", () => {
+    expect(loadSystemAudioTest()).toBeNull();
+    saveSystemAudioTest("silent");
+    expect(loadSystemAudioTest()).toBe("silent");
+    saveSystemAudioTest("heard");
+    expect(loadSystemAudioTest()).toBe("heard");
+    saveSystemAudioTest(null);
+    expect(loadSystemAudioTest()).toBeNull();
+  });
+
+  it("ignores values it did not write", () => {
+    localStorage.setItem("amie-system-audio-test", "maybe");
+    expect(loadSystemAudioTest()).toBeNull();
+  });
+
+  it("returns null when storage is unavailable", () => {
+    Object.defineProperty(globalThis, "localStorage", {
+      configurable: true,
+      get() {
+        throw new Error("blocked");
+      },
+    });
+    expect(loadSystemAudioTest()).toBeNull();
+    expect(() => saveSystemAudioTest("heard")).not.toThrow();
+  });
+});
+
+describe("unfinishedRows", () => {
+  it("lists only what is left", () => {
+    const rows = [
+      { label: "Speech model", done: true, step: "model" as const },
+      { label: "Speaker names", done: false, step: "speakers" as const },
+    ];
+    expect(unfinishedRows(rows).map((row) => row.label)).toEqual(["Speaker names"]);
   });
 });

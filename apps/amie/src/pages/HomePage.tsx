@@ -1,41 +1,46 @@
-import { useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { useState } from "react";
 import { HeroWave } from "../components/HeroWave";
-import { useSpeechModelDownload } from "../hooks/useSpeechModelDownload";
+import { CheckBadge } from "../components/setup/ui";
+import { useSetupStatus } from "../components/setup/useSetupStatus";
+import { loadSystemAudioTest, unfinishedRows } from "../lib/setup-wizard";
 
 type HomePageProps = {
   onStartMeeting: () => void;
   meetingInProgress: boolean;
+  /** Opens the setup wizard's summary ("You're all set."). */
+  onOpenSetup: () => void;
 };
 
 const FLOW_STEPS = ["Start with ⌘N", "Live transcript", "Summary", "Follow-up meeting"];
 
 /** Ready-to-record state of Home ("B · Calm hero — Stage 1" in Paper). */
-export function HomePage({ onStartMeeting, meetingInProgress }: HomePageProps) {
-  const model = useSpeechModelDownload();
-  const micAllowed = useMicrophoneAllowed();
-  const setUp = model.ready && micAllowed;
+export function HomePage({ onStartMeeting, meetingInProgress, onOpenSetup }: HomePageProps) {
+  const [systemAudio] = useState(loadSystemAudioTest);
+  const rows = useSetupStatus(systemAudio);
+  const left = rows ? unfinishedRows(rows).length : null;
 
   return (
     <main className="relative flex flex-1 flex-col items-center overflow-y-auto px-10">
-      {setUp ? (
+      {left === 0 ? (
+        <p className="absolute top-[22px] right-7 flex items-center gap-1.5 text-[12.5px] leading-[18px] font-medium text-text-secondary">
+          <CheckBadge />
+          Everything is set up
+        </p>
+      ) : left !== null ? (
         <p className="absolute top-[22px] right-7 flex items-center gap-1.5 text-[12.5px] leading-[18px] font-medium text-text-secondary">
           <span
-            className="flex size-4 items-center justify-center rounded-full bg-brand-primary text-brand-on-primary"
+            className="size-4 shrink-0 rounded-full border-[1.5px] border-dashed border-border-input"
             aria-hidden="true"
+          />
+          {left === 1 ? "1 setup step left" : `${left} setup steps left`}
+          <span aria-hidden="true">·</span>
+          <button
+            type="button"
+            className="cursor-pointer font-[550] text-text-brand underline decoration-1 hover:text-text-primary"
+            onClick={onOpenSetup}
           >
-            <svg width="10" height="10" viewBox="0 0 24 24">
-              <path
-                d="M20 6 9 17l-5-5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </span>
-          Everything is set up
+            Finish setup
+          </button>
         </p>
       ) : null}
 
@@ -104,22 +109,4 @@ export function HomePage({ onStartMeeting, meetingInProgress }: HomePageProps) {
       </ol>
     </main>
   );
-}
-
-type SystemAccessStatus = { microphone: string };
-
-function useMicrophoneAllowed(): boolean {
-  const [allowed, setAllowed] = useState(false);
-  useEffect(() => {
-    let cancelled = false;
-    invoke<SystemAccessStatus>("get_system_access_status")
-      .then((status) => {
-        if (!cancelled) setAllowed(status.microphone === "authorized");
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-  return allowed;
 }
