@@ -7,7 +7,6 @@ import {
   previousWizardStep,
   stepAfter,
   readyRows,
-  showsBackgroundModelStatus,
   summaryProviderLabel,
   totalMegabytes,
   wizardStepNumber,
@@ -50,13 +49,6 @@ describe("setup wizard steps", () => {
     expect(isOptionalStep("summaries")).toBe(true);
     expect(isOptionalStep("speakers")).toBe(true);
     expect(isOptionalStep("systemAudio")).toBe(false);
-  });
-
-  it("shows the background model bar from the microphone step to speaker names", () => {
-    expect(showsBackgroundModelStatus("model")).toBe(false);
-    expect(showsBackgroundModelStatus("microphone")).toBe(true);
-    expect(showsBackgroundModelStatus("speakers")).toBe(true);
-    expect(showsBackgroundModelStatus("ready")).toBe(false);
   });
 });
 

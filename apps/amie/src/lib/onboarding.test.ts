@@ -4,7 +4,6 @@ import {
   ONBOARDING_SEEN_STORAGE_KEY,
   clearOnboardingSeen,
   downloadFooterStatus,
-  formatModelSize,
   formatTranscriptionError,
   hasSeenOnboarding,
   markOnboardingSeen,
@@ -44,10 +43,6 @@ describe("onboarding prefs", () => {
     markOnboardingSeen();
     expect(hasSeenOnboarding()).toBe(true);
     expect(localStorage.getItem(ONBOARDING_SEEN_STORAGE_KEY)).toBe("1");
-  });
-
-  it("formats the known model size without naming the model", () => {
-    expect(formatModelSize()).toBe("about 612 MB");
   });
 
   it("formats footer download progress percent", () => {

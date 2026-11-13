@@ -51,12 +51,6 @@ export function previousWizardStep(step: WizardStep): WizardStep | null {
   return WIZARD_STEPS[WIZARD_STEPS.indexOf(step) - 1] ?? null;
 }
 
-/** The background model bar shows on the steps after the download step. */
-export function showsBackgroundModelStatus(step: WizardStep): boolean {
-  const index = WIZARD_STEPS.indexOf(step);
-  return index >= WIZARD_STEPS.indexOf("microphone") && index <= WIZARD_STEPS.indexOf("speakers");
-}
-
 const MB = 1024 * 1024;
 
 /** Megabytes downloaded so far, from the progress percent and the expected size. */

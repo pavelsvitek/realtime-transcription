@@ -1,15 +1,15 @@
 import { Activity, useCallback, useRef, useState } from "react";
 import { AppLayout } from "./components/AppLayout";
-import { OnboardingProvider } from "./components/OnboardingProvider";
 import type { AppPage } from "./components/Sidebar";
 import { UpdateProvider } from "./components/UpdateProvider";
 import { SetupWizard } from "./components/setup/SetupWizard";
-import { useLaunchFlags } from "./hooks/useLaunchFlags";
+import { useSetupWizardOnLaunch } from "./hooks/useSetupWizardOnLaunch";
 import { HomePage } from "./pages/HomePage";
 import { MeetingsPage } from "./pages/MeetingsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { TranscribePage } from "./pages/TranscribePage";
 import type { FollowUpSeed } from "./lib/meetings";
+import { markOnboardingSeen } from "./lib/onboarding";
 import type { WizardStep } from "./lib/setup-wizard";
 
 function App() {
@@ -22,11 +22,15 @@ function App() {
   const startMeetingRef = useRef<(() => void) | null>(null);
   const stopMeetingRef = useRef<(() => void) | null>(null);
   const followUpSeedRef = useRef<FollowUpSeed | null>(null);
-  const launchFlags = useLaunchFlags();
-  // The setup wizard runs only with --onboarding-flow for now.
+  // First-run setup on Home: decided once at launch, ended by starting a meeting.
+  const wizardOnLaunch = useSetupWizardOnLaunch();
   const [wizardStep, setWizardStep] = useState<WizardStep>("welcome");
   const [wizardDone, setWizardDone] = useState(false);
-  const wizardActive = launchFlags?.onboardingFlow === true && !wizardDone;
+  const wizardActive = wizardOnLaunch === true && !wizardDone;
+  const finishWizard = useCallback(() => {
+    markOnboardingSeen();
+    setWizardDone(true);
+  }, []);
   const handleLiveSessionChange = useCallback(
     (session: { listening: boolean; loading: boolean }) => {
       setListening(session.listening);
@@ -57,20 +61,20 @@ function App() {
       // Start comes back on the wizard's last step, where it ends the wizard.
       startDisabled={wizardActive && wizardStep !== "ready"}
       onStartMeeting={() => {
-        if (wizardActive) setWizardDone(true);
+        if (wizardActive) finishWizard();
         startMeeting();
       }}
       onStopMeeting={() => {
         stopMeetingRef.current?.();
       }}
     >
-      {page === "home" && launchFlags ? (
+      {page === "home" && wizardOnLaunch !== null ? (
         wizardActive ? (
           <SetupWizard
             step={wizardStep}
             onStepChange={setWizardStep}
             onStartMeeting={() => {
-              setWizardDone(true);
+              finishWizard();
               startMeeting();
             }}
           />
@@ -112,7 +116,6 @@ function App() {
         <SettingsPage onBack={() => navigate(lastMainPageRef.current)} />
       ) : null}
       <UpdateProvider meetingActive={listening || starting} />
-      <OnboardingProvider />
     </AppLayout>
   );
 }

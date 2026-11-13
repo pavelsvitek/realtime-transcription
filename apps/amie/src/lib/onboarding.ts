@@ -5,8 +5,7 @@ export const ONBOARDING_SEEN_STORAGE_KEY = "amie-onboarding-seen";
 export const EXPECTED_MODEL_SIZE_BYTES = 612 * 1024 * 1024;
 
 export type LaunchFlags = {
-  showOnboarding: boolean;
-  /** `--onboarding-flow`: run the setup wizard on Home instead of the dialog. */
+  /** `--onboarding-flow` (or the older `--show-onboarding`): always open the setup wizard. */
   onboardingFlow: boolean;
 };
 
@@ -30,10 +29,10 @@ export function hasSeenOnboarding(): boolean {
 }
 
 /**
- * Show onboarding when:
- * - `--show-onboarding` / `AMIE_SHOW_ONBOARDING` forces it, or
+ * Open the setup wizard on launch when:
+ * - `--onboarding-flow` / `AMIE_ONBOARDING_FLOW` forces it, or
  * - the speech model is not on disk yet (every launch until downloaded), or
- * - the user has never completed/dismissed the flow while the model was ready.
+ * - setup was never finished on this Mac.
  */
 export function shouldShowOnboarding(options: {
   force: boolean;
@@ -46,9 +45,8 @@ export function shouldShowOnboarding(options: {
 }
 
 /**
- * Mark onboarding as seen so it does not show again once the model is ready.
- * Called when the user finishes step 2 (Done) or dismisses early.
- * If the model is still missing, the dialog still reopens on the next launch.
+ * Mark setup as finished so the wizard does not open again once the model is
+ * ready. Called when the wizard ends. A missing model still reopens it.
  */
 export function markOnboardingSeen(): void {
   localStorage.setItem(ONBOARDING_SEEN_STORAGE_KEY, "1");
@@ -56,14 +54,6 @@ export function markOnboardingSeen(): void {
 
 export function clearOnboardingSeen(): void {
   localStorage.removeItem(ONBOARDING_SEEN_STORAGE_KEY);
-}
-
-export function formatModelSize(bytes: number = EXPECTED_MODEL_SIZE_BYTES): string {
-  const mb = bytes / (1024 * 1024);
-  if (mb >= 100) {
-    return `about ${Math.round(mb)} MB`;
-  }
-  return `about ${mb.toFixed(1)} MB`;
 }
 
 /** Footer status while the speech model downloads in the background. */

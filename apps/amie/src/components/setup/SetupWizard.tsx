@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useSpeechModelDownload } from "../../hooks/useSpeechModelDownload";
 import {
   previousWizardStep,
-  showsBackgroundModelStatus,
   stepAfter,
   type SystemAudioTestResult,
   type WizardStep,
@@ -46,58 +45,60 @@ export function SetupWizard({ step, onStepChange, onStartMeeting }: SetupWizardP
   };
 
   return (
-    // Anchored at the top so the step bars and titles stay put between steps of different heights.
-    <main className="relative flex flex-1 flex-col items-center overflow-y-auto px-10 pt-28 pb-20">
-      {back ? (
-        <button
-          type="button"
-          className="absolute top-[22px] left-7 flex cursor-pointer items-center gap-1.5 text-[13px] leading-[19px] font-medium text-text-secondary hover:text-text-primary"
-          onClick={() => goTo(back)}
-        >
-          <Icon size={14}>
-            <path d="M19 12H5" />
-            <path d="m12 19-7-7 7-7" />
-          </Icon>
-          Back
-        </button>
-      ) : null}
+    <div className="flex min-h-0 flex-1 flex-col">
+      {/* Anchored at the top so the step bars and titles stay put between steps of different heights. */}
+      <main className="relative flex min-h-0 flex-1 flex-col items-center overflow-y-auto px-10 pt-28 pb-12">
+        {back ? (
+          <button
+            type="button"
+            className="absolute top-[22px] left-7 flex cursor-pointer items-center gap-1.5 text-[13px] leading-[19px] font-medium text-text-secondary hover:text-text-primary"
+            onClick={() => goTo(back)}
+          >
+            <Icon size={14}>
+              <path d="M19 12H5" />
+              <path d="m12 19-7-7 7-7" />
+            </Icon>
+            Back
+          </button>
+        ) : null}
 
-      {step === "welcome" ? <WelcomeStep onNext={next} /> : null}
-      {step === "model" ? <ModelStep onNext={next} /> : null}
-      {step === "microphone" ? <MicrophoneStep onNext={next} /> : null}
-      {step === "systemAudio" ? (
-        <SystemAudioStep result={systemAudio} onResult={setSystemAudio} onNext={next} />
-      ) : null}
-      {step === "summaries" ? <SummariesStep onNext={next} /> : null}
-      {step === "speakers" ? <SpeakersStep onNext={next} /> : null}
-      {step === "ready" ? (
-        <ReadyStep systemAudio={systemAudio} onGoTo={revisit} onStartMeeting={onStartMeeting} />
-      ) : null}
-
-      {showsBackgroundModelStatus(step) ? <BackgroundModelStatus model={model} /> : null}
-    </main>
+        {step === "welcome" ? <WelcomeStep onNext={next} /> : null}
+        {step === "model" ? <ModelStep onNext={next} /> : null}
+        {step === "microphone" ? <MicrophoneStep onNext={next} /> : null}
+        {step === "systemAudio" ? (
+          <SystemAudioStep result={systemAudio} onResult={setSystemAudio} onNext={next} />
+        ) : null}
+        {step === "summaries" ? <SummariesStep onNext={next} /> : null}
+        {step === "speakers" ? <SpeakersStep onNext={next} /> : null}
+        {step === "ready" ? (
+          <ReadyStep systemAudio={systemAudio} onGoTo={revisit} onStartMeeting={onStartMeeting} />
+        ) : null}
+      </main>
+      <ModelStatusFooter model={model} />
+    </div>
   );
 }
 
-/** Slim model progress pinned to the bottom of the steps after Download. */
-function BackgroundModelStatus({ model }: { model: ReturnType<typeof useSpeechModelDownload> }) {
-  if (!model.downloading && !model.ready) return null;
+/** Footer under the wizard, like the Transcription page's: where the speech model download stands. */
+function ModelStatusFooter({ model }: { model: ReturnType<typeof useSpeechModelDownload> }) {
   const percent = model.percent ?? 0;
   return (
-    <div className="absolute inset-x-0 bottom-7 flex items-center justify-center gap-3 text-[12.5px] leading-[18px]">
+    <footer className="flex shrink-0 items-center gap-2 border-t border-border-default px-4 py-2 text-[12px] leading-[18px] text-text-muted">
       {model.ready ? (
-        <span className="flex items-center gap-2 font-medium text-text-secondary">
-          <Check />
+        <>
+          <Check size={12} />
           Speech model ready
-        </span>
-      ) : (
+        </>
+      ) : model.downloading ? (
         <>
           <span className="font-medium text-text-secondary">Speech model</span>
-          <ProgressTrack percent={percent} className="h-1 w-[220px] rounded-[4px]" />
+          <ProgressTrack percent={percent} className="h-1 w-40 rounded-[4px]" />
           <span className="font-[650] text-text-brand">{percent}%</span>
-          <span className="text-text-muted">downloading in the background</span>
+          <span>downloading in the background</span>
         </>
+      ) : (
+        "Speech model not downloaded yet"
       )}
-    </div>
+    </footer>
   );
 }

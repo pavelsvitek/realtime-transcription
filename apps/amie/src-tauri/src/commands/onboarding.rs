@@ -13,10 +13,9 @@ pub mod event_names {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LaunchFlags {
-    /// `--show-onboarding` or `AMIE_SHOW_ONBOARDING=1`.
-    pub show_onboarding: bool,
-    /// `--onboarding-flow` or `AMIE_ONBOARDING_FLOW=1`: run the setup wizard
-    /// on Home instead of the onboarding dialog.
+    /// `--onboarding-flow` or `AMIE_ONBOARDING_FLOW=1` (the older
+    /// `--show-onboarding` / `AMIE_SHOW_ONBOARDING` still work): open the setup
+    /// wizard on Home even when setup is done.
     pub onboarding_flow: bool,
 }
 
@@ -44,8 +43,8 @@ pub struct SpeechModelDownloadProgress {
 #[tauri::command]
 pub fn get_launch_flags() -> LaunchFlags {
     LaunchFlags {
-        show_onboarding: flag_requested("--show-onboarding", "AMIE_SHOW_ONBOARDING"),
-        onboarding_flow: flag_requested("--onboarding-flow", "AMIE_ONBOARDING_FLOW"),
+        onboarding_flow: flag_requested("--onboarding-flow", "AMIE_ONBOARDING_FLOW")
+            || flag_requested("--show-onboarding", "AMIE_SHOW_ONBOARDING"),
     }
 }
 
@@ -161,11 +160,9 @@ mod tests {
     #[test]
     fn launch_flags_default_off_without_env() {
         let flags = LaunchFlags {
-            show_onboarding: false,
             onboarding_flow: false,
         };
         let json = serde_json::to_string(&flags).unwrap();
-        assert!(json.contains("showOnboarding"));
-        assert!(json.contains("onboardingFlow"));
+        assert_eq!(json, r#"{"onboardingFlow":false}"#);
     }
 }
