@@ -11,8 +11,8 @@ import type { FollowUpSeed } from "./lib/meetings";
 import "./App.css";
 
 function App() {
-  const [page, setPage] = useState<AppPage>("transcribe");
-  const lastMainPageRef = useRef<Exclude<AppPage, "settings">>("transcribe");
+  const [page, setPage] = useState<AppPage>("home");
+  const lastMainPageRef = useRef<Exclude<AppPage, "settings">>("home");
   const [arrivedMeetingId, setArrivedMeetingId] = useState<string | null>(null);
   const [skipAutoSummaryNotice, setSkipAutoSummaryNotice] = useState(false);
   const [listening, setListening] = useState(false);
@@ -52,7 +52,12 @@ function App() {
         stopMeetingRef.current?.();
       }}
     >
-      {page === "home" ? <HomePage /> : null}
+      {page === "home" ? (
+        <HomePage
+          onStartMeeting={startMeeting}
+          meetingInProgress={listening || starting}
+        />
+      ) : null}
       <Activity mode={page === "transcribe" ? "visible" : "hidden"}>
         <TranscribePage
           startMeetingRef={startMeetingRef}
