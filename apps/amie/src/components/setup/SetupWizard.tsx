@@ -46,7 +46,8 @@ export function SetupWizard({ step, onStepChange, onStartMeeting }: SetupWizardP
   };
 
   return (
-    <main className="relative flex flex-1 flex-col items-center justify-center overflow-y-auto px-10">
+    // Anchored at the top so the step bars and titles stay put between steps of different heights.
+    <main className="relative flex flex-1 flex-col items-center overflow-y-auto px-10 pt-28 pb-20">
       {back ? (
         <button
           type="button"
