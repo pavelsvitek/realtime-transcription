@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { FitStage } from "@/components/site/fit-stage";
 import { SPEAKERS } from "@/data/roadmap-cut";
 
 const TILES = [
@@ -116,23 +117,23 @@ export function SpeakerId() {
   return (
     <section
       id="speaker-id"
-      className="flex min-h-[900px] w-full items-center gap-14 px-16"
+      className="flex w-full flex-col gap-10 px-5 py-16 sm:px-8 md:py-20 xl:min-h-[900px] xl:flex-row xl:items-center xl:gap-14 xl:px-16 xl:py-0"
     >
-      <div className="flex w-[400px] shrink-0 flex-col justify-center gap-5">
+      <div className="flex w-full max-w-[560px] shrink-0 flex-col justify-center gap-5 xl:w-[400px]">
         <div className="flex h-6 shrink-0 items-center self-start rounded border border-raycast-accent-red/35 bg-raycast-accent-red-soft px-2.5">
           <span className="text-xs leading-3 font-medium tracking-[0.4px] text-raycast-accent-red">
             Speaker ID
           </span>
         </div>
-        <h2 className="flex w-[400px] flex-col">
-          <span className="text-4xl font-semibold tracking-[0.2px] text-raycast-ink">
+        <h2 className="flex flex-col xl:w-[400px]">
+          <span className="section-title font-semibold tracking-[0.2px] text-raycast-ink">
             Names from the call,
           </span>
-          <span className="text-4xl font-semibold tracking-[0.2px] text-raycast-mute">
+          <span className="section-title font-semibold tracking-[0.2px] text-raycast-mute">
             on the transcript.
           </span>
         </h2>
-        <p className="w-[380px] text-lg text-raycast-body">
+        <p className="max-w-[480px] text-lg text-raycast-body xl:w-[380px]">
           Amie reads Zoom, Teams and Google Meet names as people talk.
           Automatic speaker recognition makes meeting summaries more
           actionable.
@@ -145,6 +146,7 @@ export function SpeakerId() {
         </div>
       </div>
 
+      <FitStage width={856} height={680} className="xl:w-[856px] xl:shrink-0">
       <div className="pointer-events-none relative h-[680px] w-[856px] shrink-0 overflow-hidden select-none">
         <div className="absolute top-0 left-0 flex h-[680px] w-[1040px] flex-col overflow-hidden rounded-lg bg-[#1C1C1C]">
           <div className="flex h-10 shrink-0 items-center px-3.5">
@@ -245,6 +247,7 @@ export function SpeakerId() {
           </div>
         </div>
       </div>
+      </FitStage>
     </section>
   );
 }

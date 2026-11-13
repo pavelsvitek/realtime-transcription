@@ -55,11 +55,10 @@ export function GridBackground() {
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 select-none"
-      style={{ top: GRID_START }}
+      className="pointer-events-none absolute inset-x-0 top-[640px] bottom-0 -z-10 select-none xl:top-[1000px]"
     >
       <GridPattern />
-      <div className="absolute inset-0 mx-auto w-[1440px]">
+      <div className="absolute inset-0 mx-auto hidden w-[1440px] xl:block">
         {MARKS.map((mark) => (
           <span
             key={`${mark.x}-${mark.y}`}

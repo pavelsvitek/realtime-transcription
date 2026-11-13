@@ -1,4 +1,5 @@
 import { AmieWindow } from "@/components/landing/amie-window";
+import { FitStage } from "@/components/site/fit-stage";
 import { Footer } from "@/components/site/footer";
 import { GridBackground } from "@/components/landing/grid-background";
 import { Hero } from "@/components/landing/hero";
@@ -21,11 +22,11 @@ export function LandingPage() {
     <main id="top" className="min-h-screen bg-raycast-canvas text-raycast-ink">
       <div className="page-zoom relative isolate overflow-x-clip">
         <GridBackground />
-        <section className="relative h-[1256px] overflow-x-clip">
+        <section className="relative overflow-x-clip pb-20 xl:h-[1256px] xl:pb-0">
           <StripeWaveform />
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-x-0 top-[860px] h-[280px]"
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-[160px] xl:top-[860px] xl:bottom-auto xl:h-[280px]"
             style={{
               backgroundImage:
                 "linear-gradient(in oklab 180deg, oklab(13.4% -.0007 -0.005 / 0%) 0%, var(--color-raycast-canvas) 100%)",
@@ -35,12 +36,14 @@ export function LandingPage() {
             aria-hidden
             className="absolute inset-x-0 top-[55px] z-20 h-px bg-raycast-hairline-soft"
           />
-          <div className="relative mx-auto h-full w-[1440px]">
+          <div className="relative mx-auto w-full xl:h-full xl:w-[1440px]">
             <PrimaryNav />
             <Hero />
             <WorksWith />
-            <div className="absolute top-[512px] left-[200px] z-10">
-              <AmieWindow />
+            <div className="relative z-10 mx-auto mt-10 w-full px-4 sm:px-8 xl:absolute xl:top-[512px] xl:left-[200px] xl:mx-0 xl:mt-0 xl:w-[1040px] xl:p-0">
+              <FitStage width={1040} height={680}>
+                <AmieWindow />
+              </FitStage>
             </div>
           </div>
         </section>

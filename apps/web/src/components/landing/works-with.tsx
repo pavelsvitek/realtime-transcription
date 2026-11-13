@@ -45,12 +45,12 @@ const PLATFORMS = [
 
 export function WorksWith() {
   return (
-    <div className="absolute inset-x-0 top-[489px] z-20 flex justify-center">
-      <div className="flex h-11 items-center gap-5 rounded-xl bg-raycast-surface px-[22px] shadow-[0_0_0_1px_#FFFFFF24,0_16px_40px_#00000099]">
+    <div className="relative z-20 mt-10 flex justify-center px-4 xl:absolute xl:inset-x-0 xl:top-[489px] xl:mt-0 xl:px-0">
+      <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-3 rounded-xl py-3 xl:h-11 xl:flex-nowrap xl:gap-5 xl:py-0 bg-raycast-surface px-[22px] shadow-[0_0_0_1px_#FFFFFF24,0_16px_40px_#00000099]">
         <span className="text-[13px] leading-4 text-raycast-mute">Works with</span>
         {PLATFORMS.map(({ name, Mark }) => (
           <div key={name} className="flex items-center gap-5">
-            <span className="h-[18px] w-px bg-white/[.14]" />
+            <span className="hidden h-[18px] w-px bg-white/[.14] sm:block" />
             <div className="flex items-center gap-2">
               <Mark />
               <span className="text-sm leading-4 font-medium text-raycast-ink">{name}</span>
