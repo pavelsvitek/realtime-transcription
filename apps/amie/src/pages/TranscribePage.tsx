@@ -40,6 +40,7 @@ import {
   patchMeeting,
   useGetLiveMeetingQuery,
 } from "../models/Meeting";
+import { Button } from "../components/ui/Button";
 
 const BACKEND_STORAGE_KEY = "asrBackend";
 const LIVE_TAB_PREFIX = "transcribe";
@@ -259,15 +260,15 @@ export function TranscribePage({
             onOpen={() => void audioDevices.refresh()}
           />
           {isActive || stopping ? (
-            <button
-              className="btn btn-stop"
+            <Button
+              variant="danger"
               onClick={() => void handleStop()}
               disabled={stopping}
               aria-busy={stopping}
               aria-label={stopping ? "Stopping transcription" : "Stop transcription"}
             >
-              {stopping ? <Spinner className="btn-spinner" /> : "Stop"}
-            </button>
+              {stopping ? <Spinner className="block size-4" /> : "Stop"}
+            </Button>
           ) : (
             <LiveMeetingButton
               loading={isLoading}
@@ -276,9 +277,9 @@ export function TranscribePage({
             />
           )}
           {segments.length > 0 && !isActive && !stopping && (
-            <button className="btn btn-clear" onClick={clear}>
+            <Button variant="outline" onClick={clear}>
               Clear
-            </button>
+            </Button>
           )}
         </div>
       </header>
@@ -307,6 +308,7 @@ export function TranscribePage({
           onChange={setTab}
           prefix={LIVE_TAB_PREFIX}
           transcriptLabel={LIVE_TRANSCRIPT_TAB_LABEL}
+          className="mb-3"
         />
       </div>
 

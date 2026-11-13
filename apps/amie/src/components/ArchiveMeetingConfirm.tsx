@@ -1,6 +1,8 @@
 import { useEffect, useRef } from "react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useHoldMeetingConfirmOpen } from "./StartMeetingConfirm";
+import { Button } from "./ui/Button";
+import { Dialog, DialogDescription, DialogTitle } from "./ui/Dialog";
 
 type ArchiveMeetingConfirmProps = {
   onConfirm: () => void;
@@ -31,38 +33,25 @@ export function ArchiveMeetingConfirm({
   );
 
   return (
-    <div className="start-meeting-dialog-backdrop" onPointerDown={onDismiss}>
-      <div
-        className="start-meeting-dialog short-meeting-dialog"
-        role="alertdialog"
-        aria-modal="true"
-        aria-labelledby="archive-meeting-dialog-title"
-        aria-describedby="archive-meeting-dialog-copy"
-        onPointerDown={(event) => event.stopPropagation()}
+    <Dialog
+      onDismiss={onDismiss}
+      titleId="archive-meeting-dialog-title"
+      descriptionId="archive-meeting-dialog-copy"
+    >
+      <DialogTitle id="archive-meeting-dialog-title">Archive this meeting?</DialogTitle>
+      <DialogDescription id="archive-meeting-dialog-copy">
+        It will leave your Meetings list so everyday browsing stays focused.
+        The transcript and summary stay saved on this device — nothing is
+        deleted.
+      </DialogDescription>
+      <Button
+        ref={buttonRef}
+        size="lg"
+        className="w-full"
+        onClick={onConfirm}
       >
-        <p
-          id="archive-meeting-dialog-title"
-          className="start-meeting-dialog-title"
-        >
-          Archive this meeting?
-        </p>
-        <p
-          id="archive-meeting-dialog-copy"
-          className="short-meeting-dialog-copy"
-        >
-          It will leave your Meetings list so everyday browsing stays focused.
-          The transcript and summary stay saved on this device — nothing is
-          deleted.
-        </p>
-        <button
-          ref={buttonRef}
-          type="button"
-          className="btn btn-start short-meeting-dialog-ok"
-          onClick={onConfirm}
-        >
-          Archive
-        </button>
-      </div>
-    </div>
+        Archive
+      </Button>
+    </Dialog>
   );
 }

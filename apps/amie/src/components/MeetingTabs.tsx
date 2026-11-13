@@ -1,3 +1,5 @@
+import { cn } from "../lib/cn";
+
 export type MeetingDetailTab = "summary" | "context" | "transcript";
 
 export const MEETING_TAB_ORDER: MeetingDetailTab[] = [
@@ -26,6 +28,7 @@ type MeetingTabsProps = {
   onChange: (tab: MeetingDetailTab) => void;
   prefix?: string;
   transcriptLabel?: string;
+  className?: string;
 };
 
 export function MeetingTabs({
@@ -33,9 +36,13 @@ export function MeetingTabs({
   onChange,
   prefix = "meeting",
   transcriptLabel = "Transcript",
+  className,
 }: MeetingTabsProps) {
   return (
-    <div className="meeting-tabs" role="tablist">
+    <div
+      className={cn("mb-5 flex gap-5 border-b border-border-default", className)}
+      role="tablist"
+    >
       {MEETING_TAB_ORDER.map((id) => {
         const label = id === "transcript" ? transcriptLabel : TAB_LABELS[id];
         const { tabId, panelId } = meetingTabDomIds(prefix, id);
@@ -47,7 +54,11 @@ export function MeetingTabs({
             id={tabId}
             aria-controls={panelId}
             aria-selected={tab === id}
-            className={tab === id ? "meeting-tab active" : "meeting-tab"}
+            className={cn(
+              "cursor-pointer border-none bg-transparent px-0 pt-2 pb-2.5 font-[family-name:inherit] text-[14px] text-text-muted",
+              tab === id &&
+                "font-semibold text-text-primary shadow-[inset_0_-2px_0_var(--brand-accent)]",
+            )}
             onClick={() => onChange(id)}
           >
             {label}

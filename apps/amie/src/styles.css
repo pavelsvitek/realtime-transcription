@@ -71,6 +71,20 @@
   --status-danger-banner-text: light-dark(#8e2f24, #f2a99d);
 }
 
+/*
+ * App reset. It lives in the base layer so Tailwind's margin and padding
+ * utilities can override it; unlayered, it would beat every utility.
+ */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+}
+
 :root[data-theme="light"] {
   color-scheme: light;
 }
@@ -87,6 +101,37 @@
 @theme inline {
   --font-sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     Helvetica, Arial, sans-serif;
+
+  /*
+   * The app's root font size is 14px (App.css :root), so Tailwind's rem-based
+   * scales would come out 12.5% small: p-5 = 17.5px, rounded-md = 5.25px.
+   * Pin spacing, radius and type to pixels so p-5 = 20px, rounded-md = 6px,
+   * text-sm = 14px, matching the CSS this replaces. Arbitrary rem values such
+   * as w-[16rem] still follow the root size.
+   */
+  --spacing: 4px;
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-3xl: 24px;
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-base: 16px;
+  --text-lg: 18px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
+  --text-3xl: 30px;
+  --text-4xl: 36px;
+
+  --animate-spinner: spinner 0.8s linear infinite;
+  @keyframes spinner {
+    to {
+      transform: rotate(360deg);
+    }
+  }
 
   --color-surface-shell: var(--surface-shell);
   --color-surface-chrome: var(--surface-chrome);

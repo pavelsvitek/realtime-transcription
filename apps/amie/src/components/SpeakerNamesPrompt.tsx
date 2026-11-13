@@ -1,5 +1,6 @@
 import { useSpeakerTagsStatus } from "../hooks/useSpeakerTagsStatus";
 import { accessibilityNotice, hasStableSignature } from "../lib/speaker-tags";
+import { Button } from "./ui/Button";
 
 /** Shown only while macOS reports Accessibility as off for this process. */
 export function SpeakerNamesPrompt() {
@@ -20,14 +21,13 @@ export function SpeakerNamesPrompt() {
         )}
         {requestError && <p>{requestError}</p>}
       </div>
-      <button
-        className="btn btn-clear"
-        type="button"
+      <Button
+        variant="outline"
         disabled={requesting}
         onClick={() => requestAccess()}
       >
         Allow Accessibility
-      </button>
+      </Button>
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { summaryProviderHasKey } from "../lib/summary-providers";
 import { useSpeakerTagsStatus } from "../hooks/useSpeakerTagsStatus";
 import { codeRequirementLabel, signatureLabel } from "../lib/speaker-tags";
 import { moveSettingsSection } from "../lib/nav-hotkeys";
+import { Button } from "../components/ui/Button";
 
 const KEY_MASK = "•".repeat(24);
 
@@ -371,20 +372,19 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
                   </label>
 
                   <div className="settings-actions">
-                    <button
-                      className="btn btn-start"
+                    <Button
                       onClick={() => void saveKey()}
                       disabled={saving || fieldLocked || apiKey.trim().length === 0}
                     >
                       {saving ? "Saving…" : "Save key"}
-                    </button>
-                    <button
-                      className="btn btn-clear"
+                    </Button>
+                    <Button
+                      variant="outline"
                       onClick={() => void clearKey()}
                       disabled={saving || !settings?.xaiApiKeySaved}
                     >
                       Clear saved key
-                    </button>
+                    </Button>
                   </div>
 
                   {fieldLocked && settings?.xaiApiKeySaved && (
@@ -527,8 +527,7 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
                     </div>
                   </div>
                   <div className="settings-actions">
-                    <button
-                      className="btn btn-start"
+                    <Button
                       disabled={
                         openingPane !== null ||
                         systemAccess?.microphone === "authorized"
@@ -540,7 +539,7 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
                         : systemAccess?.microphone === "authorized"
                           ? "Allowed"
                           : "Enable Microphone"}
-                    </button>
+                    </Button>
                   </div>
                 </div>
 
@@ -558,13 +557,12 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
                     </div>
                   </div>
                   <div className="settings-actions">
-                    <button
-                      className="btn btn-start"
+                    <Button
                       disabled={openingPane !== null}
                       onClick={() => void openAccessPane("systemAudio")}
                     >
                       {openingPane === "systemAudio" ? "Opening…" : "Open System Audio settings"}
-                    </button>
+                    </Button>
                   </div>
                 </div>
 
@@ -623,8 +621,7 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
                     )}
                   </div>
                   <div className="settings-actions">
-                    <button
-                      className="btn btn-start"
+                    <Button
                       onClick={() => void openAccessPane("accessibility")}
                       disabled={openingPane !== null || axTrusted === true}
                     >
@@ -633,7 +630,7 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
                         : axTrusted
                           ? "Allowed"
                           : "Allow Accessibility"}
-                    </button>
+                    </Button>
                   </div>
                 </div>
 
@@ -817,16 +814,15 @@ function SummaryKeySection({
       </label>
 
       <div className="settings-actions">
-        <button
-          className="btn btn-start"
+        <Button
           onClick={onSave}
           disabled={saving || keyIsSet || value.trim().length === 0}
         >
           {saving ? "Saving…" : "Save key"}
-        </button>
-        <button className="btn btn-clear" onClick={onClear} disabled={saving || !keySaved}>
+        </Button>
+        <Button variant="outline" onClick={onClear} disabled={saving || !keySaved}>
           Clear saved key
-        </button>
+        </Button>
       </div>
 
       {keyIsSet && keySaved && (

@@ -3,6 +3,8 @@ import { useHotkey } from "@tanstack/react-hotkeys";
 import { invoke } from "@tauri-apps/api/core";
 import { useHoldMeetingConfirmOpen } from "./StartMeetingConfirm";
 import { formatModelSize, type SpeechModelStatus } from "../lib/onboarding";
+import { Button } from "./ui/Button";
+import { Dialog, DialogDescription, DialogTitle } from "./ui/Dialog";
 
 type OnboardingStep = 1 | 2;
 
@@ -112,182 +114,186 @@ export function OnboardingDialog({
   };
 
   return (
-    <div
-      className="start-meeting-dialog-backdrop"
-      onPointerDown={onDismiss}
+    <Dialog
+      onDismiss={onDismiss}
+      role="dialog"
+      titleId="onboarding-dialog-title"
+      descriptionId="onboarding-dialog-copy"
+      className="onboarding-dialog"
     >
-      <div
-        className="start-meeting-dialog onboarding-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="onboarding-dialog-title"
-        aria-describedby="onboarding-dialog-copy"
-        onPointerDown={(event) => event.stopPropagation()}
-      >
-        <div className="onboarding-dialog-chrome">
-          <p className="onboarding-step-label">Step {step} of 2</p>
-          <button
-            type="button"
-            className="onboarding-close"
-            aria-label="Close onboarding"
-            onClick={onDismiss}
-          >
-            Close
-          </button>
-        </div>
-
-        {step === 1 ? (
-          <>
-            <div className="onboarding-dialog-body">
-              <p id="onboarding-dialog-title" className="start-meeting-dialog-title">
-                Download the speech model
-              </p>
-              <p id="onboarding-dialog-copy" className="short-meeting-dialog-copy">
-                {modelReady
-                  ? `The speech model is already on this Mac (${sizeLabel}). Continue when you are ready — you stay in control of what Amie installs.`
-                  : `Amie needs a local speech model for on-device transcription. The download is ${sizeLabel}. You choose when it starts; nothing downloads until you click Download.`}
-              </p>
-              {downloadError ? (
-                <p className="onboarding-error" role="alert">
-                  {downloadError}
-                </p>
-              ) : null}
-              {modelStatus?.helperFound === false ? (
-                <p className="onboarding-hint">
-                  The speech helper is missing. Run{" "}
-                  <code>./scripts/setup-nemotron.sh</code> once, then try again.
-                </p>
-              ) : null}
-            </div>
-            <div className="onboarding-dialog-footer">
-              <div className="onboarding-dialog-actions">
-                <button
-                  type="button"
-                  className="btn onboarding-secondary"
-                  onClick={onDismiss}
-                  disabled={startingDownload}
-                >
-                  Not now
-                </button>
-                <button
-                  ref={primaryRef}
-                  type="button"
-                  className="btn btn-start onboarding-primary"
-                  onClick={() => void handleDownload()}
-                  disabled={startingDownload || modelStatus?.helperFound === false}
-                >
-                  {startingDownload
-                    ? "Starting…"
-                    : modelReady
-                      ? "Continue"
-                      : "Download"}
-                </button>
-              </div>
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="onboarding-dialog-body">
-              <p id="onboarding-dialog-title" className="start-meeting-dialog-title">
-                Allow Amie to listen and identify speakers
-              </p>
-              <p id="onboarding-dialog-copy" className="short-meeting-dialog-copy">
-                These macOS permissions are yours to grant. Open each one when you
-                are ready — Amie only uses them for live meetings.
-              </p>
-
-              <div className="onboarding-access-list">
-                <div className="onboarding-access-row">
-                  <div>
-                    <h3 className="onboarding-access-heading">Microphone</h3>
-                    <p className="onboarding-access-copy">
-                      Needed when you capture your own voice.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    className="btn onboarding-accent"
-                    disabled={
-                      openingPane !== null ||
-                      systemAccess?.microphone === "authorized"
-                    }
-                    onClick={() => void openAccessPane("microphone")}
-                  >
-                    {openingPane === "microphone"
-                      ? "Opening…"
-                      : systemAccess?.microphone === "authorized"
-                        ? "Allowed"
-                        : "Enable Microphone"}
-                  </button>
-                </div>
-
-                <div className="onboarding-access-row">
-                  <div>
-                    <h3 className="onboarding-access-heading">System audio</h3>
-                    <p className="onboarding-access-copy">
-                      Captures Chrome or meeting audio playing on this Mac.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    className="btn onboarding-accent"
-                    disabled={openingPane !== null}
-                    onClick={() => void openAccessPane("systemAudio")}
-                  >
-                    {openingPane === "systemAudio"
-                      ? "Opening…"
-                      : "Open System Audio settings"}
-                  </button>
-                </div>
-
-                <div className="onboarding-access-row">
-                  <div>
-                    <h3 className="onboarding-access-heading">Accessibility</h3>
-                    <p className="onboarding-access-copy">
-                      Read the speaker names from live Zoom or MS Team calls.
-                      Makes the meetings transcription and summary much more
-                      useful.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    className="btn onboarding-accent"
-                    disabled={
-                      openingPane !== null ||
-                      systemAccess?.accessibility.trusted === true
-                    }
-                    onClick={() => void openAccessPane("accessibility")}
-                  >
-                    {openingPane === "accessibility"
-                      ? "Opening…"
-                      : systemAccess?.accessibility.trusted
-                        ? "Allowed"
-                        : "Allow Accessibility"}
-                  </button>
-                </div>
-              </div>
-
-              {accessError ? (
-                <p className="onboarding-error" role="alert">
-                  {accessError}
-                </p>
-              ) : null}
-            </div>
-            <div className="onboarding-dialog-footer">
-              <div className="onboarding-dialog-actions">
-                <button
-                  ref={primaryRef}
-                  type="button"
-                  className="btn btn-start onboarding-primary"
-                  onClick={onComplete}
-                >
-                  Done
-                </button>
-              </div>
-            </div>
-          </>
-        )}
+      <div className="onboarding-dialog-chrome">
+        <p className="onboarding-step-label">Step {step} of 2</p>
+        <button
+          type="button"
+          className="onboarding-close"
+          aria-label="Close onboarding"
+          onClick={onDismiss}
+        >
+          Close
+        </button>
       </div>
-    </div>
+
+      {step === 1 ? (
+        <>
+          <div className="onboarding-dialog-body">
+            <DialogTitle id="onboarding-dialog-title" className="text-[22px]">
+              Download the speech model
+            </DialogTitle>
+            <DialogDescription
+              id="onboarding-dialog-copy"
+              className="text-[15px] leading-normal"
+            >
+              {modelReady
+                ? `The speech model is already on this Mac (${sizeLabel}). Continue when you are ready — you stay in control of what Amie installs.`
+                : `Amie needs a local speech model for on-device transcription. The download is ${sizeLabel}. You choose when it starts; nothing downloads until you click Download.`}
+            </DialogDescription>
+            {downloadError ? (
+              <p className="onboarding-error" role="alert">
+                {downloadError}
+              </p>
+            ) : null}
+            {modelStatus?.helperFound === false ? (
+              <p className="onboarding-hint">
+                The speech helper is missing. Run{" "}
+                <code>./scripts/setup-nemotron.sh</code> once, then try again.
+              </p>
+            ) : null}
+          </div>
+          <div className="onboarding-dialog-footer">
+            <div className="onboarding-dialog-actions">
+              <Button
+                variant="secondary"
+                size="lg"
+                className="min-w-[7.5rem] px-4 whitespace-nowrap"
+                onClick={onDismiss}
+                disabled={startingDownload}
+              >
+                Not now
+              </Button>
+              <Button
+                size="lg"
+                className="min-w-[7.5rem] px-4 whitespace-nowrap"
+                ref={primaryRef}
+                onClick={() => void handleDownload()}
+                disabled={startingDownload || modelStatus?.helperFound === false}
+              >
+                {startingDownload
+                  ? "Starting…"
+                  : modelReady
+                    ? "Continue"
+                    : "Download"}
+              </Button>
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="onboarding-dialog-body">
+            <DialogTitle id="onboarding-dialog-title" className="text-[22px]">
+              Allow Amie to listen and identify speakers
+            </DialogTitle>
+            <DialogDescription
+              id="onboarding-dialog-copy"
+              className="text-[15px] leading-normal"
+            >
+              These macOS permissions are yours to grant. Open each one when you
+              are ready — Amie only uses them for live meetings.
+            </DialogDescription>
+
+            <div className="onboarding-access-list">
+              <div className="onboarding-access-row">
+                <div>
+                  <h3 className="onboarding-access-heading">Microphone</h3>
+                  <p className="onboarding-access-copy">
+                    Needed when you capture your own voice.
+                  </p>
+                </div>
+                <Button
+                  variant="accent"
+                  size="lg"
+                  className="w-[16rem] min-w-[16rem] self-start px-4 whitespace-nowrap"
+                  disabled={
+                    openingPane !== null ||
+                    systemAccess?.microphone === "authorized"
+                  }
+                  onClick={() => void openAccessPane("microphone")}
+                >
+                  {openingPane === "microphone"
+                    ? "Opening…"
+                    : systemAccess?.microphone === "authorized"
+                      ? "Allowed"
+                      : "Enable Microphone"}
+                </Button>
+              </div>
+
+              <div className="onboarding-access-row">
+                <div>
+                  <h3 className="onboarding-access-heading">System audio</h3>
+                  <p className="onboarding-access-copy">
+                    Captures Chrome or meeting audio playing on this Mac.
+                  </p>
+                </div>
+                <Button
+                  variant="accent"
+                  size="lg"
+                  className="w-[16rem] min-w-[16rem] self-start px-4 whitespace-nowrap"
+                  disabled={openingPane !== null}
+                  onClick={() => void openAccessPane("systemAudio")}
+                >
+                  {openingPane === "systemAudio"
+                    ? "Opening…"
+                    : "Open System Audio settings"}
+                </Button>
+              </div>
+
+              <div className="onboarding-access-row">
+                <div>
+                  <h3 className="onboarding-access-heading">Accessibility</h3>
+                  <p className="onboarding-access-copy">
+                    Read the speaker names from live Zoom or MS Team calls.
+                    Makes the meetings transcription and summary much more
+                    useful.
+                  </p>
+                </div>
+                <Button
+                  variant="accent"
+                  size="lg"
+                  className="w-[16rem] min-w-[16rem] self-start px-4 whitespace-nowrap"
+                  disabled={
+                    openingPane !== null ||
+                    systemAccess?.accessibility.trusted === true
+                  }
+                  onClick={() => void openAccessPane("accessibility")}
+                >
+                  {openingPane === "accessibility"
+                    ? "Opening…"
+                    : systemAccess?.accessibility.trusted
+                      ? "Allowed"
+                      : "Allow Accessibility"}
+                </Button>
+              </div>
+            </div>
+
+            {accessError ? (
+              <p className="onboarding-error" role="alert">
+                {accessError}
+              </p>
+            ) : null}
+          </div>
+          <div className="onboarding-dialog-footer">
+            <div className="onboarding-dialog-actions">
+              <Button
+                size="lg"
+                className="min-w-[7.5rem] px-4 whitespace-nowrap"
+                ref={primaryRef}
+                onClick={onComplete}
+              >
+                Done
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
+    </Dialog>
   );
 }

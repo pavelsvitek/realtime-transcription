@@ -1,6 +1,6 @@
 # Amie desktop: migrate App.css to Tailwind
 
-Status: step 1 done. Scope: `apps/amie` (the Tauri desktop app) only.
+Status: steps 1–2 done. Scope: `apps/amie` (the Tauri desktop app) only.
 
 ## Where we are
 
@@ -33,14 +33,21 @@ Every component styled with Tailwind utility classes, one small CSS entry file f
 4. **Add a `cn()` helper** (`clsx` + `tailwind-merge`) in `src/lib/cn.ts` for conditional classes. Today `Sidebar` and `AudioDeviceMenu` build class strings by hand.
 5. **Extract small components, not `@apply` classes.** Repeated patterns become React components or class constants: `Button` (primary, secondary, danger, accent), `Dialog` shell, `SettingsSection`, `Tabs`. `@apply` is allowed only for the handful of global rules left in CSS.
 6. **What stays in CSS** (`src/styles.css`, replacing `App.css`): the `@import "tailwindcss"`, tokens, `@theme inline`, base rules (font, body, `#root`, `color-scheme`), the three keyframes (registered as `--animate-*` theme values), the reduced-motion rule, and the `:has()` error-banner rule unless it is easy to express as `has-[…]:`.
-7. **No Preflight until App.css is gone** (decided in step 1). `styles.css` imports only Tailwind's theme and utilities layers. Preflight would restyle buttons, headings, lists and inline SVGs (`display: block`) under the unconverted components. `App.css` keeps its own small reset meanwhile. Step 7 adds Preflight back and checks form controls, the `button` cursor and SVG icons.
+7. **No Preflight until App.css is gone** (decided in step 1). `styles.css` imports only Tailwind's theme and utilities layers. Preflight would restyle buttons, headings, lists and inline SVGs (`display: block`) under the unconverted components. The app's own small reset (`* { margin: 0; padding: 0; box-sizing }`) lives in `@layer base` in `styles.css`. Step 7 adds Preflight back and checks form controls, the `button` cursor and SVG icons.
+8. **Pixel scales, because the root font size is 14px** (found in step 2). `App.css` sets `:root { font-size: 14px }`, so Tailwind's rem-based defaults come out 12.5% small (`p-5` would be 17.5px). The theme pins `--spacing: 4px` and the radius and font-size scales to pixels, so `p-5` is 20px and `rounded-2xl` is 16px. Arbitrary rem values such as `w-[16rem]` still follow the 14px root, which is what the old CSS did.
+
+### Gotchas found while converting
+
+- **Unlayered CSS beats every utility.** Tailwind utilities live in `@layer utilities`; any rule in `App.css` wins over them whatever its specificity. That includes the universal reset, which is why it moved into `@layer base`. Remove a component's old rules in the same change that converts it.
+- **`font-[inherit]` sets font-weight, not font-family.** Use `font-[family-name:inherit]` on buttons, or they fall back to the browser's default font.
+- **Use `text-[13px]`-style arbitrary sizes when the old rule set only `font-size`.** Named sizes like `text-sm` also set a line height.
 
 ## Steps
 
 Each step is one PR that ships on its own and leaves the app looking the same.
 
 1. **Set up Tailwind beside App.css** (done). Add `tailwindcss` and `@tailwindcss/vite` to `apps/amie`, register the plugin in `vite.config.ts`, create `src/styles.css` with the theme and utilities layers, the `@theme inline` mapping and the tokens, and import it before `App.css` in `main.tsx`. Add `cn()`. No component changes.
-2. **Shared primitives.** Build `Button`, the dialog shell (used by Start/Stop/Archive/Delete/FollowUp confirms, ShortMeetingNotice, UpdateDialog and OnboardingDialog), `Spinner` and the tab bar (`MeetingTabs`). Move their rules out of `App.css`.
+2. **Shared primitives** (done). Build `Button`, the dialog shell (used by Start/Stop/Archive/Delete/FollowUp confirms, ShortMeetingNotice, UpdateDialog and OnboardingDialog), `Spinner` and the tab bar (`MeetingTabs`). Move their rules out of `App.css`.
 3. **Shell.** `AppLayout`, `Sidebar`, `TitleBar`, `LiveMeetingButton`, `StartMeetingButton`, `MicIndicator` and the listening animation.
 4. **Home and Transcription.** `HomePage`, `TranscribePage`, `TranscriptFeed`, `AudioDeviceMenu`, `SpeakerNamesPrompt`, error banners and the footer.
 5. **Meetings.** `MeetingsPage`, `MeetingTitle`, `MeetingContextEditor`, `MeetingOverflowMenu`, summary markdown styles. The summary renders markdown, so decide here between a scoped set of element rules in CSS and `@tailwindcss/typography`. Prefer a few scoped rules; typography is a large dependency for a small surface.
