@@ -1,6 +1,6 @@
 # Amie desktop: migrate App.css to Tailwind
 
-Status: plan, not started. Scope: `apps/amie` (the Tauri desktop app) only.
+Status: step 1 done. Scope: `apps/amie` (the Tauri desktop app) only.
 
 ## Where we are
 
@@ -29,17 +29,17 @@ Every component styled with Tailwind utility classes, one small CSS entry file f
    }
    ```
    Components then write `bg-surface-shell text-text-primary`, and dark mode is just the existing variable swap. There are no `dark:` variants to sprinkle around. That keeps the three-way `data-theme` behaviour exactly as it is and avoids copying `apps/web`'s separate `dark-*` colour set.
-3. **Deduplicate the dark tokens once**: define them a single time and apply them to both `[data-theme="dark"]` and `system` + `prefers-color-scheme: dark`, for example with a `@custom-variant` or one shared selector list. Fold the per-component dark overrides into tokens where possible.
+3. **Write each token once with `light-dark()`** (done in step 1). `:root` has `color-scheme: light dark`, and `data-theme="light"` / `"dark"` force `color-scheme`, so every token follows the theme with no duplicated dark block. The app's minimum is macOS 15, whose WebKit supports `light-dark()`. The per-component dark overrides turned out to be redundant or unused and were removed.
 4. **Add a `cn()` helper** (`clsx` + `tailwind-merge`) in `src/lib/cn.ts` for conditional classes. Today `Sidebar` and `AudioDeviceMenu` build class strings by hand.
 5. **Extract small components, not `@apply` classes.** Repeated patterns become React components or class constants: `Button` (primary, secondary, danger, accent), `Dialog` shell, `SettingsSection`, `Tabs`. `@apply` is allowed only for the handful of global rules left in CSS.
 6. **What stays in CSS** (`src/styles.css`, replacing `App.css`): the `@import "tailwindcss"`, tokens, `@theme inline`, base rules (font, body, `#root`, `color-scheme`), the three keyframes (registered as `--animate-*` theme values), the reduced-motion rule, and the `:has()` error-banner rule unless it is easy to express as `has-[…]:`.
-7. **Disable Preflight's surprises**: check form controls, `button` cursor, heading sizes and list styles after adding Tailwind. `App.css` already resets `margin` and `padding` and sets `box-sizing`, so Preflight should change little, but selects and native controls in Settings need a look.
+7. **No Preflight until App.css is gone** (decided in step 1). `styles.css` imports only Tailwind's theme and utilities layers. Preflight would restyle buttons, headings, lists and inline SVGs (`display: block`) under the unconverted components. `App.css` keeps its own small reset meanwhile. Step 7 adds Preflight back and checks form controls, the `button` cursor and SVG icons.
 
 ## Steps
 
 Each step is one PR that ships on its own and leaves the app looking the same.
 
-1. **Set up Tailwind beside App.css.** Add `tailwindcss` and `@tailwindcss/vite` to `apps/amie`, register the plugin in `vite.config.ts`, create `src/styles.css` with the import, `@theme inline` mapping and the deduplicated tokens, and import it before `App.css` in `main.tsx`. Add `cn()`. Run the app in both themes and fix anything Preflight changed. No component changes yet.
+1. **Set up Tailwind beside App.css** (done). Add `tailwindcss` and `@tailwindcss/vite` to `apps/amie`, register the plugin in `vite.config.ts`, create `src/styles.css` with the theme and utilities layers, the `@theme inline` mapping and the tokens, and import it before `App.css` in `main.tsx`. Add `cn()`. No component changes.
 2. **Shared primitives.** Build `Button`, the dialog shell (used by Start/Stop/Archive/Delete/FollowUp confirms, ShortMeetingNotice, UpdateDialog and OnboardingDialog), `Spinner` and the tab bar (`MeetingTabs`). Move their rules out of `App.css`.
 3. **Shell.** `AppLayout`, `Sidebar`, `TitleBar`, `LiveMeetingButton`, `StartMeetingButton`, `MicIndicator` and the listening animation.
 4. **Home and Transcription.** `HomePage`, `TranscribePage`, `TranscriptFeed`, `AudioDeviceMenu`, `SpeakerNamesPrompt`, error banners and the footer.
