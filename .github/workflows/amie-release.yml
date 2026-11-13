@@ -1,36 +1,36 @@
-# Amie macOS release (Apple Silicon only) → draft GitHub Release + updater assets.
+# Amie macOS release (Apple Silicon only): Developer ID signed, notarized,
+# then a draft GitHub Release that is published only after manual approval.
+#
+# Principle: nothing is uploaded to a Release until every artifact is final.
+#
+#   preflight  Stage 0  secrets exist AND work, version/tag match, no existing Release
+#   build      Stage 1-4  build + sign, notarize app (Tauri), notarize DMG, verify, latest.json
+#   draft      Stage 5a  create the draft Release with the final assets in one go, verify it
+#   publish    Stage 5b  waits for approval of the `release` Environment, publishes, verifies
 #
 # Trigger:
-#   - Push tag matching `app-v*` (e.g. app-v0.1.0). Tag version must match
-#     apps/amie/src-tauri/tauri.conf.json (and Cargo.toml) version.
-#   - workflow_dispatch for manual / dry runs (creates draft Release for the
-#     version in tauri.conf.json).
+#   - Push tag `app-v<version>`: full pipeline. The tag version must equal
+#     apps/amie/src-tauri/tauri.conf.json and Cargo.toml.
+#   - workflow_dispatch: dry run. preflight + build only; no Release is created or
+#     touched. The built files are kept as the `amie-release` run artifact.
 #
-# Required repository secret (minisign — Tauri updater):
-#   TAURI_SIGNING_PRIVATE_KEY
-#     Private key contents (or path contents) from:
-#       pnpm tauri signer generate -w ~/.tauri/amie.key
-#     Must match plugins.updater.pubkey in tauri.conf.json (real pubkey is
-#     already embedded; keep this secret in sync with that keypair).
+# Required repository secrets:
+#   TAURI_SIGNING_PRIVATE_KEY            minisign key for the updater (matches plugins.updater.pubkey)
+#   APPLE_CERTIFICATE                    base64 of the "Developer ID Application" .p12 (with private key)
+#   APPLE_CERTIFICATE_PASSWORD           password chosen when exporting the .p12
+#   APPLE_SIGNING_IDENTITY               e.g. "Developer ID Application: Name (TEAMID)"
+#   APPLE_ID                             Apple ID email used for notarization
+#   APPLE_PASSWORD                       app-specific password for that Apple ID
+#   APPLE_TEAM_ID                        10-character team id
+# Optional: TAURI_SIGNING_PRIVATE_KEY_PASSWORD (only if the minisign key has one).
 #
-# Optional repository secret:
-#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD
-#     Only if the private key was generated with a password.
+# Required repository setting: Environment `release` with a required reviewer
+# (the approval gate before publishing). See apps/amie/README.md.
 #
-# Required repository secrets (Apple Developer ID signing + notarization, so
-# Gatekeeper opens the DMG and updates without "unidentified developer"):
-#   APPLE_CERTIFICATE            base64 of the "Developer ID Application" .p12
-#   APPLE_CERTIFICATE_PASSWORD   password chosen when exporting the .p12
-#   APPLE_SIGNING_IDENTITY       e.g. "Developer ID Application: Name (TEAMID)"
-#   APPLE_ID                     Apple ID email used for notarization
-#   APPLE_PASSWORD               app-specific password for that Apple ID
-#   APPLE_TEAM_ID                10-character team id
-# See apps/amie/README.md → "Developer ID signing and notarization".
-#
-# Expected draft Release assets (darwin-aarch64):
-#   - Amie_*.dmg (first-install)
-#   - Amie.app.tar.gz (+ .sig) (updater payload)
-#   - latest.json (uploader via uploadUpdaterJson)
+# Release assets (darwin-aarch64):
+#   Amie_<v>_aarch64.dmg                 first install (signed, notarized, stapled)
+#   Amie_<v>_aarch64.app.tar.gz + .sig   updater payload (stapled app)
+#   latest.json                          updater manifest
 
 name: amie-release
 
@@ -41,11 +41,140 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+
+# One release run at a time, and never cancel one that is mid-notarization.
+concurrency:
+  group: amie-release
+  cancel-in-progress: false
+
+env:
+  RELEASE_NOTES: |
+    This update includes reliability improvements and bug fixes. Amie will restart automatically after the update.
+
+    Your meetings and settings stay on this Mac.
 
 jobs:
-  publish-macos-aarch64:
+  # ---------------------------------------------------------------- Stage 0
+  preflight:
     runs-on: macos-latest
+    permissions:
+      contents: write # read access to draft Releases needs push permission
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      is_release: ${{ steps.version.outputs.is_release }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve version and check it matches the tag
+        id: version
+        env:
+          EVENT: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          version="$(jq -r .version apps/amie/src-tauri/tauri.conf.json)"
+          cargo_version="$(sed -nE 's/^version = "([^"]+)".*/\1/p' apps/amie/src-tauri/Cargo.toml | head -n 1)"
+          if [ "$version" != "$cargo_version" ]; then
+            echo "::error::tauri.conf.json ($version) and Cargo.toml ($cargo_version) versions differ."
+            exit 1
+          fi
+          is_release=false
+          if [ "$EVENT" = "push" ]; then
+            is_release=true
+            if [ "$REF_NAME" != "app-v${version}" ]; then
+              echo "::error::Tag $REF_NAME does not match version $version (expected app-v${version})."
+              exit 1
+            fi
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=app-v${version}" >> "$GITHUB_OUTPUT"
+          echo "is_release=$is_release" >> "$GITHUB_OUTPUT"
+          echo "Version $version (release run: $is_release)"
+
+      - name: Refuse if a Release already exists for this version
+        if: steps.version.outputs.is_release == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          existing="$(gh api "repos/${GITHUB_REPOSITORY}/releases" --paginate \
+            --jq ".[] | select(.tag_name == \"$TAG\") | \"id=\(.id) draft=\(.draft)\"")"
+          if [ -n "$existing" ]; then
+            echo "::error::A Release for $TAG already exists ($existing). Bump the version instead of rerunning."
+            exit 1
+          fi
+
+      - name: All secrets are present
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          missing=0
+          for name in TAURI_SIGNING_PRIVATE_KEY APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Repository secret $name is not set (see apps/amie/README.md)."
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+      - name: Certificate is usable (opens, has a private key, matches identity, not expired)
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          set -euo pipefail
+          p12="$RUNNER_TEMP/preflight.p12"
+          trap 'rm -f "$p12"' EXIT
+          printf '%s' "$APPLE_CERTIFICATE" | base64 --decode > "$p12"
+          # /usr/bin/openssl (LibreSSL) reads the .p12 that Keychain Access exports.
+          subject="$(/usr/bin/openssl pkcs12 -in "$p12" -passin env:APPLE_CERTIFICATE_PASSWORD -nokeys -clcerts \
+            | /usr/bin/openssl x509 -noout -subject)" \
+            || { echo "::error::APPLE_CERTIFICATE cannot be opened with APPLE_CERTIFICATE_PASSWORD."; exit 1; }
+          case "$subject" in
+            *"$APPLE_SIGNING_IDENTITY"*) ;;
+            *) echo "::error::Certificate subject does not match APPLE_SIGNING_IDENTITY."; exit 1 ;;
+          esac
+          keys="$(/usr/bin/openssl pkcs12 -in "$p12" -passin env:APPLE_CERTIFICATE_PASSWORD -nocerts -nodes)"
+          case "$keys" in
+            *"PRIVATE KEY"*) ;;
+            *) echo "::error::The .p12 has no private key; re-export certificate and key together."; exit 1 ;;
+          esac
+          /usr/bin/openssl pkcs12 -in "$p12" -passin env:APPLE_CERTIFICATE_PASSWORD -nokeys -clcerts \
+            | /usr/bin/openssl x509 -noout -checkend 0 \
+            || { echo "::error::The signing certificate has expired."; exit 1; }
+          echo "Certificate OK."
+
+      - name: Apple notarization credentials are accepted
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          xcrun notarytool history --apple-id "$APPLE_ID" --password "$APPLE_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" --output-format json > /dev/null \
+            || { echo "::error::Apple rejected APPLE_ID / APPLE_PASSWORD (app-specific password) / APPLE_TEAM_ID."; exit 1; }
+          echo "Notarization credentials OK."
+
+  # ------------------------------------------------------- Stages 1-4
+  build:
+    needs: preflight
+    runs-on: macos-latest
+    env:
+      VERSION: ${{ needs.preflight.outputs.version }}
+      TAG: ${{ needs.preflight.outputs.tag }}
+      BUNDLE_DIR: apps/amie/src-tauri/target/aarch64-apple-darwin/release/bundle
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -82,66 +211,223 @@ jobs:
           swift build -c release --product nemotron-bridge
           test -x .build/release/nemotron-bridge
 
-      - name: Fail fast if minisign private key secret is missing
+      # Stage 1 + 2: Tauri imports the certificate, signs the app and sidecar with
+      # the hardened runtime, notarizes Amie.app and staples it, then builds the
+      # DMG and the updater payload (.app.tar.gz + .sig) from the stapled app.
+      # Build only: this step uploads nothing.
+      - name: Build, sign and notarize the app
+        working-directory: apps/amie
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: pnpm tauri build --target aarch64-apple-darwin
+
+      - name: Collect the artifacts under their final names
         run: |
-          if [ -z "${TAURI_SIGNING_PRIVATE_KEY}" ]; then
-            echo "::error::Repository secret TAURI_SIGNING_PRIVATE_KEY is not set."
-            echo "Generate with: pnpm tauri signer generate -w ~/.tauri/amie.key (from apps/amie)"
-            echo "Put the public key in apps/amie/src-tauri/tauri.conf.json → plugins.updater.pubkey"
-            echo "Store the private key as Actions secret TAURI_SIGNING_PRIVATE_KEY"
+          set -euo pipefail
+          mkdir -p dist-release
+          cp "$BUNDLE_DIR/dmg/Amie_${VERSION}_aarch64.dmg" dist-release/
+          cp "$BUNDLE_DIR/macos/Amie.app.tar.gz" "dist-release/Amie_${VERSION}_aarch64.app.tar.gz"
+          cp "$BUNDLE_DIR/macos/Amie.app.tar.gz.sig" "dist-release/Amie_${VERSION}_aarch64.app.tar.gz.sig"
+          ls -l dist-release
+
+      # Stage 3: Tauri notarizes the app but not the DMG that wraps it.
+      - name: Notarize and staple the DMG
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          dmg="dist-release/Amie_${VERSION}_aarch64.dmg"
+          # notarytool exits 0 even for an Invalid submission, so check the status.
+          result="$(xcrun notarytool submit "$dmg" \
+            --apple-id "$APPLE_ID" --password "$APPLE_PASSWORD" --team-id "$APPLE_TEAM_ID" \
+            --wait --timeout 30m --output-format json)"
+          echo "$result"
+          status="$(echo "$result" | jq -r .status)"
+          if [ "$status" != "Accepted" ]; then
+            echo "::error::DMG notarization finished with status: $status"
+            exit 1
+          fi
+          xcrun stapler staple "$dmg"
+
+      # Stage 4: verify what will actually ship.
+      - name: Verify app, updater payload, DMG and sidecar
+        run: |
+          set -euo pipefail
+          verify_app() {
+            local app="$1"
+            out="$(spctl --assess --type execute -vv "$app" 2>&1 || true)"
+            echo "$out"
+            case "$out" in
+              *"Notarized Developer ID"*) ;;
+              *) echo "::error::$app is not accepted as Notarized Developer ID"; exit 1 ;;
+            esac
+            xcrun stapler validate "$app"
+            for bin in "$app" "$app/Contents/MacOS/nemotron-bridge"; do
+              info="$(codesign -dvv "$bin" 2>&1)"
+              case "$info" in
+                *"Authority=Developer ID Application"*) ;;
+                *) echo "::error::$bin is not Developer ID signed"; exit 1 ;;
+              esac
+              case "$info" in
+                *"flags=0x10000(runtime)"*) ;;
+                *) echo "::error::$bin lacks the hardened runtime"; exit 1 ;;
+              esac
+            done
+          }
+
+          echo "== app bundle"
+          verify_app "$BUNDLE_DIR/macos/Amie.app"
+
+          echo "== updater payload (extracted)"
+          payload="$RUNNER_TEMP/payload"
+          rm -rf "$payload"; mkdir -p "$payload"
+          tar -xzf "dist-release/Amie_${VERSION}_aarch64.app.tar.gz" -C "$payload"
+          verify_app "$payload/Amie.app"
+
+          echo "== DMG"
+          dmg="dist-release/Amie_${VERSION}_aarch64.dmg"
+          xcrun stapler validate "$dmg"
+          out="$(spctl -a -t open --context context:primary-signature -vv "$dmg" 2>&1 || true)"
+          echo "$out"
+          case "$out" in
+            *"Notarized Developer ID"*) ;;
+            *) echo "::error::DMG is not accepted as Notarized Developer ID"; exit 1 ;;
+          esac
+
+          echo "== sidecar launches under the hardened runtime"
+          # Proves the signed binary is not rejected at launch (SIGKILL from code
+          # signing / library validation, or a dyld load error). It does not
+          # exercise models, and an ordinary non-zero exit or crash on --help
+          # is not a failure. A 15 s alarm stops it if it waits for input.
+          set +e
+          out="$(perl -e 'alarm 15; exec @ARGV' "$BUNDLE_DIR/macos/Amie.app/Contents/MacOS/nemotron-bridge" --help 2>&1)"
+          rc=$?
+          set -e
+          echo "$out" | head -n 20
+          echo "sidecar exit code: $rc"
+          if [ "$rc" -eq 137 ]; then
+            echo "::error::nemotron-bridge was killed at launch (SIGKILL), likely a signing or entitlement problem."
+            exit 1
+          fi
+          case "$out" in
+            *"Library not loaded"*|*"not valid for use in process"*|*"code signature"*)
+              echo "::error::nemotron-bridge failed to load a library under the hardened runtime."
+              exit 1 ;;
+          esac
+
+      - name: Generate latest.json
+        run: |
+          set -euo pipefail
+          tarball="Amie_${VERSION}_aarch64.app.tar.gz"
+          url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/${tarball}"
+          jq -n \
+            --arg version "$VERSION" \
+            --arg notes "$RELEASE_NOTES" \
+            --arg pub_date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg sig "$(cat "dist-release/${tarball}.sig")" \
+            --arg url "$url" \
+            '{version: $version, notes: $notes, pub_date: $pub_date,
+              platforms: {
+                "darwin-aarch64":     {signature: $sig, url: $url},
+                "darwin-aarch64-app": {signature: $sig, url: $url}
+              }}' > dist-release/latest.json
+          jq . dist-release/latest.json
+
+      - name: Keep the final artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: amie-release
+          path: dist-release/*
+          if-no-files-found: error
+          retention-days: 14
+
+  # ---------------------------------------------------------------- Stage 5a
+  draft:
+    needs: [preflight, build]
+    if: needs.preflight.outputs.is_release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      release_id: ${{ steps.create.outputs.release_id }}
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      VERSION: ${{ needs.preflight.outputs.version }}
+      TAG: ${{ needs.preflight.outputs.tag }}
+    steps:
+      - name: Download the final artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: amie-release
+          path: dist
+
+      - name: Create the draft Release with all assets at once
+        id: create
+        run: |
+          set -euo pipefail
+          gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --draft \
+            --verify-tag --title "Amie v${VERSION}" --notes "$RELEASE_NOTES"
+          ids="$(gh api "repos/${GITHUB_REPOSITORY}/releases" --paginate \
+            --jq ".[] | select(.tag_name == \"$TAG\" and .draft) | .id")"
+          id="${ids%%$'\n'*}"
+          test -n "$id" || { echo "::error::Draft Release for $TAG not found after creating it."; exit 1; }
+          echo "release_id=$id" >> "$GITHUB_OUTPUT"
+
+      - name: Verify the draft holds exactly the built files
+        env:
+          RELEASE_ID: ${{ steps.create.outputs.release_id }}
+        run: |
+          set -euo pipefail
+          remote="$(gh api "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}/assets" \
+            --jq '.[] | "\(.name) \(.size)"' | sort)"
+          local_files="$(for f in dist/*; do echo "$(basename "$f") $(wc -c < "$f" | tr -d ' ')"; done | sort)"
+          echo "Release assets:"; echo "$remote"
+          if [ "$remote" != "$local_files" ]; then
+            echo "::error::Draft assets differ from the built files."
+            echo "Built:"; echo "$local_files"
             exit 1
           fi
 
-      - name: Fail fast if Apple signing secrets are missing
-        env:
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+  # ---------------------------------------------------------------- Stage 5b
+  publish:
+    needs: [preflight, draft]
+    runs-on: ubuntu-latest
+    # Environment `release` requires a reviewer: the run pauses here until approved.
+    environment: release
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      VERSION: ${{ needs.preflight.outputs.version }}
+      TAG: ${{ needs.preflight.outputs.tag }}
+      RELEASE_ID: ${{ needs.draft.outputs.release_id }}
+    steps:
+      - name: Publish the draft as the latest Release
         run: |
-          missing=0
-          for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
-            if [ -z "${!name}" ]; then
-              echo "::error::Repository secret $name is not set (see apps/amie/README.md)."
-              missing=1
-            fi
+          set -euo pipefail
+          gh api -X PATCH "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
+            -F draft=false -f make_latest=true --jq '"published: \(.html_url)"'
+
+      - name: Verify what users will fetch
+        run: |
+          set -euo pipefail
+          base="https://github.com/${GITHUB_REPOSITORY}/releases"
+          for attempt in 1 2 3 4 5 6; do
+            live="$(curl -fsSL "$base/latest/download/latest.json" | jq -r .version || true)"
+            [ "$live" = "$VERSION" ] && break
+            echo "latest.json says '$live', waiting for $VERSION (attempt $attempt)..."
+            sleep 10
           done
-          exit "$missing"
-
-      - name: Build and upload draft GitHub Release
-        uses: tauri-apps/tauri-action@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Tauri updater (minisign) — required for createUpdaterArtifacts / .sig / latest.json
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          # Developer ID signing: tauri-action imports the .p12 into a temporary
-          # keychain; Tauri signs with the hardened runtime, then notarizes and
-          # staples when the Apple ID credentials below are present.
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        with:
-          projectPath: apps/amie
-          # Uses package.json "tauri" → scripts/tauri.sh (sidecar copy + signing gate).
-          tauriScript: pnpm tauri
-          args: --target aarch64-apple-darwin
-          tagName: app-v__VERSION__
-          releaseName: Amie v__VERSION__
-          # User-facing text shown in the updater dialog (Release body).
-          # Technical draft/asset/endpoint notes stay in the workflow header comments above.
-          releaseBody: |
-            This update includes reliability improvements and bug fixes. Amie will restart automatically after the update.
-
-            Your meetings and settings stay on this Mac.
-          releaseDraft: true
-          prerelease: false
-          uploadUpdaterJson: true
-          uploadUpdaterSignatures: true
+          [ "$live" = "$VERSION" ] || { echo "::error::Public latest.json is not $VERSION."; exit 1; }
+          curl -fsSL "$base/latest/download/latest.json" | jq -r '.platforms["darwin-aarch64"].url' \
+            | xargs curl -fsSIL -o /dev/null
+          echo "Release $VERSION is live."
