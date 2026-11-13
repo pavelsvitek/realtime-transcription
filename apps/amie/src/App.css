@@ -638,92 +638,163 @@ body,
   color: var(--text-primary);
 }
 
-/* Home page */
+/* Home page ("B · Calm hero — Stage 1" in Paper) */
 .home-page {
+  position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 32px 24px;
-  text-align: center;
+  padding: 0 40px;
   overflow-y: auto;
 }
 
-.home-page h1 {
-  font-size: 22px;
-  font-weight: 600;
-  margin-bottom: 24px;
+.home-spacer {
+  flex: 1 0 24px;
 }
 
-.home-logos {
+.home-setup-badge {
+  position: absolute;
+  top: 22px;
+  right: 28px;
   display: flex;
-  justify-content: center;
-  gap: 8px;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 18px;
+  color: var(--text-secondary);
 }
 
-.home-logo {
-  height: 5em;
-  padding: 1em;
-  transition: filter 0.75s;
-}
-
-.home-logo-vite:hover {
-  filter: drop-shadow(0 0 2em #747bff);
-}
-
-.home-logo-tauri:hover {
-  filter: drop-shadow(0 0 2em #24c8db);
-}
-
-.home-logo-react:hover {
-  filter: drop-shadow(0 0 2em #61dafb);
-}
-
-.home-tagline {
-  margin-top: 16px;
-  color: var(--text-muted);
-  font-size: 14px;
-}
-
-.home-greet-form {
+.home-setup-check {
   display: flex;
+  align-items: center;
   justify-content: center;
-  gap: 8px;
-  margin-top: 24px;
+  width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  background: var(--brand-primary);
+  color: var(--brand-on-primary);
 }
 
-.home-greet-form input {
-  border: 1px solid var(--border-input);
-  border-radius: 6px;
-  padding: 8px 12px;
-  font-size: 13px;
-  font-family: inherit;
-  min-width: 200px;
-  background: var(--surface-input);
+.home-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.home-wave rect {
+  fill: var(--brand-accent-soft-hover);
+}
+
+.home-title {
+  max-width: 720px;
+  margin-top: 28px;
+  font-size: 46px;
+  font-weight: 650;
+  line-height: 52px;
+  letter-spacing: -0.03em;
   color: var(--text-primary);
 }
 
-.home-greet-form button {
-  border: 1px solid var(--brand-primary);
-  border-radius: 6px;
-  padding: 8px 16px;
-  font-size: 13px;
-  font-weight: 500;
-  font-family: inherit;
-  color: var(--brand-on-primary);
+.home-subtitle {
+  margin-top: 14px;
+  font-size: 16px;
+  line-height: 23px;
+  color: var(--text-secondary);
+}
+
+.home-start {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 54px;
+  margin-top: 30px;
+  padding: 0 26px;
+  border: none;
+  border-radius: 12px;
   background: var(--brand-primary);
+  color: var(--brand-on-primary);
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 650;
+  line-height: 23px;
   cursor: pointer;
 }
 
-.home-greet-form button:hover {
+.home-start:hover:not(:disabled) {
   background: var(--brand-primary-hover);
 }
 
-.home-greet-msg {
-  margin-top: 16px;
-  font-size: 14px;
+.home-start:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--brand-primary-ring);
+}
+
+.home-start:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.home-start svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.home-kbd {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 22px;
+  min-width: 22px;
+  padding: 0 6px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #dde9f2;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+}
+
+.home-flow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 30px;
+  list-style: none;
+}
+
+.home-flow-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 19px;
   color: var(--text-secondary);
+}
+
+.home-flow-step + .home-flow-step::before {
+  content: "";
+  width: 36px;
+  height: 1px;
+  margin-right: 6px;
+  background: var(--border-input);
+}
+
+.home-flow-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--brand-speaker-user);
 }
 
 /* Page layout */
