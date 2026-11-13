@@ -29,8 +29,8 @@ function NoBotIcon() {
 
 export function Hero() {
   return (
-    <div className="relative z-10 flex flex-col items-center gap-[12px] pt-16">
-      <div className="flex items-center gap-2">
+    <div className="relative z-10 flex flex-col items-center gap-3 px-5 pt-12 sm:pt-16 xl:px-0">
+      <div className="flex flex-wrap items-center justify-center gap-2">
         <div className="flex items-center gap-1.5 rounded px-2 py-0.5 bg-raycast-accent-red-soft">
           <span className="size-1.5 shrink-0 rounded-full bg-raycast-accent-red" />
           <span className="text-xs leading-[18px] font-medium tracking-[0.033em] text-raycast-accent-red">
@@ -45,18 +45,18 @@ export function Hero() {
         </div>
       </div>
       <h1 className="flex flex-col items-center">
-        <span className="w-[900px] text-center text-[64px] leading-[70px] font-semibold text-raycast-ink">
+        <span className="max-w-[900px] text-center text-[40px] leading-[46px] font-semibold text-raycast-ink sm:text-[56px] sm:leading-[62px] xl:w-[900px] xl:text-[64px] xl:leading-[70px]">
           Your meetings, transcribed
         </span>
-        <span className="text-center text-[64px] leading-[70px] font-semibold text-raycast-mute">
+        <span className="text-center text-[40px] leading-[46px] font-semibold text-raycast-mute sm:text-[56px] sm:leading-[62px] xl:text-[64px] xl:leading-[70px]">
           on your Mac.
         </span>
       </h1>
-      <p className="w-[560px] text-center text-lg text-raycast-on-dark-mute">
+      <p className="max-w-[560px] text-center text-lg text-raycast-on-dark-mute xl:w-[560px]">
         Amie writes every word as it’s said, from your mic and your calls. Local
         by default.
       </p>
-      <div id="download" className="flex items-start gap-3 pt-1">
+      <div id="download" className="flex flex-col items-center gap-3 pt-1 sm:flex-row sm:items-start">
         <div className="flex flex-col items-center gap-2">
           <DownloadButton className="flex h-11 cursor-pointer items-center justify-center rounded-lg bg-raycast-primary px-6 text-lg leading-6 font-semibold tracking-[0.014em] text-raycast-on-primary disabled:opacity-70">
             Download for Mac

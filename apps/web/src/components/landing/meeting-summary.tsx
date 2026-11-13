@@ -1,26 +1,27 @@
+import { FitStage } from "@/components/site/fit-stage";
 import { MeetingsSummaryWindow } from "@/components/landing/meetings-summary-window";
 
 export function MeetingSummary() {
   return (
     <section
       id="meeting-summary"
-      className="flex min-h-[900px] w-full items-center gap-14 px-16"
+      className="flex w-full flex-col gap-10 px-5 py-16 sm:px-8 md:py-20 xl:min-h-[900px] xl:flex-row xl:items-center xl:gap-14 xl:px-16 xl:py-0"
     >
-      <div className="flex w-[400px] shrink-0 flex-col justify-center gap-5">
+      <div className="flex w-full max-w-[560px] shrink-0 flex-col justify-center gap-5 xl:w-[400px]">
         <div className="flex h-6 shrink-0 items-center self-start rounded border border-raycast-accent-red/35 bg-raycast-accent-red-soft px-2.5">
           <span className="text-xs leading-3 font-medium tracking-[0.4px] text-raycast-accent-red">
             Meeting summary
           </span>
         </div>
-        <h2 className="flex w-[400px] flex-col">
-          <span className="text-4xl font-semibold tracking-[0.2px] text-raycast-ink">
+        <h2 className="flex flex-col xl:w-[400px]">
+          <span className="section-title font-semibold tracking-[0.2px] text-raycast-ink">
             Who said it,
           </span>
-          <span className="text-4xl font-semibold tracking-[0.2px] text-raycast-mute">
+          <span className="section-title font-semibold tracking-[0.2px] text-raycast-mute">
             in the summary.
           </span>
         </h2>
-        <p className="w-[380px] text-lg text-raycast-body">
+        <p className="max-w-[480px] text-lg text-raycast-body xl:w-[380px]">
           The full Amie window after Stop. Meetings detail, Summary tab — names
           stay in the markdown.
         </p>
@@ -32,11 +33,9 @@ export function MeetingSummary() {
         </div>
       </div>
 
-      <div className="summary-stage">
-        <div className="summary-stage-inner">
-          <MeetingsSummaryWindow />
-        </div>
-      </div>
+      <FitStage width={1040} height={680} className="min-w-0 xl:flex-1">
+        <MeetingsSummaryWindow />
+      </FitStage>
     </section>
   );
 }

@@ -1,3 +1,4 @@
+import { FitStage } from "@/components/site/fit-stage";
 import {
   LIVE_WORDS,
   SPEAKERS,
@@ -12,23 +13,23 @@ export function WordByWord() {
   return (
     <section
       id="word-by-word"
-      className="flex w-full items-center gap-16 px-16"
+      className="flex w-full flex-col gap-10 px-5 py-16 sm:px-8 md:py-20 xl:flex-row xl:items-center xl:gap-16 xl:px-16 xl:py-0"
     >
-      <div className="flex w-[440px] shrink-0 flex-col justify-center gap-5">
+      <div className="flex w-full max-w-[560px] shrink-0 flex-col justify-center gap-5 xl:w-[440px]">
         <div className="flex h-6 shrink-0 items-center self-start rounded border border-raycast-accent-red/35 bg-raycast-accent-red-soft px-2.5">
           <span className="text-xs leading-3 font-medium tracking-[0.4px] text-raycast-accent-red">
             On device
           </span>
         </div>
-        <h2 className="flex w-[440px] flex-col">
-          <span className="text-4xl font-semibold tracking-[0.2px] text-raycast-ink">
+        <h2 className="flex flex-col xl:w-[440px]">
+          <span className="section-title font-semibold tracking-[0.2px] text-raycast-ink">
             Every word,
           </span>
-          <span className="text-4xl font-semibold tracking-[0.2px] text-raycast-mute">
+          <span className="section-title font-semibold tracking-[0.2px] text-raycast-mute">
             as it’s said.
           </span>
         </h2>
-        <p className="w-[400px] text-lg text-raycast-body">
+        <p className="max-w-[480px] text-lg text-raycast-body xl:w-[400px]">
           Amie writes on your Mac as you talk. Local by default — you see the
           words land, not a paragraph after the pause.
         </p>
@@ -40,6 +41,7 @@ export function WordByWord() {
         </div>
       </div>
 
+      <FitStage width={820} className="xl:w-[820px] xl:shrink-0">
       <div className="pointer-events-none flex h-fit w-[820px] shrink-0 flex-col overflow-hidden rounded-lg bg-raycast-surface select-none shadow-[0_0_0_1px_#FFFFFF29,0_32px_80px_#0000008C]">
         <div className="flex h-[52px] shrink-0 items-center justify-between border-b border-raycast-hairline-soft px-5">
           <div className="flex h-[52px] items-center gap-5">
@@ -99,6 +101,7 @@ export function WordByWord() {
           </span>
         </div>
       </div>
+      </FitStage>
     </section>
   );
 }

@@ -224,6 +224,26 @@ body {
   --page-zoom: 1;
 }
 
+/* Desktop design below 1440px: scale down in steps so it still fits. Under 1280px
+   the layout is responsive (stacked) instead. */
+@media (min-width: 1280px) {
+  :root {
+    --page-zoom: 0.88;
+  }
+}
+
+@media (min-width: 1366px) {
+  :root {
+    --page-zoom: 0.94;
+  }
+}
+
+@media (min-width: 1440px) {
+  :root {
+    --page-zoom: 1;
+  }
+}
+
 @media (min-width: 1800px) {
   :root {
     --page-zoom: 1.25;
@@ -271,19 +291,23 @@ body {
   }
 }
 
-.summary-stage {
-  container-type: inline-size;
-  flex: 1 1 0%;
-  min-width: 0;
-  height: calc(680px * min(1, 100cqi / 1040px));
-  overflow: hidden;
+.section-title {
+  font-size: 34px;
+  line-height: 42px;
 }
 
-.summary-stage-inner {
-  width: 1040px;
-  height: 680px;
-  transform-origin: top left;
-  transform: scale(min(1, calc(100cqi / 1040px)));
+@media (min-width: 640px) {
+  .section-title {
+    font-size: 44px;
+    line-height: 52px;
+  }
+}
+
+@media (min-width: 1280px) {
+  .section-title {
+    font-size: 56px;
+    line-height: 66px;
+  }
 }
 
 /* Long-form legal pages (/privacy, /terms) */
