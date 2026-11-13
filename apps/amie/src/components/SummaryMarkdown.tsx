@@ -5,6 +5,7 @@ import {
   type SummaryInline,
   type SummaryListItem,
 } from "../lib/summary-markdown";
+import { cn } from "../lib/cn";
 
 function renderInline(parts: SummaryInline[]): ReactNode[] {
   return parts.map((part, index) => {
@@ -18,13 +19,13 @@ function renderInline(parts: SummaryInline[]): ReactNode[] {
   });
 }
 
-function renderItems(items: SummaryListItem[]): ReactNode {
+function renderItems(items: SummaryListItem[], nested = false): ReactNode {
   return (
-    <ul className="meeting-summary-list">
+    <ul className={cn("flex flex-col gap-3 pl-[18px]", nested && "mt-2 gap-2")}>
       {items.map((item, index) => (
         <li key={index}>
           {renderInline(item.text)}
-          {item.children.length > 0 ? renderItems(item.children) : null}
+          {item.children.length > 0 ? renderItems(item.children, true) : null}
         </li>
       ))}
     </ul>
@@ -35,13 +36,13 @@ function renderBlock(block: SummaryBlock, index: number): ReactNode {
   switch (block.type) {
     case "h2":
       return (
-        <h2 key={index} className="meeting-summary-heading">
+        <h2 key={index} className="mb-3 text-[16px] font-semibold not-first:mt-7">
           {renderInline(block.text)}
         </h2>
       );
     case "h3":
       return (
-        <h3 key={index} className="meeting-summary-subheading">
+        <h3 key={index} className="mt-[22px] mb-2.5 text-[14px] font-semibold">
           {renderInline(block.text)}
         </h3>
       );
@@ -49,7 +50,7 @@ function renderBlock(block: SummaryBlock, index: number): ReactNode {
       return <div key={index}>{renderItems(block.items)}</div>;
     case "p":
       return (
-        <p key={index} className="meeting-summary-paragraph">
+        <p key={index} className="mb-3">
           {renderInline(block.text)}
         </p>
       );
@@ -58,5 +59,9 @@ function renderBlock(block: SummaryBlock, index: number): ReactNode {
 
 export function SummaryMarkdown({ markdown }: { markdown: string }) {
   const blocks = parseSummaryMarkdown(markdown);
-  return <div className="meeting-summary">{blocks.map(renderBlock)}</div>;
+  return (
+    <div className="text-[14px] leading-[1.55] text-text-primary">
+      {blocks.map(renderBlock)}
+    </div>
+  );
 }

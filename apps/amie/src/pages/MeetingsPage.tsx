@@ -52,6 +52,8 @@ import {
   usePatchMeetingMutation,
 } from "../models/Meeting";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
+import { EmptyCopy } from "../components/ui/EmptyCopy";
+import { cn } from "../lib/cn";
 
 type MeetingsView =
   | { kind: "list" }
@@ -67,12 +69,6 @@ type MeetingsPageProps = {
   meetingInProgress?: boolean;
   onFollowUpMeeting?: (seed: FollowUpSeed) => void;
 };
-
-function meetingTranscriptLineClass(stream: string): string {
-  const speakerClass =
-    stream === "mic" ? "transcript-line--user" : "transcript-line--remote";
-  return `meeting-transcript-line ${speakerClass}`;
-}
 
 function applyGeneratedTitle(
   queryClient: ReturnType<typeof useQueryClient>,
@@ -545,11 +541,11 @@ export function MeetingsPage({
 
     return (
       <>
-      <main className="page meetings-page">
-        <header className="page-header meetings-detail-header">
+      <main className="flex min-h-0 flex-1 flex-col overflow-hidden bg-surface-content">
+        <header className="relative z-[2] flex shrink-0 items-center justify-between overflow-visible py-3 pr-6 pl-4">
           <button
             type="button"
-            className="meetings-back"
+            className="cursor-pointer border-none bg-transparent p-0 font-[family-name:inherit] text-[12px] text-text-secondary hover:text-text-primary"
             onClick={goBackToList}
           >
             Meetings
@@ -570,13 +566,13 @@ export function MeetingsPage({
         )}
 
         {loading ? (
-          <div className="meetings-state">
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-10 text-text-secondary">
             <Spinner />
             <p>Loading meeting…</p>
           </div>
         ) : meeting ? (
-          <div className="meeting-detail">
-            <p className="meeting-when">{formatMeetingDetailWhen(meeting.startedAt)}</p>
+          <div className="min-h-0 flex-1 overflow-y-auto px-8 pt-2 pb-10 [&_[hidden]]:hidden!">
+            <p className="m-0 text-[13px] text-text-secondary">{formatMeetingDetailWhen(meeting.startedAt)}</p>
             <MeetingTitle
               meetingId={meeting.id}
               title={meeting.title}
@@ -591,11 +587,11 @@ export function MeetingsPage({
               aria-labelledby={meetingTabDomIds("meeting", "summary").tabId}
               hidden={tab !== "summary"}
             >
-              <section className="meeting-panel">
-                <div className="meeting-summary-toolbar">
+              <section className="max-w-[720px]">
+                <div className="mb-[18px] flex items-center gap-2.5">
                   <button
                     type="button"
-                    className="meeting-copy"
+                    className="cursor-pointer border-none bg-transparent p-0 font-[family-name:inherit] text-[13px] text-text-secondary disabled:cursor-not-allowed disabled:opacity-50"
                     onClick={() => void generateSummary()}
                     disabled={!hasTranscript}
                   >
@@ -603,33 +599,35 @@ export function MeetingsPage({
                   </button>
                   <button
                     type="button"
-                    className="meeting-copy"
+                    className="cursor-pointer border-none bg-transparent p-0 font-[family-name:inherit] text-[13px] text-text-secondary disabled:cursor-not-allowed disabled:opacity-50"
                     onClick={() => void copySummary()}
                     disabled={!meeting.summary}
                   >
                     Copy summary
                   </button>
-                  {copyStatus && <span className="meeting-copy-status">{copyStatus}</span>}
+                  {copyStatus && (
+                    <span className="text-[12px] text-text-muted">{copyStatus}</span>
+                  )}
                 </div>
                 {summaryError && (
-                  <p className="meeting-summary-error">{summaryError}</p>
+                  <p className="mt-0 mb-3.5 max-w-[420px] text-left text-[13px] leading-[1.45] text-text-secondary">{summaryError}</p>
                 )}
                 {running ? (
                   summaryText ? (
                     <>
-                      <p className="meeting-summary-generating">Generating summary…</p>
+                      <p className="mb-3 text-[13px] text-text-muted">Generating summary…</p>
                       <SummaryMarkdown markdown={summaryText} />
                     </>
                   ) : (
-                    <p className="meeting-summary-generating">Generating summary…</p>
+                    <p className="mb-3 text-[13px] text-text-muted">Generating summary…</p>
                   )
                 ) : summaryText ? (
                   <SummaryMarkdown markdown={summaryText} />
                 ) : (
-                  <p className="meetings-empty-copy">
+                  <EmptyCopy>
                     No summary yet. The transcript is saved; a summary will show up here
                     once one is generated.
-                  </p>
+                  </EmptyCopy>
                 )}
               </section>
             </div>
@@ -653,30 +651,39 @@ export function MeetingsPage({
               aria-labelledby={meetingTabDomIds("meeting", "transcript").tabId}
               hidden={tab !== "transcript"}
             >
-              <section className="meeting-panel">
+              <section className="max-w-[720px]">
                 {record && record.segments.length > 0 ? (
-                  <ol className="meeting-transcript">
+                  <ol className="flex list-none flex-col gap-2.5">
                     {record.segments.map((segment) => (
                       <li
                         key={segment.id}
-                        className={meetingTranscriptLineClass(segment.stream)}
+                        className="flex items-baseline gap-2.5"
                       >
-                        <span className="transcript-time">
+                        <span className="min-w-9 shrink-0 text-[12px] text-text-muted tabular-nums">
                           {formatTime(segment.startMs)}
                         </span>
                         {segment.speaker ? (
-                          <span className="transcript-speaker">
+                          <span
+                            className={cn(
+                              "min-w-0 shrink-0 text-[13px] font-semibold",
+                              segment.stream === "mic"
+                                ? "text-brand-speaker-user"
+                                : "text-brand-speaker-remote",
+                            )}
+                          >
                             {segment.speaker}
                           </span>
                         ) : null}
-                        <span className="transcript-text">{segment.text}</span>
+                        <span className="text-[14px] leading-[1.6] text-text-primary">
+                          {segment.text}
+                        </span>
                       </li>
                     ))}
                   </ol>
                 ) : (
-                  <p className="meetings-empty-copy">
+                  <EmptyCopy>
                     No transcript was saved for this meeting.
-                  </p>
+                  </EmptyCopy>
                 )}
               </section>
             </div>
@@ -708,31 +715,36 @@ export function MeetingsPage({
 
   return (
     <>
-    <main className="page meetings-page">
-      <header className="page-header">
-        <h1 className="page-title">Meetings</h1>
+    <main className="flex min-h-0 flex-1 flex-col overflow-hidden bg-surface-content">
+      <header className="relative z-[2] flex shrink-0 items-center justify-between overflow-visible px-4 py-3">
+        <h1 className="text-[12px]">Meetings</h1>
       </header>
 
       {displayError && <ErrorBanner>{displayError}</ErrorBanner>}
 
       {listQuery.isPending && !listQuery.data ? (
-        <div className="meetings-state">
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-10 text-text-secondary">
           <Spinner />
           <p>Loading meetings…</p>
         </div>
       ) : groups.length === 0 ? (
-        <div className="meetings-state">
-          <p className="meetings-empty-title">No meetings yet</p>
-          <p className="meetings-empty-copy">
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-10 text-text-secondary">
+          <p className="m-0 text-[15px] font-semibold text-text-primary">No meetings yet</p>
+          <EmptyCopy>
             Start a transcription from New chat. When you stop, the meeting appears here.
-          </p>
+          </EmptyCopy>
         </div>
       ) : (
-        <div className="meetings-list">
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 pt-2 pb-8">
           {groups.map((group) => (
-            <section key={group.key} className="meetings-day">
-              <h2 className="meetings-day-label">{group.label}</h2>
-              <ul className="meetings-day-list">
+            <section
+              key={group.key}
+              className="rounded-2xl border border-border-default px-[18px] pt-4 pb-2"
+            >
+              <h2 className="mb-2 text-[13px] font-medium text-text-secondary">
+                {group.label}
+              </h2>
+              <ul className="list-none">
                 {group.meetings.map((meeting) => (
                   <li key={meeting.id}>
                     <button
@@ -741,25 +753,36 @@ export function MeetingsPage({
                         if (node) rowRefs.current.set(meeting.id, node);
                         else rowRefs.current.delete(meeting.id);
                       }}
-                      className={
-                        meeting.id === selectedId
-                          ? "meetings-row meetings-row--selected"
-                          : "meetings-row"
-                      }
+                      className={cn(
+                        "flex w-full cursor-pointer scroll-my-2 items-start gap-3 border-none bg-transparent px-0 pt-2.5 pb-3 text-left font-[family-name:inherit] text-inherit",
+                        meeting.id === selectedId && "rounded-[10px] bg-surface-hover",
+                      )}
                       aria-current={meeting.id === selectedId ? "true" : undefined}
                       onClick={() => openMeeting(meeting.id)}
                     >
-                      <span className="meetings-row-bar" aria-hidden="true" />
-                      <span className="meetings-row-body">
-                        <span className="meetings-row-title">{meeting.title}</span>
-                        <span className="meetings-row-time">
+                      <span
+                        className={cn(
+                          "w-0.5 shrink-0 self-stretch rounded-[1px] bg-border-input",
+                          meeting.id === selectedId && "bg-brand-accent",
+                        )}
+                        aria-hidden="true"
+                      />
+                      <span className="flex min-w-0 flex-col gap-0.5">
+                        <span className="text-[15px] font-semibold text-text-primary">
+                          {meeting.title}
+                        </span>
+                        <span className="text-[12px] text-text-secondary tabular-nums">
                           {formatMeetingClock(meeting.startedAt)}
                         </span>
                         {summarizingIds.has(meeting.id) ? (
-                          <span className="meetings-row-teaser">Summarizing…</span>
+                          <span className="text-[13px] leading-[1.4] text-text-muted">
+                            Summarizing…
+                          </span>
                         ) : (
                           meeting.teaser && (
-                            <span className="meetings-row-teaser">{meeting.teaser}</span>
+                            <span className="text-[13px] leading-[1.4] text-text-muted">
+                              {meeting.teaser}
+                            </span>
                           )
                         )}
                       </span>

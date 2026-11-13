@@ -60,10 +60,10 @@ export function MeetingTitle({
 
   if (!editing) {
     return (
-      <h1 className="meeting-title">
+      <h1 className="mt-1.5 mb-5 text-[28px] leading-[1.25] font-semibold tracking-[-0.02em] text-text-primary">
         <button
           type="button"
-          className="meeting-title-button"
+          className="m-0 block w-full appearance-none rounded-none border-none bg-transparent p-0 text-left text-inherit shadow-none outline-none [font:inherit] [letter-spacing:inherit] cursor-text"
           onClick={() => {
             skipBlurCommit.current = false;
             setDraft(title);
@@ -145,10 +145,10 @@ function MeetingTitleEditor({
   );
 
   return (
-    <h1 className="meeting-title">
+    <h1 className="mt-1.5 mb-5 text-[28px] leading-[1.25] font-semibold tracking-[-0.02em] text-text-primary">
       <input
         ref={inputRef}
-        className="meeting-title-input"
+        className="m-0 block w-full appearance-none rounded-none border-none bg-transparent p-0 text-left text-inherit shadow-none outline-none [font:inherit] [letter-spacing:inherit] caret-text-primary"
         value={draft}
         aria-label="Meeting title"
         onChange={(event) => onDraftChange(event.target.value)}

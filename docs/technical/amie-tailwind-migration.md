@@ -1,6 +1,6 @@
 # Amie desktop: migrate App.css to Tailwind
 
-Status: steps 1–4 done. Scope: `apps/amie` (the Tauri desktop app) only.
+Status: steps 1–5 done. Scope: `apps/amie` (the Tauri desktop app) only.
 
 ## Where we are
 
@@ -50,8 +50,8 @@ Each step is one PR that ships on its own and leaves the app looking the same.
 2. **Shared primitives** (done). Build `Button`, the dialog shell (used by Start/Stop/Archive/Delete/FollowUp confirms, ShortMeetingNotice, UpdateDialog and OnboardingDialog), `Spinner` and the tab bar (`MeetingTabs`). Move their rules out of `App.css`.
 3. **Shell** (done). `AppLayout`, `Sidebar`, `ThemeToggle`, `TitleBar`, `LiveMeetingButton`, `StartMeetingButton`, `MicIndicator`, `Tooltip` and the listening animation.
 4. **Home and Transcription** (done). `HomePage`, `TranscribePage`, `TranscriptFeed`, `AudioDeviceMenu`, `SpeakerNamesPrompt` and the footer. Error banners became `ui/ErrorBanner`, used by Meetings and Settings too. Empty-panel text became `ui/EmptyCopy`.
-5. **Meetings.** Also remove the rules Transcription stopped using but Meetings still needs: `.page`, `.page-header`, `.page-title`, `.meetings-empty-copy`, `.transcript-time`, `.transcript-speaker` (and its `--user` / `--remote` and `.meeting-transcript` variants) and `.transcript-text`. Use `EmptyCopy` for the empty states. `MeetingsPage`, `MeetingTitle`, `MeetingContextEditor`, `MeetingOverflowMenu`, summary markdown styles. The summary renders markdown, so decide here between a scoped set of element rules in CSS and `@tailwindcss/typography`. Prefer a few scoped rules; typography is a large dependency for a small surface.
-6. **Settings and onboarding.** `SettingsPage` (the biggest file; split it into section components while converting), `OnboardingDialog` and `UpdateDialog` contents.
+5. **Meetings** (done). `MeetingsPage` (list and detail), `MeetingTitle`, `MeetingContextEditor`, `MeetingOverflowMenu` and `SummaryMarkdown`, plus the shared rules left from step 4. The summary needed no typography plugin: `SummaryMarkdown` renders a few known elements, so each gets its classes directly (nested lists through a `nested` flag).
+6. **Settings and onboarding.** Also remove `.page`, which only Settings still uses. `SettingsPage` (the biggest file; split it into section components while converting), `OnboardingDialog` and `UpdateDialog` contents.
 7. **Remove App.css.** Delete what is left, move any survivors into `styles.css`, and remove the now-unused Vite/Tauri/React demo assets and the `greet` command.
 
 ## How to check each step
