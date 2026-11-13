@@ -1,6 +1,6 @@
 # Amie desktop: migrate App.css to Tailwind
 
-Status: steps 1–5 done. Scope: `apps/amie` (the Tauri desktop app) only.
+Status: steps 1–6 done. Scope: `apps/amie` (the Tauri desktop app) only.
 
 ## Where we are
 
@@ -51,7 +51,7 @@ Each step is one PR that ships on its own and leaves the app looking the same.
 3. **Shell** (done). `AppLayout`, `Sidebar`, `ThemeToggle`, `TitleBar`, `LiveMeetingButton`, `StartMeetingButton`, `MicIndicator`, `Tooltip` and the listening animation.
 4. **Home and Transcription** (done). `HomePage`, `TranscribePage`, `TranscriptFeed`, `AudioDeviceMenu`, `SpeakerNamesPrompt` and the footer. Error banners became `ui/ErrorBanner`, used by Meetings and Settings too. Empty-panel text became `ui/EmptyCopy`.
 5. **Meetings** (done). `MeetingsPage` (list and detail), `MeetingTitle`, `MeetingContextEditor`, `MeetingOverflowMenu` and `SummaryMarkdown`, plus the shared rules left from step 4. The summary needed no typography plugin: `SummaryMarkdown` renders a few known elements, so each gets its classes directly (nested lists through a `nested` flag).
-6. **Settings and onboarding.** Also remove `.page`, which only Settings still uses. `SettingsPage` (the biggest file; split it into section components while converting), `OnboardingDialog` and `UpdateDialog` contents.
+6. **Settings and onboarding** (done). `SettingsPage`, `OnboardingDialog` and `UpdateDialog` contents, and `.page`. Each former `settings-*` class is one entry in an `S` constant at the top of `SettingsPage`, so repeated styles stay in one place. Splitting `SettingsPage` into section components was left out to keep this step a pure style change; it is a separate refactor. After this step `App.css` holds only the root font settings and the full-height rule.
 7. **Remove App.css.** Delete what is left, move any survivors into `styles.css`, and remove the now-unused Vite/Tauri/React demo assets and the `greet` command.
 
 ## How to check each step

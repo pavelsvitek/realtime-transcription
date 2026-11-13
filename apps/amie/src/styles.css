@@ -101,6 +101,7 @@
 @theme inline {
   --font-sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
   /*
    * The app's root font size is 14px (App.css :root), so Tailwind's rem-based

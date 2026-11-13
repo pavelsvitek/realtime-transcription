@@ -77,19 +77,19 @@ export function UpdateDialog({
       <DialogTitle id="update-dialog-title">{title}</DialogTitle>
       <DialogDescription id="update-dialog-copy">{copy}</DialogDescription>
       {view.kind === "downloading" ? (
-        <div className="update-dialog-progress" aria-live="polite">
-          <div className="update-dialog-progress-track">
+        <div className="flex flex-col gap-2" aria-live="polite">
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-input">
             <div
-              className="update-dialog-progress-bar"
+              className="h-full rounded-[inherit] bg-brand-accent transition-[width] duration-150 ease-[ease]"
               style={{ width: `${progressPercent(view.progress)}%` }}
             />
           </div>
-          <p className="update-dialog-progress-label">
+          <p className="m-0 text-[12px] text-text-secondary">
             {progressText(view.progress)}
           </p>
         </div>
       ) : null}
-      <div className="update-dialog-actions">
+      <div className="flex w-full gap-2.5">
         {view.kind === "available" ? (
           <>
             <Button

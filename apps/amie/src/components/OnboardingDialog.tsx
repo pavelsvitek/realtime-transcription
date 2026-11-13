@@ -119,13 +119,13 @@ export function OnboardingDialog({
       role="dialog"
       titleId="onboarding-dialog-title"
       descriptionId="onboarding-dialog-copy"
-      className="onboarding-dialog"
+      className="min-h-[min(490px,calc(100vh-64px))] w-[min(720px,calc(100vw-48px))] max-w-[720px] gap-5 p-7"
     >
-      <div className="onboarding-dialog-chrome">
-        <p className="onboarding-step-label">Step {step} of 2</p>
+      <div className="flex shrink-0 items-center justify-between gap-3">
+        <p className="m-0 text-[12px] text-text-secondary">Step {step} of 2</p>
         <button
           type="button"
-          className="onboarding-close"
+          className="m-0 cursor-pointer rounded-md border-none bg-transparent px-2 py-1 text-[12px] text-text-secondary hover:bg-surface-hover hover:text-text-primary"
           aria-label="Close onboarding"
           onClick={onDismiss}
         >
@@ -135,7 +135,7 @@ export function OnboardingDialog({
 
       {step === 1 ? (
         <>
-          <div className="onboarding-dialog-body">
+          <div className="flex min-h-0 flex-[1_1_auto] flex-col gap-4">
             <DialogTitle id="onboarding-dialog-title" className="text-[22px]">
               Download the speech model
             </DialogTitle>
@@ -148,19 +148,19 @@ export function OnboardingDialog({
                 : `Amie needs a local speech model for on-device transcription. The download is ${sizeLabel}. You choose when it starts; nothing downloads until you click Download.`}
             </DialogDescription>
             {downloadError ? (
-              <p className="onboarding-error" role="alert">
+              <p className="m-0 text-[13px] text-status-danger-text" role="alert">
                 {downloadError}
               </p>
             ) : null}
             {modelStatus?.helperFound === false ? (
-              <p className="onboarding-hint">
+              <p className="m-0 text-[12px] leading-[1.4] text-text-secondary [&_code]:text-[11px]">
                 The speech helper is missing. Run{" "}
                 <code>./scripts/setup-nemotron.sh</code> once, then try again.
               </p>
             ) : null}
           </div>
-          <div className="onboarding-dialog-footer">
-            <div className="onboarding-dialog-actions">
+          <div className="mt-auto flex w-full shrink-0 items-start justify-end">
+            <div className="ml-auto inline-grid auto-cols-fr grid-flow-col gap-2.5">
               <Button
                 variant="secondary"
                 size="lg"
@@ -188,7 +188,7 @@ export function OnboardingDialog({
         </>
       ) : (
         <>
-          <div className="onboarding-dialog-body">
+          <div className="flex min-h-0 flex-[1_1_auto] flex-col gap-4">
             <DialogTitle id="onboarding-dialog-title" className="text-[22px]">
               Allow Amie to listen and identify speakers
             </DialogTitle>
@@ -200,11 +200,11 @@ export function OnboardingDialog({
               are ready — Amie only uses them for live meetings.
             </DialogDescription>
 
-            <div className="onboarding-access-list">
-              <div className="onboarding-access-row">
+            <div className="flex flex-col">
+              <div className="flex flex-col items-start gap-2.5 border-t border-border-default py-3 first:border-t-0 first:pt-0">
                 <div>
-                  <h3 className="onboarding-access-heading">Microphone</h3>
-                  <p className="onboarding-access-copy">
+                  <h3 className="m-0 text-[14px] font-semibold text-text-primary">Microphone</h3>
+                  <p className="mt-1 text-[13px] leading-[1.4] text-text-secondary">
                     Needed when you capture your own voice.
                   </p>
                 </div>
@@ -226,10 +226,10 @@ export function OnboardingDialog({
                 </Button>
               </div>
 
-              <div className="onboarding-access-row">
+              <div className="flex flex-col items-start gap-2.5 border-t border-border-default py-3 first:border-t-0 first:pt-0">
                 <div>
-                  <h3 className="onboarding-access-heading">System audio</h3>
-                  <p className="onboarding-access-copy">
+                  <h3 className="m-0 text-[14px] font-semibold text-text-primary">System audio</h3>
+                  <p className="mt-1 text-[13px] leading-[1.4] text-text-secondary">
                     Captures Chrome or meeting audio playing on this Mac.
                   </p>
                 </div>
@@ -246,10 +246,10 @@ export function OnboardingDialog({
                 </Button>
               </div>
 
-              <div className="onboarding-access-row">
+              <div className="flex flex-col items-start gap-2.5 border-t border-border-default py-3 first:border-t-0 first:pt-0">
                 <div>
-                  <h3 className="onboarding-access-heading">Accessibility</h3>
-                  <p className="onboarding-access-copy">
+                  <h3 className="m-0 text-[14px] font-semibold text-text-primary">Accessibility</h3>
+                  <p className="mt-1 text-[13px] leading-[1.4] text-text-secondary">
                     Read the speaker names from live Zoom or MS Team calls.
                     Makes the meetings transcription and summary much more
                     useful.
@@ -275,13 +275,13 @@ export function OnboardingDialog({
             </div>
 
             {accessError ? (
-              <p className="onboarding-error" role="alert">
+              <p className="m-0 text-[13px] text-status-danger-text" role="alert">
                 {accessError}
               </p>
             ) : null}
           </div>
-          <div className="onboarding-dialog-footer">
-            <div className="onboarding-dialog-actions">
+          <div className="mt-auto flex w-full shrink-0 items-start justify-end">
+            <div className="ml-auto inline-grid auto-cols-fr grid-flow-col gap-2.5">
               <Button
                 size="lg"
                 className="min-w-[7.5rem] px-4 whitespace-nowrap"
