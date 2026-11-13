@@ -131,6 +131,8 @@ pub fn run() {
             commands::speakers::request_accessibility_permission,
             commands::system_access::get_system_access_status,
             commands::system_access::open_system_access_settings,
+            commands::system_access::request_microphone_permission,
+            commands::system_audio_test::test_system_audio,
             commands::mcp::get_mcp_status,
             commands::updates::get_app_install_location,
             commands::onboarding::get_launch_flags,

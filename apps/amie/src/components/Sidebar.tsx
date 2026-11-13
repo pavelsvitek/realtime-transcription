@@ -26,6 +26,7 @@ interface SidebarProps {
   onStartMeeting: () => void;
   listening?: boolean;
   loading?: boolean;
+  startDisabled?: boolean;
 }
 
 export function Sidebar({
@@ -34,6 +35,7 @@ export function Sidebar({
   onStartMeeting,
   listening = false,
   loading = false,
+  startDisabled = false,
 }: SidebarProps) {
   const { scheme, toggleScheme } = useColorScheme();
 
@@ -68,7 +70,7 @@ export function Sidebar({
             className="w-full"
             listening={listening}
             loading={loading}
-            disabled={loading && !listening}
+            disabled={(loading || startDisabled) && !listening}
             onClick={onStartMeeting}
           />
         </li>

@@ -85,6 +85,20 @@ pub fn open_system_access_settings(
     Ok(get_system_access_status())
 }
 
+/// Shows the macOS microphone prompt when access was never asked for, without
+/// opening System Settings. Once macOS has an answer this does nothing; the
+/// caller opens Settings itself (`open_system_access_settings`) when denied.
+#[tauri::command(async)]
+pub fn request_microphone_permission(app: AppHandle) -> SystemAccessStatus {
+    if matches!(
+        microphone_authorization(),
+        MicrophoneAuthorization::NotDetermined
+    ) {
+        request_microphone_on_main_thread(&app);
+    }
+    get_system_access_status()
+}
+
 fn request_microphone_on_main_thread(app: &AppHandle) {
     run_on_main_thread(app, request_microphone_access);
 }

@@ -17,6 +17,8 @@ interface AppLayoutProps {
   onStopMeeting: () => void;
   listening?: boolean;
   loading?: boolean;
+  /** Start a meeting is off (button and ⌘N), e.g. while the setup wizard runs. */
+  startDisabled?: boolean;
   children: ReactNode;
 }
 
@@ -27,6 +29,7 @@ export function AppLayout({
   onStopMeeting,
   listening = false,
   loading = false,
+  startDisabled = false,
   children,
 }: AppLayoutProps) {
   const [confirmKind, setConfirmKind] = useState<MeetingConfirmKind | null>(
@@ -37,7 +40,7 @@ export function AppLayout({
   const settingsOpen = currentPage === "settings";
   useNavHotkeys(onNavigate, !settingsOpen);
   useHotkey(START_MEETING_HOTKEY, () => setConfirmKind("start"), {
-    enabled: !settingsOpen && !confirmOpen && !listening && !loading,
+    enabled: !settingsOpen && !confirmOpen && !listening && !loading && !startDisabled,
     meta: {
       name: "Start a meeting",
       description: "Confirm starting a new meeting",
@@ -82,6 +85,7 @@ export function AppLayout({
             onStartMeeting={onStartMeeting}
             listening={listening}
             loading={loading}
+            startDisabled={startDisabled}
           />
         ) : null}
         <div

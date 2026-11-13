@@ -1,45 +1,46 @@
-import { useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { useSpeechModelDownload } from "../hooks/useSpeechModelDownload";
+import { useState } from "react";
+import { HeroWave } from "../components/HeroWave";
+import { CheckBadge } from "../components/setup/ui";
+import { useSetupStatus } from "../components/setup/useSetupStatus";
+import { loadSystemAudioTest, unfinishedRows } from "../lib/setup-wizard";
 
 type HomePageProps = {
   onStartMeeting: () => void;
   meetingInProgress: boolean;
+  /** Opens the setup wizard's summary ("You're all set."). */
+  onOpenSetup: () => void;
 };
-
-const WAVE_BARS: [number, number][] = [
-  [25, 10], [21, 18], [15, 30], [20, 20], [9, 42], [16, 28], [2, 56], [13, 34],
-  [6, 48], [18, 24], [23, 14], [17, 26], [10, 40], [19, 22], [24, 12],
-];
 
 const FLOW_STEPS = ["Start with ⌘N", "Live transcript", "Summary", "Follow-up meeting"];
 
 /** Ready-to-record state of Home ("B · Calm hero — Stage 1" in Paper). */
-export function HomePage({ onStartMeeting, meetingInProgress }: HomePageProps) {
-  const model = useSpeechModelDownload();
-  const micAllowed = useMicrophoneAllowed();
-  const setUp = model.ready && micAllowed;
+export function HomePage({ onStartMeeting, meetingInProgress, onOpenSetup }: HomePageProps) {
+  const [systemAudio] = useState(loadSystemAudioTest);
+  const rows = useSetupStatus(systemAudio);
+  const left = rows ? unfinishedRows(rows).length : null;
 
   return (
     <main className="relative flex flex-1 flex-col items-center overflow-y-auto px-10">
-      {setUp ? (
+      {left === 0 ? (
+        <p className="absolute top-[22px] right-7 flex items-center gap-1.5 text-[12.5px] leading-[18px] font-medium text-text-secondary">
+          <CheckBadge />
+          Everything is set up
+        </p>
+      ) : left !== null ? (
         <p className="absolute top-[22px] right-7 flex items-center gap-1.5 text-[12.5px] leading-[18px] font-medium text-text-secondary">
           <span
-            className="flex size-4 items-center justify-center rounded-full bg-brand-primary text-brand-on-primary"
+            className="size-4 shrink-0 rounded-full border-[1.5px] border-dashed border-border-input"
             aria-hidden="true"
+          />
+          {left === 1 ? "1 setup step left" : `${left} setup steps left`}
+          <span aria-hidden="true">·</span>
+          <button
+            type="button"
+            className="cursor-pointer font-[550] text-text-brand underline decoration-1 hover:text-text-primary"
+            onClick={onOpenSetup}
           >
-            <svg width="10" height="10" viewBox="0 0 24 24">
-              <path
-                d="M20 6 9 17l-5-5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </span>
-          Everything is set up
+            Finish setup
+          </button>
         </p>
       ) : null}
 
@@ -49,17 +50,7 @@ export function HomePage({ onStartMeeting, meetingInProgress }: HomePageProps) {
         className="flex flex-col items-center text-center"
         aria-labelledby="home-hero-title"
       >
-        <svg
-          className="fill-brand-accent-soft-hover"
-          width="105"
-          height="60"
-          viewBox="0 0 105 60"
-          aria-hidden="true"
-        >
-          {WAVE_BARS.map(([y, h], i) => (
-            <rect key={i} x={i * 7} y={y} width="4" height={h} rx="2" />
-          ))}
-        </svg>
+        <HeroWave />
         <h1
           id="home-hero-title"
           className="mt-7 max-w-[720px] text-[46px] leading-[52px] font-[650] tracking-[-0.03em] text-text-primary"
@@ -118,22 +109,4 @@ export function HomePage({ onStartMeeting, meetingInProgress }: HomePageProps) {
       </ol>
     </main>
   );
-}
-
-type SystemAccessStatus = { microphone: string };
-
-function useMicrophoneAllowed(): boolean {
-  const [allowed, setAllowed] = useState(false);
-  useEffect(() => {
-    let cancelled = false;
-    invoke<SystemAccessStatus>("get_system_access_status")
-      .then((status) => {
-        if (!cancelled) setAllowed(status.microphone === "authorized");
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-  return allowed;
 }
