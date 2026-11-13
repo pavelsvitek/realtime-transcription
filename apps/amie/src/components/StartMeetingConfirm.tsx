@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { StartMeetingButton } from "./StartMeetingButton";
+import { Button } from "./ui/Button";
+import { Dialog, DialogDescription, DialogTitle } from "./ui/Dialog";
 
 const StartMeetingConfirmOpenContext = createContext(false);
 const MeetingDialogLockContext = createContext<(delta: 1 | -1) => void>(() => {});
@@ -72,40 +74,32 @@ export function StartMeetingConfirmLayer({
       <StartMeetingConfirmOpenContext.Provider value={overlayOpen}>
         {children}
         {dialogOpen && (
-          <div
-            className="start-meeting-dialog-backdrop"
-            onPointerDown={onDismiss}
+          <Dialog
+            onDismiss={onDismiss}
+            titleId="start-meeting-dialog-title"
+            descriptionId="start-meeting-dialog-copy"
           >
-            <div
-              className="start-meeting-dialog short-meeting-dialog"
-              role="alertdialog"
-              aria-modal="true"
-              aria-labelledby="start-meeting-dialog-title"
-              aria-describedby="start-meeting-dialog-copy"
-              onPointerDown={(event) => event.stopPropagation()}
-            >
-              <p id="start-meeting-dialog-title" className="start-meeting-dialog-title">
-                {stopping ? "Stop the meeting?" : "Start a meeting?"}
-              </p>
-              <p id="start-meeting-dialog-copy" className="short-meeting-dialog-copy">
-                {stopping
-                  ? "Amie will finish capturing audio, save the transcript, and open the meeting so you can review or generate a summary."
-                  : "Amie will start listening through your mic and system audio, keep a live transcript, and save the meeting when you stop."}
-              </p>
-              {stopping ? (
-                <button
-                  ref={buttonRef}
-                  type="button"
-                  className="btn btn-stop start-meeting-dialog-stop"
-                  onClick={onConfirm}
-                >
-                  Stop
-                </button>
-              ) : (
-                <StartMeetingButton ref={buttonRef} onClick={onConfirm} />
-              )}
-            </div>
-          </div>
+            <DialogTitle id="start-meeting-dialog-title">
+              {stopping ? "Stop the meeting?" : "Start a meeting?"}
+            </DialogTitle>
+            <DialogDescription id="start-meeting-dialog-copy">
+              {stopping
+                ? "Amie will finish capturing audio, save the transcript, and open the meeting so you can review or generate a summary."
+                : "Amie will start listening through your mic and system audio, keep a live transcript, and save the meeting when you stop."}
+            </DialogDescription>
+            {stopping ? (
+              // A plain confirm, not a recording control: primary, not the red Stop.
+              <Button ref={buttonRef} size="lg" className="w-full" onClick={onConfirm}>
+                Stop
+              </Button>
+            ) : (
+              <StartMeetingButton
+                ref={buttonRef}
+                className="w-full justify-center"
+                onClick={onConfirm}
+              />
+            )}
+          </Dialog>
         )}
       </StartMeetingConfirmOpenContext.Provider>
     </MeetingDialogLockContext.Provider>

@@ -1,3 +1,5 @@
+import { cn } from "../lib/cn";
+
 type SpinnerProps = {
   className?: string;
 };
@@ -5,13 +7,13 @@ type SpinnerProps = {
 export function Spinner({ className }: SpinnerProps) {
   return (
     <svg
-      className={className ? `spinner ${className}` : "spinner"}
+      className={cn("animate-spinner", className)}
       viewBox="0 0 24 24"
       fill="none"
       aria-hidden="true"
     >
       <circle
-        className="spinner-track"
+        className="opacity-30"
         cx="12"
         cy="12"
         r="10"
@@ -19,7 +21,6 @@ export function Spinner({ className }: SpinnerProps) {
         strokeWidth="3"
       />
       <path
-        className="spinner-head"
         d="M12 2a10 10 0 0 1 10 10"
         stroke="currentColor"
         strokeWidth="3"

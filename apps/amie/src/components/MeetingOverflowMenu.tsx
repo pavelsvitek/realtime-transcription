@@ -67,10 +67,10 @@ export function MeetingOverflowMenu({
   }, [disabled]);
 
   return (
-    <div className="meeting-menu" ref={rootRef}>
+    <div className="relative" ref={rootRef}>
       <button
         type="button"
-        className="meeting-menu-trigger"
+        className="inline-flex size-9 cursor-pointer items-center justify-center rounded-xl border border-border-default bg-surface-content p-0 text-text-secondary hover:bg-surface-hover hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-50"
         aria-label="Meeting actions"
         aria-haspopup="menu"
         aria-expanded={open}
@@ -86,10 +86,13 @@ export function MeetingOverflowMenu({
         <MenuDotsIcon />
       </button>
       {open && (
-        <div className="meeting-menu-popover" role="menu">
+        <div
+          className="absolute top-[calc(100%+8px)] right-0 z-[8] min-w-[220px] rounded-2xl border border-border-default bg-surface-elevated p-2 shadow-[0_10px_30px_rgba(15,23,42,0.12)]"
+          role="menu"
+        >
           <button
             type="button"
-            className="meeting-menu-item"
+            className="flex w-full cursor-pointer items-center gap-2.5 rounded-[10px] border-none px-3 py-2.5 text-left font-[family-name:inherit] text-[14px] disabled:cursor-not-allowed disabled:opacity-50 bg-transparent text-text-primary enabled:hover:bg-surface-hover"
             role="menuitem"
             disabled={followUpDisabled}
             onClick={() => {
@@ -100,10 +103,10 @@ export function MeetingOverflowMenu({
             <FollowUpIcon />
             Follow-up meeting…
           </button>
-          <div className="meeting-menu-divider" />
+          <div className="mx-2 my-1 h-px bg-border-default" />
           <button
             type="button"
-            className="meeting-menu-item"
+            className="flex w-full cursor-pointer items-center gap-2.5 rounded-[10px] border-none px-3 py-2.5 text-left font-[family-name:inherit] text-[14px] disabled:cursor-not-allowed disabled:opacity-50 bg-transparent text-text-primary enabled:hover:bg-surface-hover"
             role="menuitem"
             onClick={() => {
               close();
@@ -113,10 +116,10 @@ export function MeetingOverflowMenu({
             <ArchiveIcon />
             Archive…
           </button>
-          <div className="meeting-menu-divider" />
+          <div className="mx-2 my-1 h-px bg-border-default" />
           <button
             type="button"
-            className="meeting-menu-item meeting-menu-item-danger"
+            className="flex w-full cursor-pointer items-center gap-2.5 rounded-[10px] border-none px-3 py-2.5 text-left font-[family-name:inherit] text-[14px] disabled:cursor-not-allowed disabled:opacity-50 bg-status-danger text-white enabled:hover:bg-status-danger-hover"
             role="menuitem"
             onClick={() => {
               close();
@@ -151,7 +154,7 @@ function MenuDotsIcon() {
 function FollowUpIcon() {
   return (
     <svg
-      className="meeting-menu-icon"
+      className="shrink-0"
       width="16"
       height="16"
       viewBox="0 0 24 24"
@@ -171,7 +174,7 @@ function FollowUpIcon() {
 function ArchiveIcon() {
   return (
     <svg
-      className="meeting-menu-icon"
+      className="shrink-0"
       width="16"
       height="16"
       viewBox="0 0 24 24"
@@ -192,7 +195,7 @@ function ArchiveIcon() {
 function TrashIcon() {
   return (
     <svg
-      className="meeting-menu-icon"
+      className="shrink-0"
       width="16"
       height="16"
       viewBox="0 0 24 24"

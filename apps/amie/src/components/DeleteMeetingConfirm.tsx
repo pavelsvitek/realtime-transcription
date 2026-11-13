@@ -1,6 +1,8 @@
 import { useEffect, useRef } from "react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useHoldMeetingConfirmOpen } from "./StartMeetingConfirm";
+import { Button } from "./ui/Button";
+import { Dialog, DialogDescription, DialogTitle } from "./ui/Dialog";
 
 type DeleteMeetingConfirmProps = {
   onConfirm: () => void;
@@ -31,38 +33,26 @@ export function DeleteMeetingConfirm({
   );
 
   return (
-    <div className="start-meeting-dialog-backdrop" onPointerDown={onDismiss}>
-      <div
-        className="start-meeting-dialog short-meeting-dialog"
-        role="alertdialog"
-        aria-modal="true"
-        aria-labelledby="delete-meeting-dialog-title"
-        aria-describedby="delete-meeting-dialog-copy"
-        onPointerDown={(event) => event.stopPropagation()}
+    <Dialog
+      onDismiss={onDismiss}
+      titleId="delete-meeting-dialog-title"
+      descriptionId="delete-meeting-dialog-copy"
+    >
+      <DialogTitle id="delete-meeting-dialog-title">Delete this meeting permanently?</DialogTitle>
+      <DialogDescription id="delete-meeting-dialog-copy">
+        The transcript, summary, and context will be removed from this device.
+        This cannot be undone — archive instead if you just want it out of the
+        list.
+      </DialogDescription>
+      <Button
+        ref={buttonRef}
+        variant="danger"
+        size="lg"
+        className="w-full"
+        onClick={onConfirm}
       >
-        <p
-          id="delete-meeting-dialog-title"
-          className="start-meeting-dialog-title"
-        >
-          Delete this meeting permanently?
-        </p>
-        <p
-          id="delete-meeting-dialog-copy"
-          className="short-meeting-dialog-copy"
-        >
-          The transcript, summary, and context will be removed from this device.
-          This cannot be undone — archive instead if you just want it out of the
-          list.
-        </p>
-        <button
-          ref={buttonRef}
-          type="button"
-          className="btn btn-stop short-meeting-dialog-ok"
-          onClick={onConfirm}
-        >
-          Delete
-        </button>
-      </div>
-    </div>
+        Delete
+      </Button>
+    </Dialog>
   );
 }

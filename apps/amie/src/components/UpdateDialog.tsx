@@ -2,6 +2,8 @@ import { useEffect, useRef } from "react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useHoldMeetingConfirmOpen } from "./StartMeetingConfirm";
 import { formatBytes, type UpdateProgress } from "../lib/updates";
+import { Button } from "./ui/Button";
+import { Dialog, DialogDescription, DialogTitle } from "./ui/Dialog";
 
 export type UpdateDialogView =
   | { kind: "checking" }
@@ -67,95 +69,85 @@ export function UpdateDialog({
   const copy = copyFor(view);
 
   return (
-    <div
-      className="start-meeting-dialog-backdrop"
-      onPointerDown={canDismiss ? onDismiss : undefined}
+    <Dialog
+      onDismiss={canDismiss ? onDismiss : undefined}
+      titleId="update-dialog-title"
+      descriptionId="update-dialog-copy"
     >
-      <div
-        className="start-meeting-dialog short-meeting-dialog update-dialog"
-        role="alertdialog"
-        aria-modal="true"
-        aria-labelledby="update-dialog-title"
-        aria-describedby="update-dialog-copy"
-        onPointerDown={(event) => event.stopPropagation()}
-      >
-        <p id="update-dialog-title" className="start-meeting-dialog-title">
-          {title}
-        </p>
-        <p id="update-dialog-copy" className="short-meeting-dialog-copy">
-          {copy}
-        </p>
-        {view.kind === "downloading" ? (
-          <div className="update-dialog-progress" aria-live="polite">
-            <div className="update-dialog-progress-track">
-              <div
-                className="update-dialog-progress-bar"
-                style={{ width: `${progressPercent(view.progress)}%` }}
-              />
-            </div>
-            <p className="update-dialog-progress-label">
-              {progressText(view.progress)}
-            </p>
+      <DialogTitle id="update-dialog-title">{title}</DialogTitle>
+      <DialogDescription id="update-dialog-copy">{copy}</DialogDescription>
+      {view.kind === "downloading" ? (
+        <div className="flex flex-col gap-2" aria-live="polite">
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-input">
+            <div
+              className="h-full rounded-[inherit] bg-brand-accent transition-[width] duration-150 ease-[ease]"
+              style={{ width: `${progressPercent(view.progress)}%` }}
+            />
           </div>
-        ) : null}
-        <div className="update-dialog-actions">
-          {view.kind === "available" ? (
-            <>
-              <button
-                type="button"
-                className="btn update-dialog-secondary"
-                onClick={onLater}
-                disabled={busy}
-              >
-                Later
-              </button>
-              <button
-                ref={primaryRef}
-                type="button"
-                className="btn btn-start update-dialog-primary"
-                onClick={onUpdate}
-                disabled={busy || view.readOnlyBundle}
-              >
-                {view.readOnlyBundle ? "Copy to Applications" : "Update"}
-              </button>
-            </>
-          ) : null}
-          {view.kind === "installedDeferred" ? (
-            <button
-              ref={primaryRef}
-              type="button"
-              className="btn btn-start update-dialog-primary"
-              onClick={onRelaunch}
-              disabled={busy || view.meetingActive}
-            >
-              {view.meetingActive ? "Stop meeting to restart" : "Restart Amie"}
-            </button>
-          ) : null}
-          {view.kind === "upToDate" ||
-          view.kind === "error" ||
-          view.kind === "readOnly" ? (
-            <button
-              ref={primaryRef}
-              type="button"
-              className="btn btn-start short-meeting-dialog-ok"
-              onClick={onDismiss}
-            >
-              OK
-            </button>
-          ) : null}
-          {view.kind === "checking" || view.kind === "downloading" ? (
-            <button
-              ref={primaryRef}
-              type="button"
-              className="btn update-dialog-secondary"
-              disabled
-            >
-              {view.kind === "checking" ? "Checking…" : "Downloading…"}
-            </button>
-          ) : null}
+          <p className="m-0 text-[12px] text-text-secondary">
+            {progressText(view.progress)}
+          </p>
         </div>
+      ) : null}
+      <div className="flex w-full gap-2.5">
+        {view.kind === "available" ? (
+          <>
+            <Button
+              variant="secondary"
+              size="lg"
+              className="flex-1"
+              onClick={onLater}
+              disabled={busy}
+            >
+              Later
+            </Button>
+            <Button
+              ref={primaryRef}
+              size="lg"
+              className="flex-1"
+              onClick={onUpdate}
+              disabled={busy || view.readOnlyBundle}
+            >
+              {view.readOnlyBundle ? "Copy to Applications" : "Update"}
+            </Button>
+          </>
+        ) : null}
+        {view.kind === "installedDeferred" ? (
+          <Button
+            ref={primaryRef}
+            size="lg"
+            className="flex-1"
+            onClick={onRelaunch}
+            disabled={busy || view.meetingActive}
+          >
+            {view.meetingActive ? "Stop meeting to restart" : "Restart Amie"}
+          </Button>
+        ) : null}
+        {view.kind === "upToDate" ||
+        view.kind === "error" ||
+        view.kind === "readOnly" ? (
+          <Button
+            ref={primaryRef}
+            size="lg"
+            className="w-full"
+            onClick={onDismiss}
+          >
+            OK
+          </Button>
+        ) : null}
+        {view.kind === "checking" || view.kind === "downloading" ? (
+          <Button
+            ref={primaryRef}
+            variant="secondary"
+            size="lg"
+            className="flex-1"
+            disabled
+          >
+            {view.kind === "checking" ? "Checking…" : "Downloading…"}
+          </Button>
+        ) : null}
       </div>
-    </div>
+    </Dialog>
   );
 }
 

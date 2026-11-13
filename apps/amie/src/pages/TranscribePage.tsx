@@ -15,6 +15,8 @@ import { LiveMeetingButton } from "../components/LiveMeetingButton";
 import { AudioDeviceMenu } from "../components/AudioDeviceMenu";
 import { MicIndicator } from "../components/MicIndicator";
 import { Spinner } from "../components/Spinner";
+import { EmptyCopy } from "../components/ui/EmptyCopy";
+import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { TranscriptFeed } from "../components/TranscriptFeed";
 import { useAudioDevice } from "../hooks/useAudioDevice";
 import { useAudioDevices } from "../hooks/useAudioDevices";
@@ -40,6 +42,7 @@ import {
   patchMeeting,
   useGetLiveMeetingQuery,
 } from "../models/Meeting";
+import { Button } from "../components/ui/Button";
 
 const BACKEND_STORAGE_KEY = "asrBackend";
 const LIVE_TAB_PREFIX = "transcribe";
@@ -214,16 +217,21 @@ export function TranscribePage({
   const transcriptIds = meetingTabDomIds(LIVE_TAB_PREFIX, "transcript");
 
   return (
-    <main className="page transcribe-page">
-      <header className="page-header">
-        <div className="header-left">
-          <h1 className="page-title">New chat</h1>
-          {model && <span className="model-badge">{model}</span>}
+    <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <header className="relative z-[2] flex shrink-0 items-center justify-between overflow-visible px-4 py-3">
+        <div className="flex items-center gap-2.5">
+          <h1 className="text-[12px] font-bold">New chat</h1>
+          {model && (
+            <span className="rounded-[10px] bg-surface-muted px-2 py-0.5 text-[11px] text-text-muted">
+              {model}
+            </span>
+          )}
         </div>
-        <div className="header-controls">
-          <label className="source-select">
-            <span className="source-select-label">ASR</span>
+        <div className="flex items-center gap-2 overflow-visible">
+          <label className="flex items-center gap-1.5 text-[12px] text-text-secondary">
+            <span className="whitespace-nowrap">ASR</span>
             <select
+              className="rounded-md border border-border-input bg-surface-input px-2 py-[5px] font-[family-name:inherit] text-[12px] text-text-primary"
               value={backend}
               onChange={(e) => setBackend(e.target.value as AsrBackend)}
               disabled={isActive || isLoading || stopping}
@@ -259,15 +267,15 @@ export function TranscribePage({
             onOpen={() => void audioDevices.refresh()}
           />
           {isActive || stopping ? (
-            <button
-              className="btn btn-stop"
+            <Button
+              variant="danger"
               onClick={() => void handleStop()}
               disabled={stopping}
               aria-busy={stopping}
               aria-label={stopping ? "Stopping transcription" : "Stop transcription"}
             >
-              {stopping ? <Spinner className="btn-spinner" /> : "Stop"}
-            </button>
+              {stopping ? <Spinner className="block size-4" /> : "Stop"}
+            </Button>
           ) : (
             <LiveMeetingButton
               loading={isLoading}
@@ -276,37 +284,32 @@ export function TranscribePage({
             />
           )}
           {segments.length > 0 && !isActive && !stopping && (
-            <button className="btn btn-clear" onClick={clear}>
+            <Button variant="outline" onClick={clear}>
               Clear
-            </button>
+            </Button>
           )}
         </div>
       </header>
 
       {notices.map((notice) => (
-        <div className="error-banner" key={notice.id} role="status">
-          <span className="error-banner-text">
-            {formatTranscriptionError(notice.message, modelDownload.downloading)}
-          </span>
-          <button
-            type="button"
-            className="error-banner-close"
-            aria-label="Close"
-            onClick={() => dismissNotice(notice.id)}
-          >
-            ×
-          </button>
-        </div>
+        <ErrorBanner
+          key={notice.id}
+          role="status"
+          onDismiss={() => dismissNotice(notice.id)}
+        >
+          {formatTranscriptionError(notice.message, modelDownload.downloading)}
+        </ErrorBanner>
       ))}
 
       <SpeakerNamesPrompt />
 
-      <div className="transcribe-tabs-bar">
+      <div className="shrink-0 px-4">
         <MeetingTabs
           tab={tab}
           onChange={setTab}
           prefix={LIVE_TAB_PREFIX}
           transcriptLabel={LIVE_TRANSCRIPT_TAB_LABEL}
+          className="mb-3"
         />
       </div>
 
@@ -314,19 +317,19 @@ export function TranscribePage({
         id={summaryIds.panelId}
         role="tabpanel"
         aria-labelledby={summaryIds.tabId}
-        className="transcribe-tab-panel transcribe-tab-panel--padded"
+        className="flex min-h-0 flex-1 flex-col overflow-hidden [&[hidden]]:hidden overflow-y-auto px-4 pb-6"
         hidden={tab !== "summary"}
       >
-        <p className="meetings-empty-copy">
+        <EmptyCopy>
           Summary is generated after you stop the meeting.
-        </p>
+        </EmptyCopy>
       </div>
 
       <div
         id={contextIds.panelId}
         role="tabpanel"
         aria-labelledby={contextIds.tabId}
-        className="transcribe-tab-panel transcribe-tab-panel--padded"
+        className="flex min-h-0 flex-1 flex-col overflow-hidden [&[hidden]]:hidden overflow-y-auto px-4 pb-6"
         hidden={tab !== "context"}
       >
         {liveMeeting ? (
@@ -337,11 +340,11 @@ export function TranscribePage({
             fieldId="live-meeting-context-editor"
           />
         ) : isActive ? (
-          <p className="meetings-empty-copy">Loading meeting context…</p>
+          <EmptyCopy>Loading meeting context…</EmptyCopy>
         ) : (
-          <p className="meetings-empty-copy">
+          <EmptyCopy>
             Start transcription to add context for this meeting.
-          </p>
+          </EmptyCopy>
         )}
       </div>
 
@@ -349,7 +352,7 @@ export function TranscribePage({
         id={transcriptIds.panelId}
         role="tabpanel"
         aria-labelledby={transcriptIds.tabId}
-        className="transcribe-tab-panel"
+        className="flex min-h-0 flex-1 flex-col overflow-hidden [&[hidden]]:hidden"
         hidden={tab !== "transcript"}
       >
         <TranscriptFeed
@@ -362,8 +365,8 @@ export function TranscribePage({
         />
       </div>
 
-      <footer className="page-footer">
-        <span className="status-text">
+      <footer className="shrink-0 border-t border-border-default px-4 py-2">
+        <span className="text-[12px] text-text-muted">
           {stopping
             ? "Stopping..."
             : isActive

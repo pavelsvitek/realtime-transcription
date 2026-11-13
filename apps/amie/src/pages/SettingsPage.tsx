@@ -6,6 +6,41 @@ import { summaryProviderHasKey } from "../lib/summary-providers";
 import { useSpeakerTagsStatus } from "../hooks/useSpeakerTagsStatus";
 import { codeRequirementLabel, signatureLabel } from "../lib/speaker-tags";
 import { moveSettingsSection } from "../lib/nav-hotkeys";
+import { Button } from "../components/ui/Button";
+import { ErrorBanner } from "../components/ui/ErrorBanner";
+import { cn } from "../lib/cn";
+
+/** Settings styles, one per former settings-* class. */
+const S = {
+  section:
+    "flex max-w-[640px] flex-col gap-3.5 px-6 pt-2 pb-7",
+  paneTitle:
+    "m-0 text-[20px] font-[650] tracking-[-0.02em] text-text-primary",
+  heading:
+    "m-0 text-[16px] font-semibold",
+  copy:
+    "m-0 text-[13px] leading-[1.45] text-text-secondary [&_code]:font-mono [&_code]:text-[12px] [&_code]:break-all",
+  code:
+    "m-0 overflow-x-auto rounded-lg border border-border-default bg-surface-muted px-3.5 py-3 font-mono text-[12px] leading-[1.45] break-all whitespace-pre-wrap text-text-primary",
+  accessCard:
+    "flex flex-col gap-3 border-t border-border-default py-3.5 first-of-type:border-t-0 first-of-type:pt-0",
+  accessCardMain:
+    "flex flex-col gap-2.5",
+  row:
+    "flex flex-col gap-1.5",
+  label:
+    "text-[12px] text-text-secondary",
+  value:
+    "text-[13px] text-text-primary",
+  input:
+    "rounded-md border border-border-input bg-surface-input px-2.5 py-2 font-[family-name:inherit] text-[13px] text-text-primary",
+  actions:
+    "flex flex-wrap items-center gap-2",
+  status:
+    "text-[13px] text-text-secondary",
+  navItem:
+    "w-full cursor-pointer rounded-md border-none bg-transparent px-2.5 py-2 text-left font-[family-name:inherit] text-[13px] leading-[1.5] text-text-secondary hover:bg-surface-hover hover:text-text-primary",
+};
 
 const KEY_MASK = "•".repeat(24);
 
@@ -259,14 +294,21 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
   const axLabel = systemAccess?.accessibility.buildLabel ?? speakerStatus?.buildLabel;
 
   return (
-    <main className="page settings-page">
-      <div className="settings-layout">
-        <nav className="settings-nav" aria-label="Settings sections">
-          <div className="settings-nav-chrome" data-tauri-drag-region aria-hidden="true" />
-          <div className="settings-nav-header">
+    <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 flex-1 items-stretch overflow-hidden">
+        <nav
+          className="flex w-[220px] shrink-0 flex-col overflow-y-auto border-r border-border-default bg-surface-chrome px-3 pb-6"
+          aria-label="Settings sections"
+        >
+          <div
+            className="-mx-3 h-[var(--window-chrome-top)] shrink-0"
+            data-tauri-drag-region
+            aria-hidden="true"
+          />
+          <div className="shrink-0 pt-1 pb-3">
             <button
               type="button"
-              className="settings-back"
+              className="flex w-full cursor-pointer items-center gap-2 rounded-md border-none bg-transparent px-2.5 py-2 text-left font-[family-name:inherit] text-[13px] leading-[1.5] font-[650] tracking-[-0.02em] text-text-primary transition-[background-color,color] duration-150 ease-[ease] hover:bg-surface-hover"
               onClick={onBack}
               aria-label="Back"
             >
@@ -274,16 +316,15 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
               <span>Settings</span>
             </button>
           </div>
-          <ul className="settings-nav-list">
+          <ul className="flex min-h-0 flex-1 list-none flex-col gap-0.5">
             {NAV_ITEMS.map((item) => (
               <li key={item.id}>
                 <button
                   type="button"
-                  className={
-                    section === item.id
-                      ? "settings-nav-item settings-nav-item--active"
-                      : "settings-nav-item"
-                  }
+                  className={cn(
+                    S.navItem,
+                    section === item.id && "bg-surface-hover font-semibold text-text-primary",
+                  )}
                   aria-current={section === item.id ? "page" : undefined}
                   onClick={() => selectSection(item.id)}
                 >
@@ -294,20 +335,20 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
           </ul>
         </nav>
 
-        <div className="settings-pane">
-          <div className="settings-scroll">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-surface-content">
+          <div className="min-h-0 flex-1 overflow-y-auto pt-[calc(var(--window-chrome-top)+8px)]">
             {section === "meeting-summary" && (
               <>
-                <section className="settings-section">
-                  <h2 className="settings-pane-title">Meeting summary</h2>
-                  <p className="settings-copy">
+                <section className={S.section}>
+                  <h2 className={S.paneTitle}>Meeting summary</h2>
+                  <p className={S.copy}>
                     Choose which model writes the meeting title and summary. xAI stays the default.
                     <code>SUMMARY_LLM_PROVIDER</code> overrides this choice.
                   </p>
-                  <label className="settings-field">
-                    <span className="settings-label">Provider</span>
+                  <label className={S.row}>
+                    <span className={S.label}>Provider</span>
                     <select
-                      className="settings-input"
+                      className={S.input}
                       value={summarySettings?.provider ?? "xai"}
                       disabled={saving || !summarySettings || summarySettings.providerFromEnv}
                       onChange={(e) => {
@@ -331,31 +372,31 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
                     </select>
                   </label>
                   {summarySettings?.providerFromEnv && (
-                    <p className="settings-copy">
+                    <p className={S.copy}>
                       Provider is set by <code>SUMMARY_LLM_PROVIDER</code> and cannot be edited here.
                     </p>
                   )}
                 </section>
 
-                <section className="settings-section">
-                  <h2 className="settings-heading">xAI Transcribe 2.0</h2>
-                  <p className="settings-copy">
+                <section className={S.section}>
+                  <h2 className={S.heading}>xAI Transcribe 2.0</h2>
+                  <p className={S.copy}>
                     Used when ASR is set to <strong>xAI Transcribe 2.0</strong> on the New chat page.
                     Live sessions pin <code>grok-voice-transcribe-2.0</code>. The key is stored under
                     Application Support (or taken from <code>XAI_API_KEY</code>). Meeting summaries use
                     this same key when the summary provider is xAI.
                   </p>
 
-                  <div className="settings-row">
-                    <span className="settings-label">Status</span>
-                    <span className="settings-value">{keyState}</span>
+                  <div className={S.row}>
+                    <span className={S.label}>Status</span>
+                    <span className={S.value}>{keyState}</span>
                   </div>
 
-                  <label className="settings-field">
-                    <span className="settings-label">API key</span>
+                  <label className={S.row}>
+                    <span className={S.label}>API key</span>
                     <input
                       type="password"
-                      className="settings-input"
+                      className={S.input}
                       value={fieldLocked ? KEY_MASK : apiKey}
                       onChange={(e) => {
                         if (!fieldLocked) setApiKey(e.target.value);
@@ -370,30 +411,29 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
                     />
                   </label>
 
-                  <div className="settings-actions">
-                    <button
-                      className="btn btn-start"
+                  <div className={S.actions}>
+                    <Button
                       onClick={() => void saveKey()}
                       disabled={saving || fieldLocked || apiKey.trim().length === 0}
                     >
                       {saving ? "Saving…" : "Save key"}
-                    </button>
-                    <button
-                      className="btn btn-clear"
+                    </Button>
+                    <Button
+                      variant="outline"
                       onClick={() => void clearKey()}
                       disabled={saving || !settings?.xaiApiKeySaved}
                     >
                       Clear saved key
-                    </button>
+                    </Button>
                   </div>
 
                   {fieldLocked && settings?.xaiApiKeySaved && (
-                    <p className="settings-copy">
+                    <p className={S.copy}>
                       Clear the saved key to enter a new one. The real key is never shown.
                     </p>
                   )}
                   {fieldLocked && settings?.xaiApiKeyFromEnv && !settings.xaiApiKeySaved && (
-                    <p className="settings-copy">
+                    <p className={S.copy}>
                       Key is provided by <code>XAI_API_KEY</code> and cannot be edited here.
                     </p>
                   )}
@@ -469,16 +509,16 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
             )}
 
             {section === "mcp" && (
-              <section className="settings-section">
-                <h2 className="settings-pane-title">MCP</h2>
-                <p className="settings-copy">
+              <section className={S.section}>
+                <h2 className={S.paneTitle}>MCP</h2>
+                <p className={S.copy}>
                   Connect Claude, Cursor, or Codex so they can use your Amie meetings on this Mac.
                   Open Amie at least once before connecting.
                 </p>
 
-                <div className="settings-row">
-                  <span className="settings-label">Status</span>
-                  <span className="settings-value">
+                <div className={S.row}>
+                  <span className={S.label}>Status</span>
+                  <span className={S.value}>
                     {mcp
                       ? mcp.binaryFound
                         ? "Ready"
@@ -487,48 +527,47 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
                   </span>
                 </div>
 
-                <h3 className="settings-heading">Claude</h3>
-                <p className="settings-copy">Run in Terminal, then restart Claude Code:</p>
-                <pre className="settings-code">{mcp?.claudeCommand ?? "Loading…"}</pre>
+                <h3 className={S.heading}>Claude</h3>
+                <p className={S.copy}>Run in Terminal, then restart Claude Code:</p>
+                <pre className={S.code}>{mcp?.claudeCommand ?? "Loading…"}</pre>
 
-                <h3 className="settings-heading">Cursor</h3>
-                <p className="settings-copy">
+                <h3 className={S.heading}>Cursor</h3>
+                <p className={S.copy}>
                   Add this to <code>~/.cursor/mcp.json</code>, then reload MCP servers:
                 </p>
-                <pre className="settings-code">{mcp?.cursorConfig ?? "Loading…"}</pre>
+                <pre className={S.code}>{mcp?.cursorConfig ?? "Loading…"}</pre>
 
-                <h3 className="settings-heading">Codex</h3>
-                <p className="settings-copy">
+                <h3 className={S.heading}>Codex</h3>
+                <p className={S.copy}>
                   Add this to <code>~/.codex/config.toml</code>, then restart Codex:
                 </p>
-                <pre className="settings-code">{mcp?.codexConfig ?? "Loading…"}</pre>
+                <pre className={S.code}>{mcp?.codexConfig ?? "Loading…"}</pre>
               </section>
             )}
 
             {section === "system-access" && (
-              <section className="settings-section">
-                <h2 className="settings-pane-title">System access</h2>
-                <p className="settings-copy">
+              <section className={S.section}>
+                <h2 className={S.paneTitle}>System access</h2>
+                <p className={S.copy}>
                   Amie needs these macOS permissions for live capture and speaker names. Each build
                   (Amie vs Amie Dev) has its own row in System Settings.
                 </p>
 
-                <div className="settings-access-card">
-                  <div className="settings-access-card-main">
-                    <h3 className="settings-heading">Microphone</h3>
-                    <p className="settings-copy">Used when the input source includes the mic.</p>
-                    <div className="settings-row">
-                      <span className="settings-label">Status</span>
-                      <span className="settings-value">
+                <div className={S.accessCard}>
+                  <div className={S.accessCardMain}>
+                    <h3 className={S.heading}>Microphone</h3>
+                    <p className={S.copy}>Used when the input source includes the mic.</p>
+                    <div className={S.row}>
+                      <span className={S.label}>Status</span>
+                      <span className={S.value}>
                         {systemAccess
                           ? microphoneLabel(systemAccess.microphone)
                           : "Loading…"}
                       </span>
                     </div>
                   </div>
-                  <div className="settings-actions">
-                    <button
-                      className="btn btn-start"
+                  <div className={S.actions}>
+                    <Button
                       disabled={
                         openingPane !== null ||
                         systemAccess?.microphone === "authorized"
@@ -540,53 +579,52 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
                         : systemAccess?.microphone === "authorized"
                           ? "Allowed"
                           : "Enable Microphone"}
-                    </button>
+                    </Button>
                   </div>
                 </div>
 
-                <div className="settings-access-card">
-                  <div className="settings-access-card-main">
-                    <h3 className="settings-heading">System Audio</h3>
-                    <p className="settings-copy">
+                <div className={S.accessCard}>
+                  <div className={S.accessCardMain}>
+                    <h3 className={S.heading}>System Audio</h3>
+                    <p className={S.copy}>
                       Loopback capture for Chrome / meeting audio (TCC <code>AudioCapture</code>).
                       macOS does not expose a reliable grant check — if capture is silent, enable Amie
                       under System Audio Recording, then quit and reopen.
                     </p>
-                    <div className="settings-row">
-                      <span className="settings-label">Status</span>
-                      <span className="settings-value">Review in System Settings</span>
+                    <div className={S.row}>
+                      <span className={S.label}>Status</span>
+                      <span className={S.value}>Review in System Settings</span>
                     </div>
                   </div>
-                  <div className="settings-actions">
-                    <button
-                      className="btn btn-start"
+                  <div className={S.actions}>
+                    <Button
                       disabled={openingPane !== null}
                       onClick={() => void openAccessPane("systemAudio")}
                     >
                       {openingPane === "systemAudio" ? "Opening…" : "Open System Audio settings"}
-                    </button>
+                    </Button>
                   </div>
                 </div>
 
-                <div className="settings-access-card">
-                  <div className="settings-access-card-main">
-                    <h3 className="settings-heading">Accessibility</h3>
-                    <p className="settings-copy">
+                <div className={S.accessCard}>
+                  <div className={S.accessCardMain}>
+                    <h3 className={S.heading}>Accessibility</h3>
+                    <p className={S.copy}>
                       Reads who Zoom or Teams shows as speaking. Does not record the screen.
                     </p>
-                    <div className="settings-row">
-                      <span className="settings-label">Status</span>
-                      <span className="settings-value">
+                    <div className={S.row}>
+                      <span className={S.label}>Status</span>
+                      <span className={S.value}>
                         {axTrusted == null ? "Loading…" : axTrusted ? "On" : "Off"}
                       </span>
                     </div>
-                    <div className="settings-row">
-                      <span className="settings-label">This build</span>
-                      <span className="settings-value">{axLabel ?? "Loading…"}</span>
+                    <div className={S.row}>
+                      <span className={S.label}>This build</span>
+                      <span className={S.value}>{axLabel ?? "Loading…"}</span>
                     </div>
-                    <div className="settings-row">
-                      <span className="settings-label">Signature</span>
-                      <span className="settings-value">
+                    <div className={S.row}>
+                      <span className={S.label}>Signature</span>
+                      <span className={S.value}>
                         {speakerStatus
                           ? signatureLabel(speakerStatus)
                           : systemAccess
@@ -595,36 +633,35 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
                       </span>
                     </div>
                     {speakerStatus && codeRequirementLabel(speakerStatus) && (
-                      <div className="settings-row">
-                        <span className="settings-label">Code identity</span>
-                        <span className="settings-value">
+                      <div className={S.row}>
+                        <span className={S.label}>Code identity</span>
+                        <span className={S.value}>
                           {codeRequirementLabel(speakerStatus)}
                         </span>
                       </div>
                     )}
                     {(systemAccess?.accessibility.bundlePath ||
                       speakerStatus?.bundlePath) && (
-                      <p className="settings-copy">
+                      <p className={S.copy}>
                         {systemAccess?.accessibility.bundlePath ?? speakerStatus?.bundlePath}
                       </p>
                     )}
                     {(systemAccess?.accessibility.bundleId || speakerStatus?.bundleId) && (
-                      <p className="settings-copy">
+                      <p className={S.copy}>
                         {systemAccess?.accessibility.bundleId ?? speakerStatus?.bundleId}
                       </p>
                     )}
                     {(speakerStatus?.meetingApp === "zoom" ||
                       systemAccess?.accessibility.meetingApp === "zoom") && (
-                      <p className="settings-copy">Zoom is open.</p>
+                      <p className={S.copy}>Zoom is open.</p>
                     )}
                     {(speakerStatus?.meetingApp === "teams" ||
                       systemAccess?.accessibility.meetingApp === "teams") && (
-                      <p className="settings-copy">Microsoft Teams is open.</p>
+                      <p className={S.copy}>Microsoft Teams is open.</p>
                     )}
                   </div>
-                  <div className="settings-actions">
-                    <button
-                      className="btn btn-start"
+                  <div className={S.actions}>
+                    <Button
                       onClick={() => void openAccessPane("accessibility")}
                       disabled={openingPane !== null || axTrusted === true}
                     >
@@ -633,25 +670,25 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
                         : axTrusted
                           ? "Allowed"
                           : "Allow Accessibility"}
-                    </button>
+                    </Button>
                   </div>
                 </div>
 
-                <div className="settings-access-card">
-                  <div className="settings-access-card-main">
-                    <h3 className="settings-heading">Google Meet extension</h3>
-                    <p className="settings-copy">
+                <div className={S.accessCard}>
+                  <div className={S.accessCardMain}>
+                    <h3 className={S.heading}>Google Meet extension</h3>
+                    <p className={S.copy}>
                       Names remote speakers in Google Meet from the Amie for Google Meet extension.
                       Zoom and Teams still use Accessibility.
                     </p>
-                    <div className="settings-row">
-                      <span className="settings-label">Status</span>
-                      <span className="settings-value">
+                    <div className={S.row}>
+                      <span className={S.label}>Status</span>
+                      <span className={S.value}>
                         {meetExtensionLabel(systemAccess?.googleMeetExtension)}
                       </span>
                     </div>
                     {systemAccess?.googleMeetExtension.connected && (
-                      <p className="settings-copy">
+                      <p className={S.copy}>
                         {systemAccess.googleMeetExtension.inCallTabs} Meet{" "}
                         {systemAccess.googleMeetExtension.inCallTabs === 1 ? "tab" : "tabs"} in a call
                         {systemAccess.googleMeetExtension.extensionVersion
@@ -661,15 +698,15 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
                       </p>
                     )}
                     {systemAccess?.googleMeetExtension.connected && (
-                      <div className="settings-row">
-                        <span className="settings-label">Speaking</span>
-                        <span className="settings-value">
+                      <div className={S.row}>
+                        <span className={S.label}>Speaking</span>
+                        <span className={S.value}>
                           {meetSpeakingLabel(systemAccess.googleMeetExtension)}
                         </span>
                       </div>
                     )}
                     {systemAccess?.googleMeetExtension.health === "degraded" && (
-                      <p className="settings-copy">
+                      <p className={S.copy}>
                         Google Meet level meters look different than expected, so speaker names may be missing.
                       </p>
                     )}
@@ -679,13 +716,13 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
             )}
 
             {status && (
-              <section className="settings-section">
-                <div className="settings-status">{status}</div>
+              <section className={S.section}>
+                <div className={S.status}>{status}</div>
               </section>
             )}
             {error && (
-              <section className="settings-section">
-                <div className="error-banner">{error}</div>
+              <section className={S.section}>
+                <ErrorBanner>{error}</ErrorBanner>
               </section>
             )}
           </div>
@@ -788,20 +825,20 @@ function SummaryKeySection({
   onClear: () => void;
 }) {
   return (
-    <section className="settings-section">
-      <h2 className="settings-heading">{title}</h2>
-      <p className="settings-copy">{copy}</p>
+    <section className={S.section}>
+      <h2 className={S.heading}>{title}</h2>
+      <p className={S.copy}>{copy}</p>
 
-      <div className="settings-row">
-        <span className="settings-label">Status</span>
-        <span className="settings-value">{keyStatus(keyFromEnv, keySaved, loaded)}</span>
+      <div className={S.row}>
+        <span className={S.label}>Status</span>
+        <span className={S.value}>{keyStatus(keyFromEnv, keySaved, loaded)}</span>
       </div>
 
-      <label className="settings-field">
-        <span className="settings-label">API key</span>
+      <label className={S.row}>
+        <span className={S.label}>API key</span>
         <input
           type="password"
-          className="settings-input"
+          className={S.input}
           value={keyIsSet ? KEY_MASK : value}
           onChange={(e) => {
             if (!keyIsSet) onChange(e.target.value);
@@ -816,26 +853,25 @@ function SummaryKeySection({
         />
       </label>
 
-      <div className="settings-actions">
-        <button
-          className="btn btn-start"
+      <div className={S.actions}>
+        <Button
           onClick={onSave}
           disabled={saving || keyIsSet || value.trim().length === 0}
         >
           {saving ? "Saving…" : "Save key"}
-        </button>
-        <button className="btn btn-clear" onClick={onClear} disabled={saving || !keySaved}>
+        </Button>
+        <Button variant="outline" onClick={onClear} disabled={saving || !keySaved}>
           Clear saved key
-        </button>
+        </Button>
       </div>
 
       {keyIsSet && keySaved && (
-        <p className="settings-copy">
+        <p className={S.copy}>
           Clear the saved key to enter a new one. The real key is never shown.
         </p>
       )}
       {keyIsSet && keyFromEnv && !keySaved && (
-        <p className="settings-copy">
+        <p className={S.copy}>
           Key is provided by <code>{envName}</code> and cannot be edited here.
         </p>
       )}

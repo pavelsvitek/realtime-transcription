@@ -1,6 +1,8 @@
 import { useEffect, useRef } from "react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useHoldMeetingConfirmOpen } from "./StartMeetingConfirm";
+import { Button } from "./ui/Button";
+import { Dialog, DialogDescription, DialogTitle } from "./ui/Dialog";
 
 type FollowUpMeetingConfirmProps = {
   onConfirm: () => void;
@@ -31,37 +33,24 @@ export function FollowUpMeetingConfirm({
   );
 
   return (
-    <div className="start-meeting-dialog-backdrop" onPointerDown={onDismiss}>
-      <div
-        className="start-meeting-dialog short-meeting-dialog"
-        role="alertdialog"
-        aria-modal="true"
-        aria-labelledby="follow-up-meeting-dialog-title"
-        aria-describedby="follow-up-meeting-dialog-copy"
-        onPointerDown={(event) => event.stopPropagation()}
+    <Dialog
+      onDismiss={onDismiss}
+      titleId="follow-up-meeting-dialog-title"
+      descriptionId="follow-up-meeting-dialog-copy"
+    >
+      <DialogTitle id="follow-up-meeting-dialog-title">Do you want to create a follow-up meeting?</DialogTitle>
+      <DialogDescription id="follow-up-meeting-dialog-copy">
+        The follow-up meeting will copy the Context and Summary of this
+        meeting into the new meeting's Context.
+      </DialogDescription>
+      <Button
+        ref={buttonRef}
+        size="lg"
+        className="w-full"
+        onClick={onConfirm}
       >
-        <p
-          id="follow-up-meeting-dialog-title"
-          className="start-meeting-dialog-title"
-        >
-          Do you want to create a follow-up meeting?
-        </p>
-        <p
-          id="follow-up-meeting-dialog-copy"
-          className="short-meeting-dialog-copy"
-        >
-          The follow-up meeting will copy the Context and Summary of this
-          meeting into the new meeting's Context.
-        </p>
-        <button
-          ref={buttonRef}
-          type="button"
-          className="btn btn-start short-meeting-dialog-ok"
-          onClick={onConfirm}
-        >
-          Create follow-up
-        </button>
-      </div>
-    </div>
+        Create follow-up
+      </Button>
+    </Dialog>
   );
 }

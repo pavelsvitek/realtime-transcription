@@ -1,0 +1,76 @@
+# Amie desktop: migrate App.css to Tailwind
+
+Status: done (steps 1–7). Scope: `apps/amie` (the Tauri desktop app) only.
+
+## Where we are
+
+- All styling lives in one file, `apps/amie/src/App.css` (about 2,070 lines, ~280 top-level rules). Components use plain class names such as `meeting-*`, `settings-*`, `onboarding-*`, `home-*` and `btn`.
+- Colours are CSS variables on `:root` (`--surface-*`, `--text-*`, `--border-*`, `--brand-*`, `--status-danger-*`).
+- Dark mode is driven by `data-theme` on `<html>` (`system` | `light` | `dark`, set in `src/lib/color-scheme.ts`). The dark values are written **twice**: once under `[data-theme="dark"]` and again under `@media (prefers-color-scheme: dark) { :root[data-theme="system"] }`, plus a few per-component dark overrides.
+- The heaviest users of classes are `SettingsPage` (~120 `className`s), `MeetingsPage` (~43), `OnboardingDialog` (~34) and `TranscribePage` (~23).
+- A few things are not plain utilities: `@keyframes` (`listening-eq`, `spin`, `blink`), `prefers-reduced-motion`, `:has()` on the error banner, and the macOS title-bar strip (`--window-chrome-top`).
+- Vitest runs in the `node` environment on `src/**/*.test.ts`, so no test asserts on class names or rendered styles. A visual check is the only safety net.
+- `apps/web` already uses Tailwind v4 through `@tailwindcss/vite`, with the same palette spelled out as `@theme` colours.
+
+## Goal
+
+Every component styled with Tailwind utility classes, one small CSS entry file for tokens and the few things utilities can't express, and **no visual change**. Dark mode keeps working for all three `data-theme` values.
+
+## Decisions
+
+1. **Tailwind v4 with `@tailwindcss/vite`**, the same setup and version range as `apps/web`, so both apps share one way of working.
+2. **Keep the CSS variables as the source of truth and point the Tailwind theme at them** with `@theme inline`:
+   ```css
+   @theme inline {
+     --color-surface-shell: var(--surface-shell);
+     --color-text-primary: var(--text-primary);
+     --color-brand-primary: var(--brand-primary);
+     /* …one line per existing token */
+   }
+   ```
+   Components then write `bg-surface-shell text-text-primary`, and dark mode is just the existing variable swap. There are no `dark:` variants to sprinkle around. That keeps the three-way `data-theme` behaviour exactly as it is and avoids copying `apps/web`'s separate `dark-*` colour set.
+3. **Write each token once with `light-dark()`** (done in step 1). `:root` has `color-scheme: light dark`, and `data-theme="light"` / `"dark"` force `color-scheme`, so every token follows the theme with no duplicated dark block. The app's minimum is macOS 15, whose WebKit supports `light-dark()`. The per-component dark overrides turned out to be redundant or unused and were removed.
+4. **Add a `cn()` helper** (`clsx` + `tailwind-merge`) in `src/lib/cn.ts` for conditional classes. Today `Sidebar` and `AudioDeviceMenu` build class strings by hand.
+5. **Extract small components, not `@apply` classes.** Repeated patterns become React components or class constants: `Button` (primary, secondary, danger, accent), `Dialog` shell, `SettingsSection`, `Tabs`. `@apply` is allowed only for the handful of global rules left in CSS.
+6. **What stays in CSS** (`src/styles.css`, replacing `App.css`): the `@import "tailwindcss"`, tokens, `@theme inline`, base rules (font, body, `#root`, `color-scheme`), the three keyframes (registered as `--animate-*` theme values), the reduced-motion rule, and the `:has()` error-banner rule unless it is easy to express as `has-[…]:`.
+7. **No Preflight until App.css is gone** (decided in step 1). `styles.css` imports only Tailwind's theme and utilities layers. Preflight would restyle buttons, headings, lists and inline SVGs (`display: block`) under the unconverted components. The app's own small reset (`* { margin: 0; padding: 0; box-sizing }`) lives in `@layer base` in `styles.css`. Step 7 adds Preflight back and checks form controls, the `button` cursor and SVG icons.
+8. **Pixel scales, because the root font size is 14px** (found in step 2). `App.css` sets `:root { font-size: 14px }`, so Tailwind's rem-based defaults come out 12.5% small (`p-5` would be 17.5px). The theme pins `--spacing: 4px` and the radius and font-size scales to pixels, so `p-5` is 20px and `rounded-2xl` is 16px. Arbitrary rem values such as `w-[16rem]` still follow the 14px root, which is what the old CSS did.
+
+### Gotchas found while converting
+
+- **Unlayered CSS beats every utility.** Tailwind utilities live in `@layer utilities`; any rule in `App.css` wins over them whatever its specificity. That includes the universal reset, which is why it moved into `@layer base`. Remove a component's old rules in the same change that converts it.
+- **`font-[inherit]` sets font-weight, not font-family.** Use `font-[family-name:inherit]` on buttons, or they fall back to the browser's default font.
+- **Use `text-[13px]`-style arbitrary sizes when the old rule set only `font-size`.** Named sizes like `text-sm` also set a line height.
+
+## Steps
+
+Each step is one PR that ships on its own and leaves the app looking the same.
+
+1. **Set up Tailwind beside App.css** (done). Add `tailwindcss` and `@tailwindcss/vite` to `apps/amie`, register the plugin in `vite.config.ts`, create `src/styles.css` with the theme and utilities layers, the `@theme inline` mapping and the tokens, and import it before `App.css` in `main.tsx`. Add `cn()`. No component changes.
+2. **Shared primitives** (done). Build `Button`, the dialog shell (used by Start/Stop/Archive/Delete/FollowUp confirms, ShortMeetingNotice, UpdateDialog and OnboardingDialog), `Spinner` and the tab bar (`MeetingTabs`). Move their rules out of `App.css`.
+3. **Shell** (done). `AppLayout`, `Sidebar`, `ThemeToggle`, `TitleBar`, `LiveMeetingButton`, `StartMeetingButton`, `MicIndicator`, `Tooltip` and the listening animation.
+4. **Home and Transcription** (done). `HomePage`, `TranscribePage`, `TranscriptFeed`, `AudioDeviceMenu`, `SpeakerNamesPrompt` and the footer. Error banners became `ui/ErrorBanner`, used by Meetings and Settings too. Empty-panel text became `ui/EmptyCopy`.
+5. **Meetings** (done). `MeetingsPage` (list and detail), `MeetingTitle`, `MeetingContextEditor`, `MeetingOverflowMenu` and `SummaryMarkdown`, plus the shared rules left from step 4. The summary needed no typography plugin: `SummaryMarkdown` renders a few known elements, so each gets its classes directly (nested lists through a `nested` flag).
+6. **Settings and onboarding** (done). `SettingsPage`, `OnboardingDialog` and `UpdateDialog` contents, and `.page`. Each former `settings-*` class is one entry in an `S` constant at the top of `SettingsPage`, so repeated styles stay in one place. Splitting `SettingsPage` into section components was left out to keep this step a pure style change; it is a separate refactor. After this step `App.css` holds only the root font settings and the full-height rule.
+7. **Remove App.css** (done). The root font settings and full-height rule moved into `@layer base` in `styles.css`, which now imports all of Tailwind including Preflight, and `App.css` is gone. The Vite/Tauri/React demo assets and the `greet` command are removed. Preflight needed three adjustments to keep the look: form controls keep the native `line-height: normal` (a base rule), the "New chat" and "Meetings" titles say `font-bold` (Preflight resets heading weights), and the summary lists say `list-disc` / `list-[circle]` (Preflight removes bullets).
+
+## How to check each step
+
+Step 7 used a computed-style snapshot: with a mocked Tauri `invoke`, a script walked Home, Transcription, the Meetings list, three detail tabs, the ⋯ menu, three Settings sections and the Start dialog, and recorded 33 computed properties for each of the 883 visible elements. It ran once before and again after the change, and listed every difference. That is a cheap way to check the next big CSS change too.
+
+
+- `pnpm --filter amie build` (runs `tsc` and `vite build`) and `pnpm --filter amie test`.
+- Run Amie Dev (`pnpm tauri dev`) and compare each touched screen against the frames on the Paper page "Amie Desktop · Current UI" in light, dark and system-dark. The page has a frame for nearly every screen and state, including dialogs, menus and update states, so it works as the visual baseline.
+- Before a step lands, grep `App.css` for the class names the step converted. A rule left behind with no user is dead code; a class still used in TSX but deleted from CSS is a regression.
+
+## Risks
+
+- **Silent visual drift.** Nothing automated catches it. Mitigation: small PRs, screen-by-screen comparison with Paper, and screenshots of before and after in each PR.
+- **Two systems at once.** While `App.css` and Tailwind coexist, the cascade can fight: Tailwind utilities sit in `@layer utilities`, and any unlayered rule in `App.css` beats them whatever its specificity. Remove a component's old rules in the same PR that converts it, and don't leave a component half-converted.
+- **Long class strings in `SettingsPage`.** Splitting it into section components in step 6 keeps that readable.
+- **Theme regressions.** The `data-theme="system"` path is the easiest to break. Check it explicitly with the macOS appearance switched.
+
+## Out of scope
+
+- Visual redesign. The setup wizard and other new Home states should be built after step 2, on the new primitives, but are separate work.
+- Sharing a Tailwind preset or token package between `apps/web` and `apps/amie`. Worth doing later; the colours already match.

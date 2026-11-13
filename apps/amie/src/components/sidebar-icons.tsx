@@ -7,7 +7,7 @@ type IconProps = {
 function SidebarIcon({ children }: IconProps) {
   return (
     <svg
-      className="sidebar-link-icon"
+      className="shrink-0"
       width="16"
       height="16"
       viewBox="0 0 24 24"

@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useNavHotkeys } from "../hooks/useNavHotkeys";
+import { cn } from "../lib/cn";
 import { START_MEETING_HOTKEY, STOP_MEETING_HOTKEY } from "../lib/nav-hotkeys";
 import { Sidebar, type AppPage } from "./Sidebar";
 import {
@@ -73,7 +74,7 @@ export function AppLayout({
       }}
       onDismiss={() => setConfirmKind(null)}
     >
-      <div className={settingsOpen ? "app-shell app-shell--settings" : "app-shell"}>
+      <div className="flex h-full overflow-hidden bg-surface-shell">
         {!settingsOpen ? (
           <Sidebar
             currentPage={currentPage}
@@ -83,9 +84,21 @@ export function AppLayout({
             loading={loading}
           />
         ) : null}
-        <div className="app-main">
+        <div
+          className={cn(
+            "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface-chrome",
+            settingsOpen && "bg-surface-content",
+          )}
+        >
           {!settingsOpen ? <TitleBar /> : null}
-          <div className="app-content">{children}</div>
+          <div
+            className={cn(
+              "flex min-h-0 flex-1 flex-col overflow-hidden rounded-tl-xl bg-surface-content text-text-primary",
+              settingsOpen && "rounded-tl-none",
+            )}
+          >
+            {children}
+          </div>
         </div>
       </div>
     </StartMeetingConfirmLayer>
