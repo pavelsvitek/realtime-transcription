@@ -15,6 +15,9 @@ pub mod event_names {
 pub struct LaunchFlags {
     /// `--show-onboarding` or `AMIE_SHOW_ONBOARDING=1`.
     pub show_onboarding: bool,
+    /// `--onboarding-flow` or `AMIE_ONBOARDING_FLOW=1`: run the setup wizard
+    /// on Home instead of the onboarding dialog.
+    pub onboarding_flow: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -41,7 +44,8 @@ pub struct SpeechModelDownloadProgress {
 #[tauri::command]
 pub fn get_launch_flags() -> LaunchFlags {
     LaunchFlags {
-        show_onboarding: show_onboarding_requested(),
+        show_onboarding: flag_requested("--show-onboarding", "AMIE_SHOW_ONBOARDING"),
+        onboarding_flow: flag_requested("--onboarding-flow", "AMIE_ONBOARDING_FLOW"),
     }
 }
 
@@ -132,11 +136,12 @@ fn emit_progress(app: &AppHandle, downloading: bool, percent: u8, stage: &str, r
     );
 }
 
-fn show_onboarding_requested() -> bool {
-    if std::env::args().any(|arg| arg == "--show-onboarding") {
+/// True when `arg` is on the command line or `env` is set to 1/true/yes.
+fn flag_requested(arg: &str, env: &str) -> bool {
+    if std::env::args().any(|a| a == arg) {
         return true;
     }
-    std::env::var("AMIE_SHOW_ONBOARDING")
+    std::env::var(env)
         .map(|value| matches!(value.as_str(), "1" | "true" | "yes"))
         .unwrap_or(false)
 }
@@ -157,8 +162,10 @@ mod tests {
     fn launch_flags_default_off_without_env() {
         let flags = LaunchFlags {
             show_onboarding: false,
+            onboarding_flow: false,
         };
         let json = serde_json::to_string(&flags).unwrap();
         assert!(json.contains("showOnboarding"));
+        assert!(json.contains("onboardingFlow"));
     }
 }

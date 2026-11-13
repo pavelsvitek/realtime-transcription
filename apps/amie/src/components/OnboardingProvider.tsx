@@ -31,6 +31,8 @@ export function OnboardingProvider() {
         ]);
         if (cancelled) return;
         setModelStatus(status);
+        // The setup wizard on Home replaces this dialog.
+        if (flags.onboardingFlow) return;
         if (
           shouldShowOnboarding({
             force: flags.showOnboarding,

@@ -6,6 +6,8 @@ export const EXPECTED_MODEL_SIZE_BYTES = 612 * 1024 * 1024;
 
 export type LaunchFlags = {
   showOnboarding: boolean;
+  /** `--onboarding-flow`: run the setup wizard on Home instead of the dialog. */
+  onboardingFlow: boolean;
 };
 
 export type SpeechModelStatus = {

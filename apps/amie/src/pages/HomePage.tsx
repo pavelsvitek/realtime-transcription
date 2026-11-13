@@ -1,16 +1,12 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { HeroWave } from "../components/HeroWave";
 import { useSpeechModelDownload } from "../hooks/useSpeechModelDownload";
 
 type HomePageProps = {
   onStartMeeting: () => void;
   meetingInProgress: boolean;
 };
-
-const WAVE_BARS: [number, number][] = [
-  [25, 10], [21, 18], [15, 30], [20, 20], [9, 42], [16, 28], [2, 56], [13, 34],
-  [6, 48], [18, 24], [23, 14], [17, 26], [10, 40], [19, 22], [24, 12],
-];
 
 const FLOW_STEPS = ["Start with ⌘N", "Live transcript", "Summary", "Follow-up meeting"];
 
@@ -49,17 +45,7 @@ export function HomePage({ onStartMeeting, meetingInProgress }: HomePageProps) {
         className="flex flex-col items-center text-center"
         aria-labelledby="home-hero-title"
       >
-        <svg
-          className="fill-brand-accent-soft-hover"
-          width="105"
-          height="60"
-          viewBox="0 0 105 60"
-          aria-hidden="true"
-        >
-          {WAVE_BARS.map(([y, h], i) => (
-            <rect key={i} x={i * 7} y={y} width="4" height={h} rx="2" />
-          ))}
-        </svg>
+        <HeroWave />
         <h1
           id="home-hero-title"
           className="mt-7 max-w-[720px] text-[46px] leading-[52px] font-[650] tracking-[-0.03em] text-text-primary"

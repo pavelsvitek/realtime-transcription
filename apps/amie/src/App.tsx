@@ -3,11 +3,14 @@ import { AppLayout } from "./components/AppLayout";
 import { OnboardingProvider } from "./components/OnboardingProvider";
 import type { AppPage } from "./components/Sidebar";
 import { UpdateProvider } from "./components/UpdateProvider";
+import { SetupWizard } from "./components/SetupWizard";
+import { useLaunchFlags } from "./hooks/useLaunchFlags";
 import { HomePage } from "./pages/HomePage";
 import { MeetingsPage } from "./pages/MeetingsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { TranscribePage } from "./pages/TranscribePage";
 import type { FollowUpSeed } from "./lib/meetings";
+import type { WizardStep } from "./lib/setup-wizard";
 
 function App() {
   const [page, setPage] = useState<AppPage>("home");
@@ -19,6 +22,11 @@ function App() {
   const startMeetingRef = useRef<(() => void) | null>(null);
   const stopMeetingRef = useRef<(() => void) | null>(null);
   const followUpSeedRef = useRef<FollowUpSeed | null>(null);
+  const launchFlags = useLaunchFlags();
+  // The setup wizard runs only with --onboarding-flow until its last steps exist.
+  const [wizardStep, setWizardStep] = useState<WizardStep>("welcome");
+  const [wizardDone, setWizardDone] = useState(false);
+  const wizardActive = launchFlags?.onboardingFlow === true && !wizardDone;
   const handleLiveSessionChange = useCallback(
     (session: { listening: boolean; loading: boolean }) => {
       setListening(session.listening);
@@ -46,16 +54,25 @@ function App() {
       onNavigate={navigate}
       listening={listening}
       loading={starting}
+      startDisabled={wizardActive}
       onStartMeeting={startMeeting}
       onStopMeeting={() => {
         stopMeetingRef.current?.();
       }}
     >
-      {page === "home" ? (
-        <HomePage
-          onStartMeeting={startMeeting}
-          meetingInProgress={listening || starting}
-        />
+      {page === "home" && launchFlags ? (
+        wizardActive ? (
+          <SetupWizard
+            step={wizardStep}
+            onStepChange={setWizardStep}
+            onFinish={() => setWizardDone(true)}
+          />
+        ) : (
+          <HomePage
+            onStartMeeting={startMeeting}
+            meetingInProgress={listening || starting}
+          />
+        )
       ) : null}
       <Activity mode={page === "transcribe" ? "visible" : "hidden"}>
         <TranscribePage
