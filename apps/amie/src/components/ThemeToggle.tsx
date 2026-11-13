@@ -6,6 +6,8 @@ import {
   SunThemeIcon,
   SystemThemeIcon,
 } from "./sidebar-icons";
+import { SIDEBAR_ITEM } from "./sidebar-styles";
+import { cn } from "../lib/cn";
 
 type ThemeToggleProps = {
   scheme: ColorScheme;
@@ -24,12 +26,12 @@ export function ThemeToggle({ scheme, onToggle }: ThemeToggleProps) {
   return (
     <button
       type="button"
-      className="sidebar-theme-toggle"
+      className={cn(SIDEBAR_ITEM, "text-[12px] hover:text-text-active")}
       onClick={onToggle}
       aria-label={`Color scheme: ${label}. Click to switch.`}
     >
       {THEME_ICONS[scheme]}
-      <span className="sidebar-theme-toggle-label">{label}</span>
+      <span className="min-w-0">{label}</span>
     </button>
   );
 }

@@ -1,4 +1,5 @@
 import { forwardRef } from "react";
+import { cn } from "../lib/cn";
 import { TranscriptionIcon } from "./sidebar-icons";
 
 export type LiveMeetingButtonProps = {
@@ -42,7 +43,7 @@ function ListeningEqIcon() {
 
   return (
     <svg
-      className="listening-eq"
+      className="block h-4 w-[22px] shrink-0 overflow-visible text-brand-on-primary"
       width="22"
       height="16"
       viewBox={`0 0 ${VOICE_VIEW_WIDTH} 16`}
@@ -51,7 +52,7 @@ function ListeningEqIcon() {
       {VOICE_BARS.map((bar, index) => (
         <rect
           key={index}
-          className="listening-eq-bar"
+          className="origin-center animate-listening-eq fill-current [transform-box:fill-box] motion-reduce:animate-none motion-reduce:transform-none"
           x={startX + index * (VOICE_BAR_WIDTH + VOICE_BAR_GAP)}
           y={VOICE_CENTER_Y - bar.h / 2}
           width={VOICE_BAR_WIDTH}
@@ -76,20 +77,18 @@ export const LiveMeetingButton = forwardRef<
     <button
       ref={ref}
       type="button"
-      className={[
-        "start-meeting-button",
-        listening ? "start-meeting-button--listening" : "",
+      className={cn(
+        "flex cursor-pointer items-center gap-2 rounded-[10px] border-none bg-brand-primary px-3 py-2.5 text-left font-[family-name:inherit] text-[13px] font-semibold text-brand-on-primary transition-[background-color] duration-150 ease-[ease] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary-focus enabled:hover:bg-brand-primary-hover disabled:cursor-not-allowed disabled:opacity-50",
+        listening && "disabled:cursor-default disabled:opacity-100",
         className,
-      ]
-        .filter(Boolean)
-        .join(" ")}
+      )}
       onClick={onClick}
       disabled={disabled}
       aria-busy={loading && !listening}
       aria-label={label}
     >
       {listening ? <ListeningEqIcon /> : <TranscriptionIcon />}
-      <span className="start-meeting-button-label">{label}</span>
+      <span>{label}</span>
     </button>
   );
 });

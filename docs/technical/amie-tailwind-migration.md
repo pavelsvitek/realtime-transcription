@@ -1,6 +1,6 @@
 # Amie desktop: migrate App.css to Tailwind
 
-Status: steps 1–2 done. Scope: `apps/amie` (the Tauri desktop app) only.
+Status: steps 1–3 done. Scope: `apps/amie` (the Tauri desktop app) only.
 
 ## Where we are
 
@@ -48,7 +48,7 @@ Each step is one PR that ships on its own and leaves the app looking the same.
 
 1. **Set up Tailwind beside App.css** (done). Add `tailwindcss` and `@tailwindcss/vite` to `apps/amie`, register the plugin in `vite.config.ts`, create `src/styles.css` with the theme and utilities layers, the `@theme inline` mapping and the tokens, and import it before `App.css` in `main.tsx`. Add `cn()`. No component changes.
 2. **Shared primitives** (done). Build `Button`, the dialog shell (used by Start/Stop/Archive/Delete/FollowUp confirms, ShortMeetingNotice, UpdateDialog and OnboardingDialog), `Spinner` and the tab bar (`MeetingTabs`). Move their rules out of `App.css`.
-3. **Shell.** `AppLayout`, `Sidebar`, `TitleBar`, `LiveMeetingButton`, `StartMeetingButton`, `MicIndicator` and the listening animation.
+3. **Shell** (done). `AppLayout`, `Sidebar`, `ThemeToggle`, `TitleBar`, `LiveMeetingButton`, `StartMeetingButton`, `MicIndicator`, `Tooltip` and the listening animation.
 4. **Home and Transcription.** `HomePage`, `TranscribePage`, `TranscriptFeed`, `AudioDeviceMenu`, `SpeakerNamesPrompt`, error banners and the footer.
 5. **Meetings.** `MeetingsPage`, `MeetingTitle`, `MeetingContextEditor`, `MeetingOverflowMenu`, summary markdown styles. The summary renders markdown, so decide here between a scoped set of element rules in CSS and `@tailwindcss/typography`. Prefer a few scoped rules; typography is a large dependency for a small surface.
 6. **Settings and onboarding.** `SettingsPage` (the biggest file; split it into section components while converting), `OnboardingDialog` and `UpdateDialog` contents.

@@ -52,7 +52,7 @@ export function MicIndicator({
 
   return (
     <Tooltip content={label}>
-      <span className="mic-indicator" tabIndex={0}>
+      <span className="flex items-center outline-none" tabIndex={0}>
         <svg
           width="20"
           height="20"

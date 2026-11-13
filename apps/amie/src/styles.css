@@ -126,6 +126,24 @@
   --text-3xl: 30px;
   --text-4xl: 36px;
 
+  /* Equalizer bars on the Listening button; each bar sets its own delay. */
+  --animate-listening-eq: listening-eq 1.05s ease-in-out infinite;
+  @keyframes listening-eq {
+    0%,
+    100% {
+      transform: scaleY(0.72);
+    }
+    28% {
+      transform: scaleY(1.12);
+    }
+    52% {
+      transform: scaleY(0.48);
+    }
+    76% {
+      transform: scaleY(0.94);
+    }
+  }
+
   --animate-spinner: spinner 0.8s linear infinite;
   @keyframes spinner {
     to {
