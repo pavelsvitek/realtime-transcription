@@ -58,7 +58,7 @@ export function Hero() {
       </p>
       <div id="download" className="flex flex-col items-center gap-3 pt-1 sm:flex-row sm:items-start">
         <div className="flex flex-col items-center gap-2">
-          <DownloadButton className="flex h-11 cursor-pointer items-center justify-center rounded-lg bg-raycast-primary px-6 text-lg leading-6 font-semibold tracking-[0.014em] text-raycast-on-primary disabled:opacity-70">
+          <DownloadButton location="hero" className="flex h-11 cursor-pointer items-center justify-center rounded-lg bg-raycast-primary px-6 text-lg leading-6 font-semibold tracking-[0.014em] text-raycast-on-primary disabled:opacity-70">
             Download for Mac
           </DownloadButton>
           <DownloadSupportNote />

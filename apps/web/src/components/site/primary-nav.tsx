@@ -33,7 +33,7 @@ export function PrimaryNav() {
             {link.label}
           </Link>
         ))}
-        <DownloadButton className="flex h-9 cursor-pointer items-center justify-center rounded-md bg-raycast-primary px-4 text-base leading-[22px] font-semibold tracking-[0.014em] text-raycast-on-primary disabled:opacity-70">
+        <DownloadButton location="nav" className="flex h-9 cursor-pointer items-center justify-center rounded-md bg-raycast-primary px-4 text-base leading-[22px] font-semibold tracking-[0.014em] text-raycast-on-primary disabled:opacity-70">
           Download
         </DownloadButton>
       </div>

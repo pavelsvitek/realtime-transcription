@@ -5,6 +5,7 @@ import {
   resolveDownloadUrl,
   type Platform,
 } from "@/lib/platform";
+import { track } from "@/lib/track";
 
 // Server render assumes a Mac so the first paint matches the happy path;
 // the real platform is picked up after hydration.
@@ -23,17 +24,23 @@ function usePlatform(): Platform {
 }
 
 type Props = {
+  /** Where on the page the button sits, recorded with the click event. */
+  location: "hero" | "nav";
   className: string;
   children: React.ReactNode;
 };
 
 /** Download button that starts the DMG on supported Macs and explains otherwise. */
-export function DownloadButton({ className, children }: Props) {
+export function DownloadButton({ location, className, children }: Props) {
   const platform = usePlatform();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [busy, setBusy] = useState(false);
 
   async function onClick() {
+    track(platform.supported ? "download_click" : "download_unsupported", {
+      location,
+      os: platform.os,
+    });
     if (!platform.supported) {
       dialogRef.current?.showModal();
       return;
