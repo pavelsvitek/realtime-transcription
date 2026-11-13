@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { buildDeviceRows, type DeviceMenuRow } from "../lib/audio-device-menu";
 import type { AudioDeviceEntry } from "../lib/transcript-types";
+import { cn } from "../lib/cn";
 import { Tooltip } from "./Tooltip";
 
 type AudioDeviceMenuProps = {
@@ -30,21 +31,30 @@ function Section({
   onChoose: (id: string | null) => void;
 }) {
   return (
-    <div className="audio-menu-section" role="group" aria-label={title}>
-      <div className="audio-menu-heading">{title}</div>
+    <div
+      className="not-first:mt-1.5 not-first:border-t not-first:border-border-input not-first:pt-1.5"
+      role="group"
+      aria-label={title}
+    >
+      <div className="px-2 py-1 text-[11px] font-semibold tracking-[0.04em] text-text-secondary uppercase">
+        {title}
+      </div>
       {rows.map((row) => (
         <button
           key={row.id ?? "default"}
           type="button"
           role="menuitemradio"
           aria-checked={row.selected}
-          className={`audio-menu-row${row.selected ? " audio-menu-row-selected" : ""}`}
+          className={cn(
+            "flex w-full cursor-pointer items-center gap-1.5 rounded-md border-none bg-transparent px-2 py-1.5 text-left font-[family-name:inherit] text-[13px] text-text-primary hover:bg-surface-hover",
+            row.selected && "font-semibold",
+          )}
           onClick={() => onChoose(row.id)}
         >
-          <span className="audio-menu-check" aria-hidden="true">
+          <span className="w-3.5 shrink-0 text-text-brand" aria-hidden="true">
             {row.selected ? "✓" : ""}
           </span>
-          <span className="audio-menu-label">{row.label}</span>
+          <span className="truncate">{row.label}</span>
         </button>
       ))}
     </div>
@@ -92,11 +102,11 @@ export function AudioDeviceMenu({
   };
 
   return (
-    <span className="audio-menu" ref={rootRef}>
+    <span className="relative -ml-1 inline-flex items-center" ref={rootRef}>
       <Tooltip content="Choose microphone and speakers">
         <button
           type="button"
-          className="audio-menu-trigger"
+          className="inline-flex h-6 w-5 cursor-pointer items-center justify-center rounded-md border-none bg-transparent p-0 text-text-secondary hover:bg-surface-hover hover:text-text-primary aria-expanded:bg-surface-hover aria-expanded:text-text-primary"
           aria-label="Choose microphone and speakers"
           aria-haspopup="menu"
           aria-expanded={open}
@@ -110,7 +120,11 @@ export function AudioDeviceMenu({
         </button>
       </Tooltip>
       {open && (
-        <div className="audio-menu-popover" id={menuId} role="menu">
+        <div
+          className="absolute top-[calc(100%+8px)] right-0 z-[1000] max-h-[70vh] w-80 overflow-y-auto rounded-[10px] border border-border-input bg-surface-elevated p-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.18)]"
+          id={menuId}
+          role="menu"
+        >
           {showInput && (
             <Section
               title="Microphone"
@@ -125,7 +139,11 @@ export function AudioDeviceMenu({
               onChoose={onChooseOutput}
             />
           )}
-          {error && <div className="audio-menu-error" role="alert">{error}</div>}
+          {error && (
+            <div className="mt-1.5 px-2 py-1.5 text-[12px] text-status-danger" role="alert">
+              {error}
+            </div>
+          )}
         </div>
       )}
     </span>

@@ -7,6 +7,7 @@ import { useSpeakerTagsStatus } from "../hooks/useSpeakerTagsStatus";
 import { codeRequirementLabel, signatureLabel } from "../lib/speaker-tags";
 import { moveSettingsSection } from "../lib/nav-hotkeys";
 import { Button } from "../components/ui/Button";
+import { ErrorBanner } from "../components/ui/ErrorBanner";
 
 const KEY_MASK = "•".repeat(24);
 
@@ -682,7 +683,7 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
             )}
             {error && (
               <section className="settings-section">
-                <div className="error-banner">{error}</div>
+                <ErrorBanner>{error}</ErrorBanner>
               </section>
             )}
           </div>

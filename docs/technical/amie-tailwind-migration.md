@@ -1,6 +1,6 @@
 # Amie desktop: migrate App.css to Tailwind
 
-Status: steps 1–3 done. Scope: `apps/amie` (the Tauri desktop app) only.
+Status: steps 1–4 done. Scope: `apps/amie` (the Tauri desktop app) only.
 
 ## Where we are
 
@@ -49,8 +49,8 @@ Each step is one PR that ships on its own and leaves the app looking the same.
 1. **Set up Tailwind beside App.css** (done). Add `tailwindcss` and `@tailwindcss/vite` to `apps/amie`, register the plugin in `vite.config.ts`, create `src/styles.css` with the theme and utilities layers, the `@theme inline` mapping and the tokens, and import it before `App.css` in `main.tsx`. Add `cn()`. No component changes.
 2. **Shared primitives** (done). Build `Button`, the dialog shell (used by Start/Stop/Archive/Delete/FollowUp confirms, ShortMeetingNotice, UpdateDialog and OnboardingDialog), `Spinner` and the tab bar (`MeetingTabs`). Move their rules out of `App.css`.
 3. **Shell** (done). `AppLayout`, `Sidebar`, `ThemeToggle`, `TitleBar`, `LiveMeetingButton`, `StartMeetingButton`, `MicIndicator`, `Tooltip` and the listening animation.
-4. **Home and Transcription.** `HomePage`, `TranscribePage`, `TranscriptFeed`, `AudioDeviceMenu`, `SpeakerNamesPrompt`, error banners and the footer.
-5. **Meetings.** `MeetingsPage`, `MeetingTitle`, `MeetingContextEditor`, `MeetingOverflowMenu`, summary markdown styles. The summary renders markdown, so decide here between a scoped set of element rules in CSS and `@tailwindcss/typography`. Prefer a few scoped rules; typography is a large dependency for a small surface.
+4. **Home and Transcription** (done). `HomePage`, `TranscribePage`, `TranscriptFeed`, `AudioDeviceMenu`, `SpeakerNamesPrompt` and the footer. Error banners became `ui/ErrorBanner`, used by Meetings and Settings too. Empty-panel text became `ui/EmptyCopy`.
+5. **Meetings.** Also remove the rules Transcription stopped using but Meetings still needs: `.page`, `.page-header`, `.page-title`, `.meetings-empty-copy`, `.transcript-time`, `.transcript-speaker` (and its `--user` / `--remote` and `.meeting-transcript` variants) and `.transcript-text`. Use `EmptyCopy` for the empty states. `MeetingsPage`, `MeetingTitle`, `MeetingContextEditor`, `MeetingOverflowMenu`, summary markdown styles. The summary renders markdown, so decide here between a scoped set of element rules in CSS and `@tailwindcss/typography`. Prefer a few scoped rules; typography is a large dependency for a small surface.
 6. **Settings and onboarding.** `SettingsPage` (the biggest file; split it into section components while converting), `OnboardingDialog` and `UpdateDialog` contents.
 7. **Remove App.css.** Delete what is left, move any survivors into `styles.css`, and remove the now-unused Vite/Tauri/React demo assets and the `greet` command.
 

@@ -144,6 +144,14 @@
     }
   }
 
+  /* Caret after a partial transcript line. */
+  --animate-blink: blink 1s step-end infinite;
+  @keyframes blink {
+    50% {
+      opacity: 0;
+    }
+  }
+
   --animate-spinner: spinner 0.8s linear infinite;
   @keyframes spinner {
     to {

@@ -51,6 +51,7 @@ import {
   useGetMeetingQuery,
   usePatchMeetingMutation,
 } from "../models/Meeting";
+import { ErrorBanner } from "../components/ui/ErrorBanner";
 
 type MeetingsView =
   | { kind: "list" }
@@ -563,9 +564,9 @@ export function MeetingsPage({
           />
         </header>
 
-        {displayError && <div className="error-banner">{displayError}</div>}
+        {displayError && <ErrorBanner>{displayError}</ErrorBanner>}
         {detailMissing && (
-          <div className="error-banner">Meeting not found.</div>
+          <ErrorBanner>Meeting not found.</ErrorBanner>
         )}
 
         {loading ? (
@@ -712,7 +713,7 @@ export function MeetingsPage({
         <h1 className="page-title">Meetings</h1>
       </header>
 
-      {displayError && <div className="error-banner">{displayError}</div>}
+      {displayError && <ErrorBanner>{displayError}</ErrorBanner>}
 
       {listQuery.isPending && !listQuery.data ? (
         <div className="meetings-state">
