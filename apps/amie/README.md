@@ -67,7 +67,7 @@ On first launch, grant permissions when prompted by macOS:
 
 The onboarding dialog opens automatically whenever the speech model is not downloaded yet (every launch until it is). Force it anytime with `--show-onboarding` (or `AMIE_SHOW_ONBOARDING=1`), e.g. `pnpm tauri dev -- -- --show-onboarding`. After the model is on disk, a `localStorage` key `amie-onboarding-seen` (same prefs pattern as ASR backend / color scheme) keeps it from reappearing; clear that key to replay the permissions step.
 
-To try the new setup wizard on Home instead (steps 0–2 so far: Welcome, speech model, microphone), start with `--onboarding-flow` (or `AMIE_ONBOARDING_FLOW=1`): `pnpm tauri dev -- -- --onboarding-flow`. It replaces the onboarding dialog for that run, disables Start a meeting until it finishes, and ends on the normal Home.
+To try the new setup wizard on Home instead (Welcome, speech model, microphone, system audio with a test sound, summary provider and key, speaker names, and a recap), start with `--onboarding-flow` (or `AMIE_ONBOARDING_FLOW=1`): `pnpm tauri dev -- -- --onboarding-flow`. It replaces the onboarding dialog for that run and keeps Start a meeting off until its last screen, where starting a meeting ends it.
 
 Stopping `pnpm tauri dev` (or a Cargo rebuild) quits that window. The runner kills the previous `amie-dev.app` process before launching so you do not stack extra instances.
 

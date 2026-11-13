@@ -3,7 +3,7 @@ import { AppLayout } from "./components/AppLayout";
 import { OnboardingProvider } from "./components/OnboardingProvider";
 import type { AppPage } from "./components/Sidebar";
 import { UpdateProvider } from "./components/UpdateProvider";
-import { SetupWizard } from "./components/SetupWizard";
+import { SetupWizard } from "./components/setup/SetupWizard";
 import { useLaunchFlags } from "./hooks/useLaunchFlags";
 import { HomePage } from "./pages/HomePage";
 import { MeetingsPage } from "./pages/MeetingsPage";
@@ -23,7 +23,7 @@ function App() {
   const stopMeetingRef = useRef<(() => void) | null>(null);
   const followUpSeedRef = useRef<FollowUpSeed | null>(null);
   const launchFlags = useLaunchFlags();
-  // The setup wizard runs only with --onboarding-flow until its last steps exist.
+  // The setup wizard runs only with --onboarding-flow for now.
   const [wizardStep, setWizardStep] = useState<WizardStep>("welcome");
   const [wizardDone, setWizardDone] = useState(false);
   const wizardActive = launchFlags?.onboardingFlow === true && !wizardDone;
@@ -54,8 +54,12 @@ function App() {
       onNavigate={navigate}
       listening={listening}
       loading={starting}
-      startDisabled={wizardActive}
-      onStartMeeting={startMeeting}
+      // Start comes back on the wizard's last step, where it ends the wizard.
+      startDisabled={wizardActive && wizardStep !== "ready"}
+      onStartMeeting={() => {
+        if (wizardActive) setWizardDone(true);
+        startMeeting();
+      }}
       onStopMeeting={() => {
         stopMeetingRef.current?.();
       }}
@@ -65,7 +69,10 @@ function App() {
           <SetupWizard
             step={wizardStep}
             onStepChange={setWizardStep}
-            onFinish={() => setWizardDone(true)}
+            onStartMeeting={() => {
+              setWizardDone(true);
+              startMeeting();
+            }}
           />
         ) : (
           <HomePage
