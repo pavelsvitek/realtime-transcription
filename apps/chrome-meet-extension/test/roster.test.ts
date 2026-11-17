@@ -88,6 +88,25 @@ describe("Meet roster and call", () => {
     ]);
   });
 
+  it("marks self from the self-only tile controls when Meet omits (You)", () => {
+    // Nov 2026 Meet tiles: no "(You)"; only your own tile has Reframe / Backgrounds and effects.
+    document.body.innerHTML = `
+      <div data-participant-id="spaces/a/devices/119">
+        <i class="google-symbols">keep_outline</i><i class="google-symbols">mic_none</i>
+        <span class="notranslate">Julian Zürcher</span>
+      </div>
+      <div data-participant-id="spaces/a/devices/115">
+        <i class="google-symbols">frame_person</i><i class="google-symbols">visual_effects</i>
+        <i class="google-symbols">more_vert</i>
+        <span class="notranslate">Pavel Svitek</span>
+      </div>
+    `;
+    expect(readRoster(document, DEFAULT_SELECTORS, [])).toEqual([
+      { id: "spaces/a/devices/119", name: "Julian Zürcher", self: false },
+      { id: "spaces/a/devices/115", name: "Pavel Svitek", self: true },
+    ]);
+  });
+
   it("keeps the last name when the tile text disappears", () => {
     document.body.innerHTML = html;
     const first = readRoster(document, DEFAULT_SELECTORS, []);
