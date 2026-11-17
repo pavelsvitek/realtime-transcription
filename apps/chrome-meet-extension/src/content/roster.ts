@@ -2,7 +2,7 @@
 
 import type { Participant } from "../protocol";
 import type { Selectors } from "./selectors";
-import { looksLikeYou, stripYou } from "./self";
+import { hasSelfTileControl, looksLikeYou, stripYou } from "./self";
 
 export function readRoster(
   root: ParentNode,
@@ -37,6 +37,7 @@ export function readRoster(
 function marksSelf(node: Element): boolean {
   const label = node.getAttribute("aria-label") ?? "";
   if (looksLikeYou(label)) return true;
+  if (hasSelfTileControl(node)) return true;
   return looksLikeYou(node.textContent ?? "");
 }
 

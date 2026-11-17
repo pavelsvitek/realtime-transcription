@@ -28,6 +28,8 @@ const detector = createDetector();
 let participants = readRoster(document, selectors, []);
 let meters: MeterWatch | null = null;
 let micMuted: boolean | null = null;
+/** Self picked by toolbar-meter timing. A guess: a DOM marker always replaces it. */
+let correlatedSelfId: string | null = null;
 
 function connectPort() {
   if (port) return;
@@ -127,16 +129,32 @@ function rememberChange(id: string | null, at: number) {
   participantChanges.set(id, trimmed);
 }
 
+/**
+ * Re-read the roster. The correlated self guess is stripped before the read so it never
+ * becomes sticky: readRoster carries `self` forward per id, and a guess that latched onto a
+ * remote (your mic hearing them through the speakers) would otherwise hide them for the
+ * rest of the call.
+ */
+function refreshRoster() {
+  const previous = participants.map((participant) =>
+    participant.id === correlatedSelfId ? { ...participant, self: false } : participant,
+  );
+  participants = readRoster(document, selectors, previous);
+  applySelf();
+}
+
 function applySelf() {
-  // "(You)" on any participant node (tile or panel, including text after the
-  // marker) already identified the local user. Toolbar lockstep is a fallback
-  // only when that label is absent. An ambiguous lockstep marks nobody
-  // (fake Meet Ada + Pavel sharing a 100ms flicker must not drop Ada).
-  if (participants.some((participant) => participant.self)) return;
-  const correlated = selfIdFromCorrelation(toolbarChanges, participantChanges);
-  if (!correlated) return;
+  // A DOM marker ("(You)" or the self-only tile controls) identifies the local user.
+  // Toolbar lockstep is a fallback only when no marker exists. An ambiguous lockstep
+  // marks nobody (fake Meet Ada + Pavel sharing a 100ms flicker must not drop Ada).
+  if (participants.some((participant) => participant.self)) {
+    correlatedSelfId = null;
+    return;
+  }
+  correlatedSelfId = selfIdFromCorrelation(toolbarChanges, participantChanges);
+  if (!correlatedSelfId) return;
   participants = participants.map((participant) =>
-    participant.id === correlated ? { ...participant, self: true } : participant,
+    participant.id === correlatedSelfId ? { ...participant, self: true } : participant,
   );
 }
 
@@ -144,8 +162,7 @@ function scheduleRoster() {
   if (rosterTimer != null) window.clearTimeout(rosterTimer);
   rosterTimer = window.setTimeout(() => {
     rosterTimer = null;
-    participants = readRoster(document, selectors, participants);
-    applySelf();
+    refreshRoster();
     if (joined) post({ type: "roster", participants });
   }, 250);
 }
@@ -157,8 +174,7 @@ function announcePresence(code: string | null) {
     meeting_code: code,
     observed_at: observedAt(),
   });
-  participants = readRoster(document, selectors, participants);
-  applySelf();
+  refreshRoster();
   post({ type: "roster", participants });
 }
 

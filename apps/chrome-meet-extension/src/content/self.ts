@@ -28,6 +28,21 @@ export function selfIdFromCorrelation(
   return matches[0].id;
 }
 
+/**
+ * Material icon ligatures Meet only renders on the local user's own tile ("Reframe",
+ * "Backgrounds and effects"). Ligature text is the icon name, so it does not depend on
+ * the UI language. Meet stopped printing "(You)" on tiles in Nov 2026; this is the
+ * structural marker that replaced it.
+ */
+const SELF_TILE_ICONS = new Set(["visual_effects", "frame_person"]);
+
+export function hasSelfTileControl(node: Element): boolean {
+  for (const icon of Array.from(node.querySelectorAll("i"))) {
+    if (icon.children.length === 0 && SELF_TILE_ICONS.has(icon.textContent?.trim() ?? "")) return true;
+  }
+  return false;
+}
+
 /** Accessible name contains "(You)". Text after it (mute, presenting) still counts. */
 export function looksLikeYou(label: string): boolean {
   return /\(You\)/i.test(label);
