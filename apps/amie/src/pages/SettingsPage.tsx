@@ -80,7 +80,7 @@ type GoogleMeetExtensionStatus = {
 
 type SystemAccessStatus = {
   microphone: MicrophoneAuthorization;
-  systemAudio: "reviewInSettings";
+  systemAudio: SystemAudioAuthorization;
   accessibility: {
     trusted: boolean;
     buildLabel: string;
@@ -587,13 +587,14 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
                   <div className={S.accessCardMain}>
                     <h3 className={S.heading}>System Audio</h3>
                     <p className={S.copy}>
-                      Loopback capture for Chrome / meeting audio (TCC <code>AudioCapture</code>).
-                      macOS does not expose a reliable grant check — if capture is silent, enable Amie
-                      under System Audio Recording, then quit and reopen.
+                      Loopback capture for Chrome / meeting audio (TCC <code>AudioCapture</code>). If
+                      capture is silent although this says On, quit and reopen Amie.
                     </p>
                     <div className={S.row}>
                       <span className={S.label}>Status</span>
-                      <span className={S.value}>Review in System Settings</span>
+                      <span className={S.value}>
+                        {systemAccess ? systemAudioLabel(systemAccess.systemAudio) : "Loading…"}
+                      </span>
                     </div>
                   </div>
                   <div className={S.actions}>
@@ -767,6 +768,21 @@ function browserLabel(browser: string): string {
   if (browser === "brave") return "Brave";
   if (browser === "chrome") return "Chrome";
   return browser;
+}
+
+type SystemAudioAuthorization = "notDetermined" | "denied" | "authorized" | "unknown";
+
+function systemAudioLabel(state: SystemAudioAuthorization): string {
+  switch (state) {
+    case "authorized":
+      return "On";
+    case "denied":
+      return "Off (denied)";
+    case "notDetermined":
+      return "Not asked yet";
+    default:
+      return "Review in System Settings";
+  }
 }
 
 function microphoneLabel(state: MicrophoneAuthorization): string {

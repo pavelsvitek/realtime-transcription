@@ -35,6 +35,7 @@ export function useSetupStatus(systemAudio: SystemAudioTestResult): ReadyRow[] |
     modelReady: model.ready,
     modelDownloading: model.downloading,
     microphoneAllowed: status.microphone === "authorized",
+    systemAudioAllowed: status.systemAudio === "authorized",
     systemAudio,
     summaryProvider: summary.provider,
     providerKeys: summary.keys,

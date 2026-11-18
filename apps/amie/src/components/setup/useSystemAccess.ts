@@ -3,6 +3,8 @@ import { invoke } from "@tauri-apps/api/core";
 
 export type WizardSystemAccess = {
   microphone: string;
+  /** "authorized" | "denied" | "notDetermined" | "unknown" (TCC preflight). */
+  systemAudio: string;
   accessibility: { trusted: boolean };
   googleMeetExtension: { connected: boolean };
 };

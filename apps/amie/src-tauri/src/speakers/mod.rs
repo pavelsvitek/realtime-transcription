@@ -20,7 +20,8 @@ pub use meet_bridge::{GoogleMeetExtensionStatus, MeetBridge};
 pub use permission::{
     is_main_thread, is_trusted, microphone_authorization, open_microphone_settings,
     open_privacy_settings, open_system_audio_settings, prompt, request_microphone_access,
-    MicrophoneAuthorization,
+    request_system_audio_access, system_audio_authorization, MicrophoneAuthorization,
+    SystemAudioAuthorization,
 };
 pub use sink::SpeakerSink;
 pub use status::{status, SpeakerTagsStatus};

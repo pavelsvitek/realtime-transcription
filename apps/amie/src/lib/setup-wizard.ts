@@ -111,6 +111,8 @@ export function readyRows(state: {
   modelReady: boolean;
   modelDownloading: boolean;
   microphoneAllowed: boolean;
+  /** macOS reports System Audio Recording as allowed. */
+  systemAudioAllowed: boolean;
   systemAudio: SystemAudioTestResult;
   summaryProvider: SummaryProviderId | null;
   providerKeys: ProviderKeys;
@@ -129,8 +131,9 @@ export function readyRows(state: {
     { label: "Microphone", done: state.microphoneAllowed, step: "microphone" },
     {
       label: "System audio",
-      done: state.systemAudio === "heard",
-      detail: state.systemAudio === "heard" ? "tested" : undefined,
+      done: state.systemAudioAllowed || state.systemAudio === "heard",
+      detail:
+        state.systemAudio === "heard" ? "tested" : state.systemAudioAllowed ? "allowed" : undefined,
       step: "systemAudio",
     },
     {
