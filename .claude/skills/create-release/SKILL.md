@@ -2,14 +2,14 @@
 name: create-release
 description: Cut a new Amie macOS app release end to end. Bumps the version in a PR, merges it, tags main to trigger the signed and notarized build, waits for the draft Release, then (after the user confirms) approves the `release` environment so the draft becomes the public Latest release. Use when the user asks to release, ship or publish a new Amie version.
 disable-model-invocation: true
-argument-hint: "[patch | minor | major | X.Y.Z]"
+argument-hint: "[minor | patch | X.Y.Z] (a suggestion; you are always asked to confirm)"
 ---
 
 # Create an Amie release
 
 Automates the steps in the "Releasing" section of `apps/amie/README.md`. The pipeline itself is `.github/workflows/amie-release.yml` (preflight, build + sign + notarize, draft Release, then a `publish` job gated by the `release` Environment). Read that README section if anything below is unclear.
 
-Two things are outward-facing and need the user's yes in this conversation: **starting the release** (step 4, the tag push) and **publishing** (step 7). Everything else runs without asking.
+Three points need the user's answer in this conversation: **the version** (step 2, before anything is bumped), **starting the release** (step 4, the tag push) and **publishing** (step 7). Everything else runs without asking.
 
 Never `gh release edit --draft=false` yourself. The workflow's `publish` job flips the draft and then verifies the public `latest.json`; approving the environment is the supported way and keeps that check.
 
@@ -22,13 +22,16 @@ Never `gh release edit --draft=false` yourself. The workflow's `publish` job fli
 - List what the release contains: `git log <last-tag>..origin/main --oneline -- apps/amie`. If it is empty, tell the user there is nothing to release and stop.
 - Do **not** touch the user's working tree. It may hold unrelated uncommitted work. Do everything below in a temporary worktree: `git worktree add -b amie/bump-<version> ../<repo>-release origin/main` (remove it at the end).
 
-### 2. Pick the version
-Use the argument if given (`patch`, `minor`, `major` or an explicit `X.Y.Z`). Otherwise decide from the commits: `feat` means minor, only fixes means patch. State the choice and the reason in one line; don't ask unless it is genuinely unclear (for example a breaking change).
+### 2. Pick the version — the user chooses, always
+Never bump on your own pick, and never skip this step, even if the argument already names a version (then offer that one as the recommended option). Compute both candidates from the current version with `bump-version.sh`'s rules and ask with AskUserQuestion, one question, options:
+- **Minor bump** (`X.Y+1.0`), for new features.
+- **Bugfix bump** (`X.Y.Z+1`), for fixes only.
+Put the one the commits from step 1 point to first and mark it "(Recommended)": `feat` commits mean minor, only fixes mean patch. Show the current version, each candidate's result (for example "0.4.0 -> 0.5.0") and a one-line summary of the commits in the question, since the user may see only the dialog. The user can answer "Other" with an explicit `X.Y.Z` or a major bump. Do not touch any file until they have answered.
 
 ### 3. Bump, PR, merge
 In the worktree:
 ```bash
-NEW="$(.claude/skills/create-release/bump-version.sh <arg>)"   # edits tauri.conf.json, Cargo.toml, Cargo.lock
+NEW="$(.claude/skills/create-release/bump-version.sh <the chosen version>)"   # edits tauri.conf.json, Cargo.toml, Cargo.lock
 git commit -am "chore(amie): bump version to $NEW"
 git push -u origin amie/bump-$NEW
 gh pr create --base main --title "chore(amie): bump version to $NEW" --body "<what the release contains, from step 1>"
