@@ -26,6 +26,19 @@ use crate::audio_device::spawn_device_monitor;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    if std::env::args().any(|arg| arg == "--print-system-audio-status") {
+        // Headless probe: what the TCC preflight reports for System Audio
+        // Recording for this app. `--out <file>` also writes it there, since
+        // an app launched through `open` has no visible stdout.
+        let status = format!("{:?}", speakers::system_audio_authorization());
+        println!("{status}");
+        let args: Vec<String> = std::env::args().collect();
+        if let Some(path) = args.iter().position(|a| a == "--out").and_then(|i| args.get(i + 1)) {
+            let _ = std::fs::write(path, &status);
+        }
+        std::process::exit(0);
+    }
+
     if std::env::args().any(|arg| arg == "--print-accessibility-status") {
         // Headless probe for the running binary's TCC identity / trust.
         // Used to compare System Settings rows with this process.
@@ -132,6 +145,7 @@ pub fn run() {
             commands::system_access::get_system_access_status,
             commands::system_access::open_system_access_settings,
             commands::system_access::request_microphone_permission,
+            commands::system_access::request_system_audio_permission,
             commands::system_audio_test::test_system_audio,
             commands::mcp::get_mcp_status,
             commands::updates::get_app_install_location,

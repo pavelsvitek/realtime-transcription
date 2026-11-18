@@ -103,6 +103,7 @@ describe("readyRows", () => {
     modelReady: true,
     modelDownloading: false,
     microphoneAllowed: true,
+    systemAudioAllowed: false,
     systemAudio: "heard" as const,
     summaryProvider: "xai" as const,
     providerKeys: { xai: true, openai: false, gemini: false },
@@ -137,6 +138,16 @@ describe("readyRows", () => {
     expect(byLabel["Summaries"]).toMatchObject({ done: false, step: "summaries" });
     expect(byLabel["Speaker names"]).toMatchObject({ done: false, step: "speakers" });
     expect(byLabel["Google Meet speaker names"]).toMatchObject({ done: false, step: "speakers" });
+  });
+
+  it("counts System Audio as done once macOS allows it, tested or not", () => {
+    const allowed = readyRows({ ...allDone, systemAudio: null, systemAudioAllowed: true });
+    expect(allowed.find((row) => row.label === "System audio")).toMatchObject({
+      done: true,
+      detail: "allowed",
+    });
+    const both = readyRows({ ...allDone, systemAudioAllowed: true });
+    expect(both.find((row) => row.label === "System audio")?.detail).toBe("tested");
   });
 
   it("counts a failed sound test as not done", () => {

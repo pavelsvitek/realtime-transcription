@@ -3,26 +3,20 @@ use tauri::AppHandle;
 
 use crate::speakers::{
     is_main_thread, is_trusted, microphone_authorization, open_microphone_settings,
-    open_privacy_settings, open_system_audio_settings, prompt, request_microphone_access, status,
-    GoogleMeetExtensionStatus, MicrophoneAuthorization, SpeakerTagsStatus,
+    open_privacy_settings, open_system_audio_settings, prompt, request_microphone_access,
+    request_system_audio_access, status, system_audio_authorization, GoogleMeetExtensionStatus,
+    MicrophoneAuthorization, SpeakerTagsStatus, SystemAudioAuthorization,
 };
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SystemAccessStatus {
     pub microphone: MicrophoneAuthorization,
-    /// Loopback has no public “is granted” API; UI shows guidance + Settings deep link.
-    pub system_audio: SystemAudioAccess,
+    /// System Audio Recording, read through the TCC preflight (no public API).
+    pub system_audio: SystemAudioAuthorization,
     pub accessibility: SpeakerTagsStatus,
     /// Google Meet Chrome extension speaker-tracking (`meet_bridge`).
     pub google_meet_extension: GoogleMeetExtensionStatus,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub enum SystemAudioAccess {
-    /// Cannot query TCC for `AudioCapture` from userland; open System Settings to review.
-    ReviewInSettings,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -48,7 +42,7 @@ pub fn get_system_access_status() -> SystemAccessStatus {
     let accessibility = status();
     SystemAccessStatus {
         microphone: microphone_authorization(),
-        system_audio: SystemAudioAccess::ReviewInSettings,
+        system_audio: system_audio_authorization(),
         google_meet_extension: accessibility.google_meet_extension.clone(),
         accessibility,
     }
@@ -83,6 +77,16 @@ pub fn open_system_access_settings(
         }
     }
     Ok(get_system_access_status())
+}
+
+/// Shows the macOS System Audio Recording prompt when it was never answered,
+/// without opening System Settings; the caller opens Settings when denied.
+#[tauri::command(async)]
+pub fn request_system_audio_permission() -> SystemAccessStatus {
+    if system_audio_authorization() == SystemAudioAuthorization::NotDetermined {
+        request_system_audio_access();
+    }
+    get_system_access_status()
 }
 
 /// Shows the macOS microphone prompt when access was never asked for, without
