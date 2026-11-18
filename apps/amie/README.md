@@ -137,6 +137,8 @@ Losing the private key bricks updates for already-shipped clients until they man
 
 Tag-driven CI: [`.github/workflows/amie-release.yml`](../../.github/workflows/amie-release.yml). The last release is on the [Releases page](https://github.com/pavelsvitek/realtime-transcription/releases); tags are `app-v<version>`.
 
+To do all of this in one go, ask Claude Code to run the `create-release` skill (`.claude/skills/create-release`): it bumps the version, merges the PR, tags, waits for the draft and, after you confirm, approves the `release` environment.
+
 ### Where the version lives
 
 Change exactly these three, to the same version, in one commit:
