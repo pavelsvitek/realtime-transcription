@@ -135,15 +135,44 @@ Losing the private key bricks updates for already-shipped clients until they man
 
 ## Releasing (GitHub Actions)
 
-Tag-driven CI: [`.github/workflows/amie-release.yml`](../../.github/workflows/amie-release.yml).
+Tag-driven CI: [`.github/workflows/amie-release.yml`](../../.github/workflows/amie-release.yml). The last release is on the [Releases page](https://github.com/pavelsvitek/realtime-transcription/releases); tags are `app-v<version>`.
 
-1. Bump **in lockstep**: `src-tauri/tauri.conf.json` → `version` and `src-tauri/Cargo.toml` → `version` (the workflow fails if they differ or do not match the tag).
-2. Merge to `main`, then tag and push:
+### Where the version lives
+
+Change exactly these three, to the same version, in one commit:
+
+| File | What to change | Why |
+| --- | --- | --- |
+| `apps/amie/src-tauri/tauri.conf.json` | `"version"` | Source of truth. Tauri writes it into the app's `Info.plist` (`CFBundleShortVersionString`, `CFBundleVersion`), the DMG and updater file names, and `latest.json`. The updater compares it to decide whether an update exists. |
+| `apps/amie/src-tauri/Cargo.toml` | `version` under `[package]` | `preflight` fails if it differs from `tauri.conf.json` or the tag. |
+| `apps/amie/src-tauri/Cargo.lock` | `version` of the `[[package]]` with `name = "amie"` | Cargo rewrites it on the next build anyway; commit it with the bump so the tree stays clean. |
+
+Not version files, leave them alone:
+
+- `apps/amie/src-tauri/Info.plist` has no version keys on purpose. Tauri fills them in from `tauri.conf.json`, and the dev runner (`scripts/macos-exec-runner.sh`) does the same for **Amie Dev**. A version written there would override `tauri.conf.json` (that is why builds up to v0.3.0 report 0.1.0 in **About Amie**).
+- `apps/amie/package.json` → `version` is not the app version and is not read by the build.
+- The website (`apps/web`) links to `releases/latest`, so it needs no change.
+- The Google Meet extension (`apps/chrome-meet-extension`) is versioned separately, see its README.
+
+Check before committing (all three print the new version):
+
+```bash
+jq -r .version apps/amie/src-tauri/tauri.conf.json
+sed -nE 's/^version = "([^"]+)".*/\1/p' apps/amie/src-tauri/Cargo.toml | head -1
+grep -A1 'name = "amie"' apps/amie/src-tauri/Cargo.lock | sed -n 2p
+```
+
+### Steps
+
+1. **Pick the version.** Patch (`0.3.1`) for fixes only, minor (`0.4.0`) when there are new features.
+2. **Bump on a branch and merge it.** Branch `amie/bump-<version>`, change the three files above, commit `chore(amie): bump version to <version>`, open a PR and merge it into `main`. The tag must point at a `main` that already has the bump.
+3. **Tag `main` and push the tag.** This starts the pipeline:
    ```bash
-   git tag app-v0.2.1   # must match the bumped version
-   git push origin app-v0.2.1
+   git switch main && git pull --ff-only
+   git tag app-v0.3.1   # must match the bumped version
+   git push origin app-v0.3.1
    ```
-3. The pipeline (Apple Silicon only) runs in stages. Nothing is uploaded to a Release until every artifact is final:
+4. **The pipeline runs** (Apple Silicon only), in stages. Nothing is uploaded to a Release until every artifact is final:
 
    | Job | What it does |
    | --- | --- |
@@ -152,7 +181,10 @@ Tag-driven CI: [`.github/workflows/amie-release.yml`](../../.github/workflows/am
    | `draft` | Creates the **draft** Release with all four assets in one go and checks names and sizes against what was built. |
    | `publish` | Waits for your approval of the `release` Environment, publishes the draft as Latest, then confirms the public `latest.json` shows the new version. |
 
-4. When the run reaches `publish` it pauses: open the run, **Review deployments**, approve. Before approving, download the DMG from the draft and try it (the build job cannot exercise models).
+5. **Check the draft.** Download the DMG from the draft Release and try it: install, the setup wizard, a short meeting. The build job cannot exercise the speech model.
+6. **Release notes.** The draft gets the standard text from `RELEASE_NOTES` in the workflow ("reliability improvements and bug fixes…"). For a release with new features, edit the draft's notes on GitHub before approving.
+7. **Approve.** The run pauses at `publish`: open the run, **Review deployments**, approve the `release` Environment. It publishes the draft as Latest and checks that the public `latest.json` shows the new version.
+8. **Confirm.** In an installed Amie, **Amie → Check for Updates…** offers the new version, and after updating, **About Amie** shows it.
 
 **Dry run:** *Actions → amie-release → Run workflow* builds, signs, notarizes and verifies, but creates no Release. The files are kept as the `amie-release` run artifact for 14 days.
 

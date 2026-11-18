@@ -81,7 +81,8 @@ kill_bundle_bins
 
 write_dev_plist() {
   local dest="$1"
-  python3 - "$ROOT/src-tauri/Info.plist" "$dest" "$DEV_BUNDLE_ID" <<'PY'
+  python3 - "$ROOT/src-tauri/Info.plist" "$dest" "$DEV_BUNDLE_ID" "$ROOT/src-tauri/tauri.conf.json" <<'PY'
+import json
 import os
 import plistlib
 import sys
@@ -89,6 +90,11 @@ import sys
 src, dest = sys.argv[1], sys.argv[2]
 with open(src, "rb") as handle:
     plist = plistlib.load(handle)
+# The version lives only in tauri.conf.json (Tauri fills it in for release builds).
+with open(sys.argv[4], encoding="utf-8") as handle:
+    version = json.load(handle)["version"]
+plist["CFBundleShortVersionString"] = version
+plist["CFBundleVersion"] = version
 plist["CFBundleDisplayName"] = "Amie Dev"
 plist["CFBundleName"] = "Amie Dev"
 plist["CFBundleIdentifier"] = sys.argv[3]
