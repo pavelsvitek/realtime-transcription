@@ -1,6 +1,6 @@
 /** Google Meet extension speaker-tracking — bundle the unpacked DEV or Store extension. */
 import * as esbuild from "esbuild";
-import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -37,6 +37,7 @@ await esbuild.build({
 });
 
 await copyFile(join(root, "src/popup.html"), join(outdir, "popup.html"));
+await cp(join(root, "src/icons"), join(outdir, "icons"), { recursive: true });
 
 const matches = ["https://meet.google.com/*"];
 if (!store) {
@@ -65,7 +66,11 @@ const manifest = {
   ],
   host_permissions: ["http://127.0.0.1/*"],
   permissions: ["storage"],
-  action: { default_popup: "popup.html" },
+  icons: { 16: "icons/icon-16.png", 32: "icons/icon-32.png", 48: "icons/icon-48.png", 128: "icons/icon-128.png" },
+  action: {
+    default_popup: "popup.html",
+    default_icon: { 16: "icons/icon-16.png", 32: "icons/icon-32.png" },
+  },
 };
 
 await writeFile(join(outdir, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
