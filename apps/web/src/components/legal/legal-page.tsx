@@ -37,7 +37,7 @@ export function LegalPage({
   return (
     <main id="top" className="min-h-screen bg-raycast-canvas text-raycast-ink">
       <div className="relative isolate mx-auto w-full max-w-[1440px]">
-        <PrimaryNav />
+        <PrimaryNav className="md:sticky md:top-0 md:bg-raycast-canvas/80 md:backdrop-blur-md" />
 
         <div className="mx-auto w-full max-w-[1120px] px-4 pt-16 sm:px-8 md:pt-24">
           <header className="max-w-[720px]">

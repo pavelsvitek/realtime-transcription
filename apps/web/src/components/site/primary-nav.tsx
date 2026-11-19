@@ -8,9 +8,9 @@ const links = [
   { label: "Privacy", href: "/#local-mcp" },
 ];
 
-export function PrimaryNav() {
+export function PrimaryNav({ className = "" }: { className?: string }) {
   return (
-    <nav className="relative z-20 flex h-14 w-full shrink-0 items-center justify-between border-b border-raycast-hairline-soft px-4 md:px-12">
+    <nav className={`relative z-30 flex h-14 w-full shrink-0 items-center justify-between border-b border-raycast-hairline-soft px-4 md:px-12 ${className}`}>
       <Link href="/#top" className="flex items-center gap-2.5">
         <img
           src="/amie-app-icon.png"

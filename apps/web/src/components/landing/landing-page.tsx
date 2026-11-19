@@ -20,6 +20,12 @@ import { WorksWith } from "@/components/landing/works-with";
 export function LandingPage() {
   return (
     <main id="top" className="min-h-screen bg-raycast-canvas text-raycast-ink">
+      {/* Sticky on desktop only. -mb-14 keeps the nav overlapping the hero's top 56px, as before. */}
+      <div className="page-zoom border-b border-raycast-hairline-soft md:sticky md:top-0 md:z-30 md:-mb-14 md:bg-raycast-canvas/80 md:backdrop-blur-md">
+        <div className="mx-auto w-full xl:w-[1440px]">
+          <PrimaryNav className="border-b-0" />
+        </div>
+      </div>
       <div className="page-zoom relative isolate overflow-x-clip">
         <GridBackground />
         <section className="relative overflow-x-clip pb-20 xl:h-[1256px] xl:pb-0">
@@ -32,12 +38,7 @@ export function LandingPage() {
                 "linear-gradient(in oklab 180deg, oklab(13.4% -.0007 -0.005 / 0%) 0%, var(--color-raycast-canvas) 100%)",
             }}
           />
-          <div
-            aria-hidden
-            className="absolute inset-x-0 top-[55px] z-20 h-px bg-raycast-hairline-soft"
-          />
           <div className="relative mx-auto w-full xl:h-full xl:w-[1440px]">
-            <PrimaryNav />
             <Hero />
             <WorksWith />
             <div className="relative z-10 mx-auto mt-10 w-full px-4 sm:px-8 xl:absolute xl:top-[512px] xl:left-[200px] xl:mx-0 xl:mt-0 xl:w-[1040px] xl:p-0">
