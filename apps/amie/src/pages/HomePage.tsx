@@ -53,22 +53,22 @@ export function HomePage({ onStartMeeting, meetingInProgress, onOpenSetup }: Hom
         <HeroWave />
         <h1
           id="home-hero-title"
-          className="mt-7 max-w-[720px] text-[46px] leading-[52px] font-[650] tracking-[-0.03em] text-text-primary"
+          className="mt-7 max-w-[720px] text-[40px] leading-[45px] font-[650] tracking-[-0.03em] text-text-primary"
         >
           Amie listens to your next call and keeps notes for you.
         </h1>
-        <p className="mt-3.5 text-[16px] leading-[23px] text-text-secondary">
+        <p className="mt-3.5 text-[14px] leading-[20px] text-text-secondary">
           Live transcript while you talk. A clean summary when you hang up.
         </p>
         <button
           type="button"
-          className="mt-[30px] flex h-[54px] cursor-pointer items-center gap-2.5 rounded-xl border-none bg-brand-primary px-[26px] font-[family-name:inherit] text-[16px] leading-[23px] font-[650] text-brand-on-primary focus-visible:shadow-[0_0_0_3px_var(--brand-primary-ring)] focus-visible:outline-none enabled:hover:bg-brand-primary-hover disabled:cursor-default disabled:opacity-60"
+          className="mt-[26px] flex h-[46px] cursor-pointer items-center gap-2.5 rounded-[10px] border-none bg-brand-primary px-[22px] font-[family-name:inherit] text-[14px] leading-[20px] font-[650] text-brand-on-primary focus-visible:shadow-[0_0_0_3px_var(--brand-primary-ring)] focus-visible:outline-none enabled:hover:bg-brand-primary-hover disabled:cursor-default disabled:opacity-60"
           onClick={onStartMeeting}
           disabled={meetingInProgress}
         >
           <svg
-            width="18"
-            height="18"
+            width="16"
+            height="16"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -82,7 +82,7 @@ export function HomePage({ onStartMeeting, meetingInProgress, onOpenSetup }: Hom
             <line x1="12" x2="12" y1="19" y2="22" />
           </svg>
           {meetingInProgress ? "Meeting in progress" : "Start a meeting"}
-          {meetingInProgress ? null : <kbd className="flex h-[22px] min-w-[22px] items-center justify-center rounded-[5px] border border-white/18 bg-white/14 px-1.5 font-[family-name:inherit] text-[12px] leading-4 font-medium text-[#dde9f2]">
+          {meetingInProgress ? null : <kbd className="flex h-5 min-w-5 items-center justify-center rounded-[5px] border border-white/18 bg-white/14 px-1.5 font-[family-name:inherit] text-[11px] leading-4 font-medium text-[#dde9f2]">
               ⌘ N
             </kbd>}
         </button>

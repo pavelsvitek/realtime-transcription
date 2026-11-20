@@ -29,7 +29,7 @@ export function StepLayout({
       </p>
       <h1
         id="wizard-title"
-        className="mt-1.5 text-[34px] leading-10 font-[650] tracking-[-0.025em] text-text-primary"
+        className="mt-1.5 text-[30px] leading-9 font-[650] tracking-[-0.025em] text-text-primary"
       >
         {title}
       </h1>

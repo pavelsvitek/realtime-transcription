@@ -19,11 +19,11 @@ export function ReadyStep({ systemAudio, onGoTo, onStartMeeting }: ReadyStepProp
       <StepBars current={6} />
       <h1
         id="wizard-title"
-        className="mt-6 text-[46px] leading-[52px] font-[650] tracking-[-0.03em] text-text-primary"
+        className="mt-6 text-[40px] leading-[45px] font-[650] tracking-[-0.03em] text-text-primary"
       >
         You’re all set.
       </h1>
-      <p className="mt-3 text-[16px] leading-6 text-text-secondary">
+      <p className="mt-3 text-[14px] leading-5 text-text-secondary">
         Amie is ready to listen to your next call and keep notes for you.
       </p>
 
@@ -64,11 +64,11 @@ export function ReadyStep({ systemAudio, onGoTo, onStartMeeting }: ReadyStepProp
 
       <div className="mt-[30px] flex items-center gap-3">
         <PrimaryButton
-          className="h-[54px] gap-2.5 rounded-xl px-[26px] text-[16px] leading-[23px] font-[650]"
+          className="h-[46px] gap-2.5 rounded-[10px] px-[22px] text-[14px] leading-5 font-[650]"
           onClick={onStartMeeting}
           disabled={!model.ready}
         >
-          <MicIcon size={18} />
+          <MicIcon size={16} />
           Start a meeting
           <kbd className="flex h-[22px] min-w-[22px] items-center justify-center rounded-[5px] border border-white/18 bg-white/14 px-1.5 font-[family-name:inherit] text-[12px] leading-4 font-medium text-[#dde9f2]">
             ⌘ N
