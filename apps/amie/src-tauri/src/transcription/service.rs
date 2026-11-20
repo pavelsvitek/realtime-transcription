@@ -737,7 +737,7 @@ fn spawn_stream_worker(
                 stop_flag,
                 segment_counter,
                 observer,
-                speaker_cut,
+                speaker_cut.map(|flag| worker::SpeakerCuts::new(flag, sample_rate)),
                 mic_mute,
             );
         })
