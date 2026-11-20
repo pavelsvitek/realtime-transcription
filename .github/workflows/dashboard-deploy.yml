@@ -32,14 +32,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build
+        run: pnpm --filter amie-dashboard build
+
       - name: Typecheck
         run: pnpm --filter amie-dashboard typecheck
 
       - name: Lint
         run: pnpm --filter amie-dashboard lint
-
-      - name: Build
-        run: pnpm --filter amie-dashboard build
 
       - name: Deploy to Cloudflare Workers (dashboard.getamie.app)
         uses: cloudflare/wrangler-action@v3
