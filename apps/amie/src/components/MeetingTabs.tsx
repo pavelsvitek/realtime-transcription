@@ -14,6 +14,25 @@ const TAB_LABELS: Record<MeetingDetailTab, string> = {
   transcript: "Transcript",
 };
 
+/**
+ * Step to the next/previous tab, skipping locked ones. Stops at the ends
+ * instead of wrapping around.
+ */
+export function moveMeetingTab(
+  current: MeetingDetailTab,
+  direction: "left" | "right",
+  locked?: Partial<Record<MeetingDetailTab, string>>,
+): MeetingDetailTab {
+  const step = direction === "right" ? 1 : -1;
+  let index = MEETING_TAB_ORDER.indexOf(current) + step;
+  while (index >= 0 && index < MEETING_TAB_ORDER.length) {
+    const candidate = MEETING_TAB_ORDER[index]!;
+    if (!locked?.[candidate]) return candidate;
+    index += step;
+  }
+  return current;
+}
+
 export function meetingTabDomIds(prefix: string, tab: MeetingDetailTab) {
   return {
     tabId: `${prefix}-tab-${tab}`,

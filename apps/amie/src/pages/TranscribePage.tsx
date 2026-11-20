@@ -6,9 +6,11 @@ import {
   type MeetingContextEditorHandle,
 } from "../components/MeetingContextEditor";
 import { ContextIntro, PreCallContext } from "../components/PreCallContext";
+import { useHotkey } from "@tanstack/react-hotkeys";
 import {
   MeetingTabs,
   meetingTabDomIds,
+  moveMeetingTab,
   type MeetingDetailTab,
 } from "../components/MeetingTabs";
 import { LiveMeetingButton } from "../components/LiveMeetingButton";
@@ -224,6 +226,37 @@ export function TranscribePage({
     if (summaryLocked && tab === "summary") setTab("transcript");
   }, [summaryLocked, tab]);
 
+  const lockedTabs = summaryLocked ? { summary: "After the call" } : undefined;
+
+  // Arrow keys step through the tabs and stop at the first/last one.
+  // ignoreInputs keeps Left/Right working for the caret in the context editor.
+  useHotkey(
+    "ArrowLeft",
+    (event) => {
+      if (event.isComposing) return;
+      event.preventDefault();
+      setTab((current) => moveMeetingTab(current, "left", lockedTabs));
+    },
+    {
+      ignoreInputs: true,
+      conflictBehavior: "allow",
+      meta: { name: "Previous tab" },
+    },
+  );
+  useHotkey(
+    "ArrowRight",
+    (event) => {
+      if (event.isComposing) return;
+      event.preventDefault();
+      setTab((current) => moveMeetingTab(current, "right", lockedTabs));
+    },
+    {
+      ignoreInputs: true,
+      conflictBehavior: "allow",
+      meta: { name: "Next tab" },
+    },
+  );
+
   const summaryIds = meetingTabDomIds(LIVE_TAB_PREFIX, "summary");
   const contextIds = meetingTabDomIds(LIVE_TAB_PREFIX, "context");
   const transcriptIds = meetingTabDomIds(LIVE_TAB_PREFIX, "transcript");
@@ -322,7 +355,7 @@ export function TranscribePage({
           tab={tab}
           onChange={setTab}
           prefix={LIVE_TAB_PREFIX}
-          locked={summaryLocked ? { summary: "After the call" } : undefined}
+          locked={lockedTabs}
           className="mb-3"
         />
       </div>
