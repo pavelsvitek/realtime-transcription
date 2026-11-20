@@ -7,7 +7,7 @@ File: **Amie Website** (Paper). Every design is addressable by a short code.
 - Page names read `P<n> <Area> - <label>`. Areas: `App` (screens of the Amie desktop app), `Web` (website), `Brand`, `Ads`.
 - Artboard names read `P<n>C<m> <label>`. Section headers and "Label ·" banners carry no code.
 - On `P3` a status marker follows the code: ✅ = implemented in the app, 🧪 = exploration (not built). The label banners above each row repeat the status.
-- Only the `App` pages (P1–P3, P12) have artboard codes so far. Add codes to the other pages when you first need to reference them.
+- Only the `App` pages (P1–P3, P12, P13) have artboard codes so far. Add codes to the other pages when you first need to reference them.
 
 ## Pages
 
@@ -25,6 +25,7 @@ File: **Amie Website** (Paper). Every design is addressable by a short code.
 | P10 | Ads - Demand Gen | |
 | P11 | Ads - Winners | |
 | P12 | App - Transcription idle variants | Pre-transcription (idle) Transcription page, P12C1–C5 |
+| P13 | App - Pre-call Context variants | Context tab before the call; Summary tab disabled until the call ends, P13C1–C5 |
 
 ## P3 status
 
@@ -45,3 +46,15 @@ File: **Amie Website** (Paper). Every design is addressable by a short code.
 | P12C3 | C · Ghost transcript (preview rows behind a start card) | 🧪 exploration |
 | P12C4 | D · Call detected (running Meet call + other start modes) | 🧪 exploration |
 | P12C5 | E · Record stage (big Start button, source toggle, language) | 🧪 exploration |
+
+## P13 status
+
+All variants show the Summary tab locked with an "After the call" pill and the Context tab selected before the call.
+
+| Code | Design | Status |
+|---|---|---|
+| P13C1 | A · Why it matters (three benefit cards above the editor) | 🧪 exploration |
+| P13C2 | B · Before / after (same meeting summarized without and with context) | 🧪 exploration |
+| P13C3 | C · Guided prep (who, goal, background, terms + context-strength meter) | 🧪 exploration |
+| P13C4 | D · Live effect (editor beside "what Amie does with it") | 🧪 exploration |
+| P13C5 | E · Brief templates (empty-state coach with meeting-type templates) | 🧪 exploration |

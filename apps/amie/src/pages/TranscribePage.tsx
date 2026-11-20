@@ -5,6 +5,7 @@ import {
   MeetingContextEditor,
   type MeetingContextEditorHandle,
 } from "../components/MeetingContextEditor";
+import { ContextIntro, PreCallContext } from "../components/PreCallContext";
 import {
   MeetingTabs,
   meetingTabDomIds,
@@ -104,6 +105,7 @@ export function TranscribePage({
   const liveMeeting = liveQuery.data ?? null;
   const contextEditorRef = useRef<MeetingContextEditorHandle>(null);
   const [followUpContext, setFollowUpContext] = useState<string | null>(null);
+  const [draftContext, setDraftContext] = useState("");
   const canStartRef = useRef(true);
   canStartRef.current = !isActive && !isLoading && !stopping;
 
@@ -135,13 +137,15 @@ export function TranscribePage({
     setTab("transcript");
     const seed = followUpSeedRef?.current ?? null;
     if (followUpSeedRef) followUpSeedRef.current = null;
-    const copiedContext = seed ? followUpContextFromSeed(seed) : null;
+    const seedContext = seed ? followUpContextFromSeed(seed) : null;
+    const copiedContext = draftContext.trim() || seedContext;
     setFollowUpContext(copiedContext);
     const started = await start(audioSource, backend, copiedContext);
     if (!started) {
       setFollowUpContext(null);
       return;
     }
+    setDraftContext("");
     await queryClient.cancelQueries({ queryKey: meetingKeys.live() });
     await queryClient.invalidateQueries({ queryKey: meetingKeys.live() });
     if (copiedContext) {
@@ -214,6 +218,11 @@ export function TranscribePage({
       void handleStop();
     };
   }
+
+  const summaryLocked = !isActive;
+  useEffect(() => {
+    if (summaryLocked && tab === "summary") setTab("transcript");
+  }, [summaryLocked, tab]);
 
   const summaryIds = meetingTabDomIds(LIVE_TAB_PREFIX, "summary");
   const contextIds = meetingTabDomIds(LIVE_TAB_PREFIX, "context");
@@ -313,6 +322,7 @@ export function TranscribePage({
           tab={tab}
           onChange={setTab}
           prefix={LIVE_TAB_PREFIX}
+          locked={summaryLocked ? { summary: "After the call" } : undefined}
           className="mb-3"
         />
       </div>
@@ -337,18 +347,19 @@ export function TranscribePage({
         hidden={tab !== "context"}
       >
         {liveMeeting ? (
-          <MeetingContextEditor
-            ref={contextEditorRef}
-            meetingId={liveMeeting.id}
-            initialContext={followUpContext ?? liveMeeting.context}
-            fieldId="live-meeting-context-editor"
-          />
+          <div className="flex max-w-[760px] flex-col gap-4">
+            <ContextIntro live />
+            <MeetingContextEditor
+              ref={contextEditorRef}
+              meetingId={liveMeeting.id}
+              initialContext={followUpContext ?? liveMeeting.context}
+              fieldId="live-meeting-context-editor"
+            />
+          </div>
         ) : isActive ? (
           <EmptyCopy>Loading meeting context…</EmptyCopy>
         ) : (
-          <EmptyCopy>
-            Start transcription to add context for this meeting.
-          </EmptyCopy>
+          <PreCallContext value={draftContext} onChange={setDraftContext} />
         )}
       </div>
 
