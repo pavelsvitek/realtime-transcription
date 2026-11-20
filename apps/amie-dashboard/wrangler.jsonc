@@ -1,0 +1,21 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "amie-dashboard",
+  "compatibility_date": "2026-09-18",
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "@tanstack/react-start/server-entry",
+  "observability": { "enabled": true },
+  "routes": [
+    {
+      "pattern": "dashboard.getamie.app",
+      "custom_domain": true
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "TELEMETRY_DB",
+      "database_name": "amie-telemetry",
+      "database_id": "1687d71c-1451-41e6-b7be-15497c26df94"
+    }
+  ]
+}

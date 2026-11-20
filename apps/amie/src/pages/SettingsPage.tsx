@@ -9,6 +9,11 @@ import { moveSettingsSection } from "../lib/nav-hotkeys";
 import { Button } from "../components/ui/Button";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { cn } from "../lib/cn";
+import {
+  getTelemetrySettings,
+  setTelemetryEnabled,
+  trackEvent,
+} from "../lib/telemetry";
 
 /** Settings styles, one per former settings-* class. */
 const S = {
@@ -50,12 +55,13 @@ const PROVIDERS: { id: SummaryProvider; label: string }[] = [
   { id: "gemini", label: "Gemini" },
 ];
 
-type SettingsSection = "meeting-summary" | "mcp" | "system-access";
+type SettingsSection = "meeting-summary" | "mcp" | "system-access" | "privacy";
 
 const NAV_ITEMS: { id: SettingsSection; label: string }[] = [
   { id: "meeting-summary", label: "Meeting summary" },
   { id: "mcp", label: "MCP" },
   { id: "system-access", label: "System access" },
+  { id: "privacy", label: "Privacy" },
 ];
 
 const SECTION_IDS = NAV_ITEMS.map((item) => item.id);
@@ -114,6 +120,7 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
   const [saving, setSaving] = useState(false);
   const [systemAccess, setSystemAccess] = useState<SystemAccessStatus | null>(null);
   const [mcp, setMcp] = useState<McpStatus | null>(null);
+  const [telemetryEnabled, setTelemetryEnabledState] = useState<boolean | null>(null);
   const [openingPane, setOpeningPane] = useState<string | null>(null);
   const { status: speakerStatus } = useSpeakerTagsStatus();
 
@@ -170,15 +177,34 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
 
   const refresh = useCallback(async () => {
     try {
-      const [next, summary] = await Promise.all([
+      const [next, summary, telemetry] = await Promise.all([
         invoke<AsrSettings>("get_asr_settings"),
         invoke<SummarySettings>("get_summary_settings"),
+        getTelemetrySettings(),
       ]);
       setSettings(next);
       setSummarySettings(summary);
+      setTelemetryEnabledState(telemetry.enabled);
       setError(null);
     } catch (e) {
       setError(String(e));
+    }
+  }, []);
+
+  const toggleTelemetry = useCallback(async (next: boolean) => {
+    setSaving(true);
+    setStatus(null);
+    setError(null);
+    try {
+      await setTelemetryEnabled(next);
+      setTelemetryEnabledState(next);
+      if (next) {
+        trackEvent("feature_used", { feature: "telemetry_enabled" });
+      }
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setSaving(false);
     }
   }, []);
 
@@ -711,6 +737,35 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
                         Google Meet level meters look different than expected, so speaker names may be missing.
                       </p>
                     )}
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {section === "privacy" && (
+              <section className={S.section}>
+                <h2 className={S.paneTitle}>Privacy</h2>
+                <div className={S.accessCard}>
+                  <div className={S.accessCardMain}>
+                    <h3 className={S.heading}>Anonymous usage analytics</h3>
+                    <p className={S.copy}>
+                      Amie collects anonymous product telemetry such as app launches, meeting
+                      counts and durations, feature usage, app version, macOS version, architecture,
+                      and RAM size.
+                    </p>
+                    <p className={S.copy}>
+                      We never record transcripts, meeting titles, audio, or personal details.
+                    </p>
+                    <label className="mt-1 inline-flex cursor-pointer items-center gap-2 text-[12px] text-text-secondary select-none">
+                      <input
+                        type="checkbox"
+                        className="h-3.5 w-3.5 cursor-pointer accent-text-secondary"
+                        checked={telemetryEnabled === false}
+                        disabled={saving || telemetryEnabled === null}
+                        onChange={(e) => void toggleTelemetry(!e.target.checked)}
+                      />
+                      <span>Disable anonymous analytics</span>
+                    </label>
                   </div>
                 </div>
               </section>

@@ -5,5 +5,6 @@ pub mod onboarding;
 pub mod speakers;
 pub mod system_access;
 pub mod system_audio_test;
+pub mod telemetry;
 pub mod transcription;
 pub mod updates;

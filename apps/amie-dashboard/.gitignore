@@ -1,0 +1,10 @@
+/node_modules
+/dist/
+/.output/
+/.wrangler/
+/.tanstack/
+src/routeTree.gen.ts
+*.tsbuildinfo
+.DS_Store
+.env*
+.dev.vars*

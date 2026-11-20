@@ -1,16 +1,19 @@
 use std::path::PathBuf;
 
 use serde::Serialize;
+use serde_json::json;
 use tauri::{AppHandle, State};
 
 use crate::ipc::transcript::{TranscriptExport, TranscriptionSnapshot};
 use crate::state::TranscriptionHandle;
+use crate::telemetry::TelemetryService;
 use crate::transcription::{xai, AsrBackend, AudioSource};
 
 #[tauri::command]
 pub async fn start_transcription(
     app: AppHandle,
     state: State<'_, TranscriptionHandle>,
+    telemetry: State<'_, TelemetryService>,
     source: Option<String>,
     backend: Option<String>,
     context: Option<String>,
@@ -36,6 +39,16 @@ pub async fn start_transcription(
         .start(app, audio_source, asr_backend, context.as_deref())
         .map_err(|e| e.to_user_message())?;
 
+    telemetry.mark_meeting_started();
+    telemetry.track(
+        "meeting_started",
+        Some(json!({
+            "source": format!("{audio_source:?}").to_lowercase(),
+            "backend": format!("{asr_backend:?}").to_lowercase(),
+            "has_context": context.as_deref().is_some_and(|c| !c.trim().is_empty()),
+        })),
+    );
+
     tracing::info!("start_transcription command completed");
     Ok(())
 }
@@ -44,6 +57,7 @@ pub async fn start_transcription(
 pub async fn stop_transcription(
     app: AppHandle,
     state: State<'_, TranscriptionHandle>,
+    telemetry: State<'_, TelemetryService>,
 ) -> Result<TranscriptExport, String> {
     tracing::info!("stop_transcription command invoked");
 
@@ -51,6 +65,17 @@ pub async fn stop_transcription(
         .service
         .stop(Some(&app))
         .map_err(|e| e.to_user_message())?;
+
+    let duration_sec = telemetry.take_meeting_duration_sec();
+    telemetry.track(
+        "meeting_ended",
+        Some(json!({
+            "source": export.source,
+            "word_count": export.word_count,
+            "duration_sec": duration_sec,
+        })),
+    );
+    telemetry.spawn_flush();
 
     tracing::info!("stop_transcription command completed");
     Ok(export)
@@ -66,14 +91,22 @@ pub async fn get_transcription_status(
 #[tauri::command]
 pub async fn export_transcript(
     state: State<'_, TranscriptionHandle>,
+    telemetry: State<'_, TelemetryService>,
     path: String,
 ) -> Result<TranscriptExport, String> {
     tracing::info!(%path, "export_transcript command invoked");
 
-    state
+    let export = state
         .service
         .export_to_file(PathBuf::from(path).as_path())
-        .map_err(|e| e.to_user_message())
+        .map_err(|e| e.to_user_message())?;
+
+    telemetry.track(
+        "transcript_exported",
+        Some(json!({ "word_count": export.word_count })),
+    );
+
+    Ok(export)
 }
 
 #[derive(Debug, Serialize)]

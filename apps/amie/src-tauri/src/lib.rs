@@ -10,6 +10,7 @@ pub mod mcp;
 mod meetings;
 mod speakers;
 mod state;
+pub mod telemetry;
 pub mod transcription;
 
 pub use config::AppConfig;
@@ -19,6 +20,7 @@ pub use transcription::{AsrBackend, AudioSource, LoadedEngine, TranscriptionServ
 use llm::SummaryService;
 use meetings::MeetingStore;
 use state::TranscriptionHandle;
+use telemetry::TelemetryService;
 use tracing_subscriber::EnvFilter;
 
 #[cfg(target_os = "macos")]
@@ -65,21 +67,27 @@ pub fn run() {
         panic!("Failed to open meetings.db: {err}");
     });
     let summaries = SummaryService::new(meeting_store.clone());
+    let telemetry = TelemetryService::open_default();
+    let telemetry_for_setup = telemetry.clone();
+    let telemetry_for_exit = telemetry.clone();
     let meet_bridge = speakers::MeetBridge::new();
     meet_bridge.install_status_source();
     let meet_bridge_for_setup = meet_bridge.clone();
 
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_process::init())
         .manage(meeting_store.clone())
         .manage(summaries.clone())
+        .manage(telemetry)
         .manage(TranscriptionHandle::new(
             meeting_store,
             summaries,
             meet_bridge,
         ))
         .setup(move |app| {
+            telemetry_for_setup.track("app_opened", None);
+            telemetry_for_setup.spawn_background_flusher();
             meet_bridge_for_setup.start_listening();
             #[cfg(desktop)]
             {
@@ -152,7 +160,20 @@ pub fn run() {
             commands::onboarding::get_launch_flags,
             commands::onboarding::get_speech_model_status,
             commands::onboarding::start_speech_model_download,
+            commands::telemetry::get_telemetry_settings,
+            commands::telemetry::set_telemetry_enabled,
+            commands::telemetry::track_telemetry_event,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    app.run(move |_app_handle, event| {
+        if let tauri::RunEvent::Exit = event {
+            let svc = telemetry_for_exit.clone();
+            tauri::async_runtime::block_on(async move {
+                let _ = tokio::time::timeout(std::time::Duration::from_millis(1500), svc.flush())
+                    .await;
+            });
+        }
+    });
 }

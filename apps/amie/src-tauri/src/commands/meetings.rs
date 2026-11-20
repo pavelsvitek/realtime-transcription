@@ -1,4 +1,5 @@
 use serde::Serialize;
+use serde_json::json;
 use tauri::{AppHandle, State};
 
 use crate::ipc::meetings::{MeetingDetail, MeetingListItem, MeetingRecord, PatchMeeting};
@@ -11,6 +12,7 @@ use crate::llm::keys::{
 use crate::llm::provider::LlmProviderId;
 use crate::llm::{emitter_from_app, SummaryService};
 use crate::meetings::MeetingStore;
+use crate::telemetry::TelemetryService;
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -97,8 +99,14 @@ pub async fn patch_meeting(
 }
 
 #[tauri::command]
-pub async fn delete_meeting(store: State<'_, MeetingStore>, id: String) -> Result<(), String> {
-    store.delete_meeting(&id).map_err(|e| e.to_user_message())
+pub async fn delete_meeting(
+    store: State<'_, MeetingStore>,
+    telemetry: State<'_, TelemetryService>,
+    id: String,
+) -> Result<(), String> {
+    store.delete_meeting(&id).map_err(|e| e.to_user_message())?;
+    telemetry.track("meeting_deleted", None);
+    Ok(())
 }
 
 #[tauri::command]
@@ -112,9 +120,14 @@ pub async fn get_live_meeting(
 pub async fn generate_meeting_summary(
     app: AppHandle,
     summaries: State<'_, SummaryService>,
+    telemetry: State<'_, TelemetryService>,
     id: String,
 ) -> Result<(), String> {
     summaries.start(id, emitter_from_app(app));
+    telemetry.track(
+        "summary_generated",
+        Some(json!({ "provider": resolve_provider().as_str() })),
+    );
     Ok(())
 }
 
