@@ -171,7 +171,7 @@ impl TelemetryService {
             return;
         }
         let service = self.clone();
-        tauri::async_runtime::spawn(async move {
+        spawn_task(async move {
             let mut interval = tokio::time::interval(FLUSH_INTERVAL);
             // Skip immediate first tick so startup `app_opened` can batch briefly.
             interval.tick().await;
@@ -187,9 +187,17 @@ impl TelemetryService {
             return;
         }
         let service = self.clone();
-        tauri::async_runtime::spawn(async move {
+        spawn_task(async move {
             service.flush().await;
         });
+    }
+
+    #[cfg(test)]
+    pub(crate) fn snapshot_events(&self) -> Vec<TelemetryEvent> {
+        self.inner
+            .lock()
+            .map(|g| g.queue.iter().cloned().collect())
+            .unwrap_or_default()
     }
 
     pub async fn flush(&self) {
@@ -261,6 +269,17 @@ impl TelemetryService {
             }
             guard.queue.push_front(event);
         }
+    }
+}
+
+fn spawn_task<F>(fut: F)
+where
+    F: std::future::Future<Output = ()> + Send + 'static,
+{
+    if let Ok(handle) = tokio::runtime::Handle::try_current() {
+        handle.spawn(fut);
+    } else {
+        tauri::async_runtime::spawn(fut);
     }
 }
 
