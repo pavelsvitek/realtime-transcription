@@ -7,6 +7,8 @@ export type LiveMeetingButtonProps = {
   loading?: boolean;
   disabled?: boolean;
   className?: string;
+  /** Keyboard hint shown after the label, e.g. "⌘ N". */
+  shortcut?: string;
   onClick: () => void;
 };
 
@@ -69,7 +71,7 @@ export const LiveMeetingButton = forwardRef<
   HTMLButtonElement,
   LiveMeetingButtonProps
 >(function LiveMeetingButton(
-  { listening = false, loading = false, disabled, className, onClick },
+  { listening = false, loading = false, disabled, className, shortcut, onClick },
   ref,
 ) {
   const label = liveMeetingButtonLabel(listening, loading);
@@ -89,6 +91,11 @@ export const LiveMeetingButton = forwardRef<
     >
       {listening ? <ListeningEqIcon /> : <TranscriptionIcon />}
       <span>{label}</span>
+      {shortcut && !listening && !loading && (
+        <kbd className="flex h-5 min-w-5 items-center justify-center rounded-[5px] border border-white/18 bg-white/14 px-1.5 font-[family-name:inherit] text-[11px] leading-4 font-medium text-[#dde9f2]">
+          {shortcut}
+        </kbd>
+      )}
     </button>
   );
 });

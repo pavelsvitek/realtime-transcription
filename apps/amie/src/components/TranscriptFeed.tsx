@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { cn } from "../lib/cn";
 import { formatTime } from "../lib/format";
-import { getMicrophoneRecordingName, usesMicrophoneInput } from "../lib/audio-device-label";
+import { TranscriptIdle } from "./TranscriptIdle";
 import type { AudioSource, DeviceKind, TranscriptSegment } from "../lib/transcript-types";
 
 type TranscriptFeedProps = {
@@ -11,6 +11,8 @@ type TranscriptFeedProps = {
   deviceKind: DeviceKind | null;
   active?: boolean;
   capturing?: boolean;
+  loading?: boolean;
+  onStart: () => void;
 };
 
 
@@ -21,10 +23,10 @@ export function TranscriptFeed({
   deviceKind,
   active = true,
   capturing = false,
+  loading = false,
+  onStart,
 }: TranscriptFeedProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const showMicHint = usesMicrophoneInput(audioSource);
-  const recordingDeviceName = getMicrophoneRecordingName(deviceName, deviceKind);
 
   useEffect(() => {
     if (!active) return;
@@ -33,20 +35,23 @@ export function TranscriptFeed({
     container.scrollTop = container.scrollHeight;
   }, [segments, active]);
 
+  if (segments.length === 0 && !capturing) {
+    return (
+      <TranscriptIdle
+        audioSource={audioSource}
+        deviceName={deviceName}
+        deviceKind={deviceKind}
+        loading={loading}
+        onStart={onStart}
+      />
+    );
+  }
+
   return (
     <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto p-4">
       {segments.length === 0 ? (
         <div className="flex flex-col gap-3 pt-10 text-center text-[14px] text-text-muted">
-          <p className="m-0 text-text-secondary">
-            {capturing
-              ? "Listening…"
-              : "Press Start to begin transcribing..."}
-          </p>
-          {showMicHint && (
-            <p className="m-0 text-[13px]">
-              We will use {recordingDeviceName} microphone to record.
-            </p>
-          )}
+          <p className="m-0 text-text-secondary">Listening…</p>
         </div>
       ) : (
         <ol className="flex list-none flex-col gap-2">
