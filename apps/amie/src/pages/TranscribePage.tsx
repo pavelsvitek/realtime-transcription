@@ -8,7 +8,6 @@ import {
 import {
   MeetingTabs,
   meetingTabDomIds,
-  LIVE_TRANSCRIPT_TAB_LABEL,
   type MeetingDetailTab,
 } from "../components/MeetingTabs";
 import { LiveMeetingButton } from "../components/LiveMeetingButton";
@@ -314,7 +313,6 @@ export function TranscribePage({
           tab={tab}
           onChange={setTab}
           prefix={LIVE_TAB_PREFIX}
-          transcriptLabel={LIVE_TRANSCRIPT_TAB_LABEL}
           className="mb-3"
         />
       </div>

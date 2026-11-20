@@ -8,8 +8,6 @@ export const MEETING_TAB_ORDER: MeetingDetailTab[] = [
   "transcript",
 ];
 
-export const LIVE_TRANSCRIPT_TAB_LABEL = "Transcript (live)";
-
 const TAB_LABELS: Record<MeetingDetailTab, string> = {
   summary: "Summary",
   context: "Context",
@@ -27,7 +25,6 @@ type MeetingTabsProps = {
   tab: MeetingDetailTab;
   onChange: (tab: MeetingDetailTab) => void;
   prefix?: string;
-  transcriptLabel?: string;
   className?: string;
 };
 
@@ -35,7 +32,6 @@ export function MeetingTabs({
   tab,
   onChange,
   prefix = "meeting",
-  transcriptLabel = "Transcript",
   className,
 }: MeetingTabsProps) {
   return (
@@ -44,7 +40,7 @@ export function MeetingTabs({
       role="tablist"
     >
       {MEETING_TAB_ORDER.map((id) => {
-        const label = id === "transcript" ? transcriptLabel : TAB_LABELS[id];
+        const label = TAB_LABELS[id];
         const { tabId, panelId } = meetingTabDomIds(prefix, id);
         return (
           <button
