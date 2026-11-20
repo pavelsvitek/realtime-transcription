@@ -17,6 +17,9 @@ pub struct LaunchFlags {
     /// `--show-onboarding` / `AMIE_SHOW_ONBOARDING` still work): open the setup
     /// wizard on Home even when setup is done.
     pub onboarding_flow: bool,
+    /// `--developer-mode` or `AMIE_DEVELOPER_MODE=1`: show developer-only
+    /// settings (xAI transcription) and the ASR engine picker.
+    pub developer_mode: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -45,6 +48,7 @@ pub fn get_launch_flags() -> LaunchFlags {
     LaunchFlags {
         onboarding_flow: flag_requested("--onboarding-flow", "AMIE_ONBOARDING_FLOW")
             || flag_requested("--show-onboarding", "AMIE_SHOW_ONBOARDING"),
+        developer_mode: flag_requested("--developer-mode", "AMIE_DEVELOPER_MODE"),
     }
 }
 
@@ -161,8 +165,9 @@ mod tests {
     fn launch_flags_default_off_without_env() {
         let flags = LaunchFlags {
             onboarding_flow: false,
+            developer_mode: false,
         };
         let json = serde_json::to_string(&flags).unwrap();
-        assert_eq!(json, r#"{"onboardingFlow":false}"#);
+        assert_eq!(json, r#"{"onboardingFlow":false,"developerMode":false}"#);
     }
 }
