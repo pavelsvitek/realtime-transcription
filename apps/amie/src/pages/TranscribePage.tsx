@@ -367,6 +367,8 @@ export function TranscribePage({
           deviceName={device?.name ?? null}
           deviceKind={device?.kind ?? null}
           capturing={isActive}
+          loading={isLoading}
+          onStart={() => void handleStart()}
           active={tab === "transcript"}
         />
       </div>

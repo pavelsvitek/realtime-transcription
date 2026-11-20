@@ -7,7 +7,7 @@ File: **Amie Website** (Paper). Every design is addressable by a short code.
 - Page names read `P<n> <Area> - <label>`. Areas: `App` (screens of the Amie desktop app), `Web` (website), `Brand`, `Ads`.
 - Artboard names read `P<n>C<m> <label>`. Section headers and "Label ·" banners carry no code.
 - On `P3` a status marker follows the code: ✅ = implemented in the app, 🧪 = exploration (not built). The label banners above each row repeat the status.
-- Only the three `App` pages (P1–P3) have artboard codes so far. Add codes to the other pages when you first need to reference them.
+- Only the `App` pages (P1–P3, P12) have artboard codes so far. Add codes to the other pages when you first need to reference them.
 
 ## Pages
 
@@ -24,6 +24,7 @@ File: **Amie Website** (Paper). Every design is addressable by a short code.
 | P9 | Brand - Color guidelines | |
 | P10 | Ads - Demand Gen | |
 | P11 | Ads - Winners | |
+| P12 | App - Transcription idle variants | Pre-transcription (idle) Transcription page, P12C1–C5 |
 
 ## P3 status
 
@@ -34,3 +35,13 @@ File: **Amie Website** (Paper). Every design is addressable by a short code.
 | P3C4 | B · Calm hero, Stage 1 | ✅ implemented (#65) |
 | P3C5–C6 | C · First-meeting walkthrough, Stage 0 / 1 | 🧪 exploration |
 | P3C7–C13 | B · Setup wizard, steps 0–6 | ✅ implemented (#67) |
+
+## P12 status
+
+| Code | Design | Status |
+|---|---|---|
+| P12C1 | A · Ready check (mic, call audio, model checklist + Start) | 🧪 exploration |
+| P12C2 | B · Prep the meeting (title, people, context, up-next) | 🧪 exploration |
+| P12C3 | C · Ghost transcript (preview rows behind a start card) | 🧪 exploration |
+| P12C4 | D · Call detected (running Meet call + other start modes) | 🧪 exploration |
+| P12C5 | E · Record stage (big Start button, source toggle, language) | 🧪 exploration |
