@@ -1,9 +1,35 @@
 @import "@fontsource-variable/inter";
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --font-sans: "Inter Variable", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+:root {
+  color-scheme: light;
+  --chart-primary: #18181b;
+  --chart-secondary: #2563eb;
+  --chart-grid: #f4f4f5;
+  --chart-baseline: #e4e4e7;
+  --chart-guide: #d4d4d8;
+  --chart-axis: #a1a1aa;
+  --chart-x-axis: #71717a;
+  --chart-dot-ring: #ffffff;
+}
+
+.dark {
+  color-scheme: dark;
+  --chart-primary: #fafafa;
+  --chart-secondary: #60a5fa;
+  --chart-grid: #27272a;
+  --chart-baseline: #3f3f46;
+  --chart-guide: #52525b;
+  --chart-axis: #71717a;
+  --chart-x-axis: #a1a1aa;
+  --chart-dot-ring: #18181b;
 }
 
 @layer base {
@@ -13,6 +39,12 @@
     color: #09090b;
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+  }
+
+  .dark body,
+  html.dark {
+    background-color: #09090b;
+    color: #fafafa;
   }
 }
 

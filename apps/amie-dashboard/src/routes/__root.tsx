@@ -7,6 +7,8 @@ import {
 import type { ReactNode } from "react";
 import appCss from "../styles.css?url";
 
+const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem("amie-dashboard-theme")||"system";var d=t==="dark"||(t==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",d);}catch(e){}})();`;
+
 export const Route = createRootRoute({
   head: () => ({
     meta: [
@@ -15,6 +17,7 @@ export const Route = createRootRoute({
       { title: "Amie Telemetry — dashboard.getamie.app" },
       { name: "robots", content: "noindex, nofollow" },
     ],
+    scripts: [{ children: THEME_INIT_SCRIPT }],
     links: [{ rel: "stylesheet", href: appCss }],
   }),
   component: RootComponent,
@@ -30,11 +33,11 @@ function RootComponent() {
 
 function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <html lang="en" className="h-full antialiased">
+    <html lang="en" className="h-full antialiased" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
-      <body className="min-h-full bg-zinc-50 font-sans text-zinc-950">
+      <body className="min-h-full bg-zinc-50 font-sans text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50">
         {children}
         <Scripts />
       </body>

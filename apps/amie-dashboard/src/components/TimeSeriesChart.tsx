@@ -79,11 +79,11 @@ export function TimeSeriesChart({
   return (
     <div className="flex flex-col gap-3 px-6 pt-5 pb-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="text-[13px] font-medium text-zinc-950">
+        <div className="text-[13px] font-medium text-zinc-950 dark:text-zinc-50">
           {isMcp ? "Daily MCP Tool Calls" : "Daily Active Installs & Meetings"}
         </div>
         {activePoint ? (
-          <div className="text-xs text-zinc-500 tabular-nums">
+          <div className="text-xs text-zinc-500 tabular-nums dark:text-zinc-400">
             {hoverIdx !== null ? formatShortDate(activePoint.date) : `Peak: ${formatShortDate(activePoint.date)}`}
             {" · "}
             {isMcp ? (
@@ -106,12 +106,12 @@ export function TimeSeriesChart({
         >
           <defs>
             <linearGradient id="areaDark" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#18181B" stopOpacity="0.14" />
-              <stop offset="100%" stopColor="#18181B" stopOpacity="0" />
+              <stop offset="0%" style={{ stopColor: "var(--chart-primary)" }} stopOpacity="0.16" />
+              <stop offset="100%" style={{ stopColor: "var(--chart-primary)" }} stopOpacity="0" />
             </linearGradient>
             <linearGradient id="areaBlue" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#2563EB" stopOpacity="0.12" />
-              <stop offset="100%" stopColor="#2563EB" stopOpacity="0" />
+              <stop offset="0%" style={{ stopColor: "var(--chart-secondary)" }} stopOpacity="0.16" />
+              <stop offset="100%" style={{ stopColor: "var(--chart-secondary)" }} stopOpacity="0" />
             </linearGradient>
           </defs>
 
@@ -124,14 +124,14 @@ export function TimeSeriesChart({
                   y1={y}
                   x2={width - padRight}
                   y2={y}
-                  stroke={idx === yTicks.length - 1 ? "#E4E4E7" : "#F4F4F5"}
+                  stroke={idx === yTicks.length - 1 ? "var(--chart-baseline)" : "var(--chart-grid)"}
                   strokeWidth="1"
                 />
                 <text
                   x={padLeft - 8}
                   y={y + 4}
                   textAnchor="end"
-                  fill="#A1A1AA"
+                  fill="var(--chart-axis)"
                   fontSize="11"
                 >
                   {tick}
@@ -147,7 +147,7 @@ export function TimeSeriesChart({
             <path
               d={primaryPath}
               fill="none"
-              stroke={isMcp ? "#2563EB" : "#18181B"}
+              stroke={isMcp ? "var(--chart-secondary)" : "var(--chart-primary)"}
               strokeWidth="2"
               strokeLinejoin="round"
               strokeLinecap="round"
@@ -157,7 +157,7 @@ export function TimeSeriesChart({
             <path
               d={secondaryPath}
               fill="none"
-              stroke="#2563EB"
+              stroke="var(--chart-secondary)"
               strokeWidth="1.75"
               strokeLinejoin="round"
               strokeLinecap="round"
@@ -172,7 +172,7 @@ export function TimeSeriesChart({
                 y1={padTop}
                 x2={xFor(activeIdx)}
                 y2={padTop + plotH}
-                stroke="#D4D4D8"
+                stroke="var(--chart-guide)"
                 strokeWidth="1"
                 strokeDasharray="3 3"
               />
@@ -180,8 +180,8 @@ export function TimeSeriesChart({
                 cx={xFor(activeIdx)}
                 cy={yFor(primaryValues[activeIdx] ?? 0)}
                 r="4.5"
-                fill={isMcp ? "#2563EB" : "#18181B"}
-                stroke="#FFFFFF"
+                fill={isMcp ? "var(--chart-secondary)" : "var(--chart-primary)"}
+                stroke="var(--chart-dot-ring)"
                 strokeWidth="2"
               />
               {!isMcp && (
@@ -189,8 +189,8 @@ export function TimeSeriesChart({
                   cx={xFor(activeIdx)}
                   cy={yFor(secondaryValues[activeIdx] ?? 0)}
                   r="4"
-                  fill="#2563EB"
-                  stroke="#FFFFFF"
+                  fill="var(--chart-secondary)"
+                  stroke="var(--chart-dot-ring)"
                   strokeWidth="2"
                 />
               )}
@@ -206,7 +206,7 @@ export function TimeSeriesChart({
                 x={xFor(idx)}
                 y={height - 10}
                 textAnchor={idx === 0 ? "start" : idx === series.length - 1 ? "end" : "middle"}
-                fill="#71717A"
+                fill="var(--chart-x-axis)"
                 fontSize="11"
               >
                 {formatShortDate(point.date)}
