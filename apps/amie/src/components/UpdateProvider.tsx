@@ -8,6 +8,7 @@ import {
   downloadAndInstallUpdate,
   formatUpdateError,
   getAppInstallLocation,
+  isDevBuild,
   relaunchApp,
   type UpdateProgress,
 } from "../lib/updates";
@@ -61,16 +62,21 @@ export function UpdateProvider({ meetingActive }: UpdateProviderProps) {
     setView(null);
   }, [busy, closePendingUpdate]);
 
-  const runCheck = useCallback(async () => {
+  /**
+   * `silent` is used for the automatic check on launch: no "checking" /
+   * "up to date" / error dialogs, only the "update available" prompt.
+   */
+  const runCheck = useCallback(async (silent = false) => {
     if (checkingRef.current || busy) return;
     checkingRef.current = true;
     setBusy(true);
-    setView({ kind: "checking" });
+    if (!silent) setView({ kind: "checking" });
 
     try {
       const location = await getAppInstallLocation();
       if (!location.writable) {
         await closePendingUpdate();
+        if (silent) return;
         setView({
           kind: "readOnly",
           onRemovableVolume: location.onRemovableVolume,
@@ -81,6 +87,7 @@ export function UpdateProvider({ meetingActive }: UpdateProviderProps) {
       const update = await checkForAppUpdate();
       if (!update) {
         await closePendingUpdate();
+        if (silent) return;
         const version = await getVersion().catch(() => "this build");
         setView({ kind: "upToDate", version });
         return;
@@ -98,7 +105,11 @@ export function UpdateProvider({ meetingActive }: UpdateProviderProps) {
       });
     } catch (error) {
       await closePendingUpdate();
-      setView({ kind: "error", message: formatUpdateError(error) });
+      if (silent) {
+        console.warn("Background update check failed", error);
+      } else {
+        setView({ kind: "error", message: formatUpdateError(error) });
+      }
     } finally {
       checkingRef.current = false;
       setBusy(false);
@@ -157,7 +168,7 @@ export function UpdateProvider({ meetingActive }: UpdateProviderProps) {
     let unlisten: (() => void) | undefined;
 
     listen(EVENT_CHECK_FOR_UPDATES, () => {
-      void runCheck();
+      void runCheck(false);
     })
       .then((fn) => {
         if (cancelled) {
@@ -174,6 +185,14 @@ export function UpdateProvider({ meetingActive }: UpdateProviderProps) {
       cancelled = true;
       unlisten?.();
     };
+  }, [runCheck]);
+
+  // Automatic check once on app start (silent unless an update exists).
+  const startupCheckedRef = useRef(false);
+  useEffect(() => {
+    if (startupCheckedRef.current || isDevBuild()) return;
+    startupCheckedRef.current = true;
+    void runCheck(true);
   }, [runCheck]);
 
   // When a deferred install is waiting and the meeting ends, refresh the CTA.
