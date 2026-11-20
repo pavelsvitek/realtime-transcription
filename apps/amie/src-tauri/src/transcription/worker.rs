@@ -25,7 +25,7 @@ pub fn run_worker<E>(
     stop: Arc<AtomicBool>,
     segment_counter: Arc<AtomicU64>,
     mut observer: Option<Box<dyn StreamObserver>>,
-    speaker_cut: Option<Arc<AtomicU64>>,
+    mut speaker_cuts: Option<SpeakerCuts>,
     mic_mute: Option<MicMuteGate>,
 ) where
     E: Fn(TranscriptEvent),
@@ -33,10 +33,6 @@ pub fn run_worker<E>(
     tracing::info!("Transcription worker started");
     let mut was_muted = false;
     let mut chunks_processed: u64 = 0;
-    let mut seen_cut = speaker_cut
-        .as_ref()
-        .map(|flag| flag.load(Ordering::Acquire))
-        .unwrap_or(0);
 
     // Optional diagnostics for denied macOS capture permission: the stream opens but
     // delivers digital silence (~-91 dB). Mic is checked quickly; system audio waits
@@ -61,34 +57,13 @@ pub fn run_worker<E>(
         } else {
             match audio_rx.recv_timeout(std::time::Duration::from_millis(100)) {
                 Ok(chunk) => chunk,
-                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
-                    flush_speaker_cut(
-                        &mut pipeline,
-                        &speaker_cut,
-                        &mut seen_cut,
-                        labels,
-                        &emit,
-                        &segment_counter,
-                        observer.as_mut(),
-                    );
-                    continue;
-                }
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => continue,
                 Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
                     tracing::debug!("Audio channel closed, draining remaining");
                     break;
                 }
             }
         };
-
-        flush_speaker_cut(
-            &mut pipeline,
-            &speaker_cut,
-            &mut seen_cut,
-            labels,
-            &emit,
-            &segment_counter,
-            observer.as_mut(),
-        );
 
         // The meeting app's mute button wins over the microphone. Silence keeps the
         // pipeline's clock running, so mic and system timestamps stay aligned.
@@ -220,18 +195,21 @@ pub fn run_worker<E>(
                 return;
             }
         }
+
+        // A speaker handover cuts only once the audio pauses, after this chunk
+        // reached the ASR, so the cut never lands inside a word.
+        if speaker_cuts.as_mut().is_some_and(|cuts| cuts.ready(&chunk)) {
+            cut_in_flight_utterance(
+                &mut pipeline,
+                labels,
+                &emit,
+                &segment_counter,
+                observer.as_mut(),
+            );
+        }
     }
 
-    // Flush remaining audio
-    flush_speaker_cut(
-        &mut pipeline,
-        &speaker_cut,
-        &mut seen_cut,
-        labels,
-        &emit,
-        &segment_counter,
-        observer.as_mut(),
-    );
+    // Flush remaining audio. `finish` finalizes, so a held cut has nothing left to do.
     match pipeline.finish() {
         Ok(output) if !output.is_empty() => {
             for commit in emit_process_output(
@@ -361,48 +339,68 @@ fn cut_in_flight_utterance<E>(
     }
 }
 
-/// Finalize the in-flight system utterance when the speaker set changed.
-fn flush_speaker_cut<E>(
-    pipeline: &mut StreamingPipeline,
-    speaker_cut: &Option<Arc<AtomicU64>>,
-    seen: &mut u64,
-    labels: StreamLabels,
-    emit: &E,
-    segment_counter: &Arc<AtomicU64>,
-    mut observer: Option<&mut Box<dyn StreamObserver>>,
-) where
-    E: Fn(TranscriptEvent),
-{
-    let Some(flag) = speaker_cut else {
-        return;
-    };
-    loop {
-        let current = flag.load(Ordering::Acquire);
-        if current == *seen {
-            return;
+/// Speaker handovers from the meeting app, held until the audio pauses.
+///
+/// Finalizing an utterance mid-word loses that word: the ASR closes it with
+/// padding and the next session starts with no context. The speaking meters
+/// also lag the audio, so a cut taken the moment it is signalled lands on the
+/// next speaker's first word. Several handovers while one is held collapse
+/// into a single cut.
+pub struct SpeakerCuts {
+    flag: Arc<AtomicU64>,
+    seen: u64,
+    pause_samples: usize,
+    max_wait_samples: usize,
+    held: Option<HeldCut>,
+}
+
+#[derive(Default)]
+struct HeldCut {
+    waited_samples: usize,
+    quiet_samples: usize,
+}
+
+impl SpeakerCuts {
+    /// Quiet this long counts as a pause between words or speakers.
+    pub const PAUSE_MS: usize = 200;
+    /// Cut anyway after this long, so attribution does not drift with no pause.
+    pub const MAX_WAIT_MS: usize = 1_500;
+    /// Same speech level the local ASR helper uses for its own end of utterance.
+    pub const QUIET_RMS: f32 = 0.01;
+
+    pub fn new(flag: Arc<AtomicU64>, sample_rate: u32) -> Self {
+        let per_ms = sample_rate as usize / 1_000;
+        Self {
+            seen: flag.load(Ordering::Acquire),
+            flag,
+            pause_samples: Self::PAUSE_MS * per_ms,
+            max_wait_samples: Self::MAX_WAIT_MS * per_ms,
+            held: None,
         }
-        *seen = current;
-        match pipeline.cut_utterance() {
-            Ok(Some(output)) => {
-                for commit in emit_process_output(
-                    &output.committed,
-                    &output.tentative,
-                    labels,
-                    emit,
-                    segment_counter,
-                    false,
-                ) {
-                    if let Some(obs) = observer.as_mut() {
-                        obs.on_commit(&commit);
-                    }
-                }
-            }
-            Ok(None) => {}
-            Err(error) => {
-                tracing::warn!(error = %error, "Failed to cut utterance on speaker change");
-                return;
-            }
+    }
+
+    /// Account for `chunk` and say whether the held cut should happen now.
+    fn ready(&mut self, chunk: &[f32]) -> bool {
+        let current = self.flag.load(Ordering::Acquire);
+        if current != self.seen {
+            self.seen = current;
+            self.held.get_or_insert_with(HeldCut::default);
         }
+        let Some(held) = self.held.as_mut() else {
+            return false;
+        };
+        held.waited_samples += chunk.len();
+        if mic_input::compute_rms(chunk) < Self::QUIET_RMS {
+            held.quiet_samples += chunk.len();
+        } else {
+            held.quiet_samples = 0;
+        }
+        let ready = held.quiet_samples >= self.pause_samples
+            || held.waited_samples >= self.max_wait_samples;
+        if ready {
+            self.held = None;
+        }
+        ready
     }
 }
 
@@ -601,7 +599,9 @@ mod tests {
     }
 
     struct CutProbe {
-        cuts: Arc<AtomicU64>,
+        pushes: usize,
+        /// How many chunks had reached the ASR at each cut.
+        cut_at: Arc<Mutex<Vec<usize>>>,
     }
 
     impl crate::transcription::pipeline::StreamingAsr for CutProbe {
@@ -609,6 +609,7 @@ mod tests {
             &mut self,
             _samples: &[f32],
         ) -> anyhow::Result<Option<crate::transcription::pipeline::AsrOutput>> {
+            self.pushes += 1;
             Ok(None)
         }
 
@@ -619,7 +620,7 @@ mod tests {
         fn cut_utterance(
             &mut self,
         ) -> anyhow::Result<Option<crate::transcription::pipeline::AsrOutput>> {
-            self.cuts.fetch_add(1, Ordering::Relaxed);
+            self.cut_at.lock().unwrap().push(self.pushes);
             Ok(Some(crate::transcription::pipeline::AsrOutput {
                 committed: vec![word("from ada", 0.0, 1.0)],
                 tentative: Vec::new(),
@@ -628,48 +629,46 @@ mod tests {
     }
 
     #[test]
-    fn a_speaker_change_cuts_the_in_flight_utterance_once() {
-        let (tx, rx) = std::sync::mpsc::sync_channel::<Vec<f32>>(1);
-        let stop = Arc::new(AtomicBool::new(false));
-        let counter = Arc::new(AtomicU64::new(0));
-        let cuts = Arc::new(AtomicU64::new(0));
+    fn a_speaker_change_cuts_once_at_the_next_pause() {
+        const RATE: u32 = 16_000;
+        const CHUNK: usize = RATE as usize / 100;
+        let (tx, rx) = std::sync::mpsc::sync_channel::<Vec<f32>>(128);
         let events = Arc::new(Mutex::new(Vec::new()));
         let events_emit = events.clone();
-        let cut = Arc::new(AtomicU64::new(0));
-        let pipeline = StreamingPipeline::new(Box::new(CutProbe { cuts: cuts.clone() }));
-        let cut_flag = cut.clone();
-        let handle = std::thread::spawn(move || {
-            run_worker(
-                rx,
-                pipeline,
-                StreamLabels {
-                    speaker: labels::REMOTE,
-                    stream: labels::SYSTEM_STREAM,
-                },
-                move |event| events_emit.lock().unwrap().push(event),
-                stop,
-                counter,
-                None,
-                Some(cut_flag),
-                None,
-            );
-        });
-
-        std::thread::sleep(std::time::Duration::from_millis(50));
-        cut.store(1, Ordering::Release);
-        let started = std::time::Instant::now();
-        while cuts.load(Ordering::Relaxed) == 0 {
-            assert!(
-                started.elapsed() < std::time::Duration::from_secs(2),
-                "speaker cut was not applied"
-            );
-            std::thread::sleep(std::time::Duration::from_millis(20));
+        let cut_at = Arc::new(Mutex::new(Vec::new()));
+        let pipeline = StreamingPipeline::new(Box::new(CutProbe {
+            pushes: 0,
+            cut_at: cut_at.clone(),
+        }));
+        let flag = Arc::new(AtomicU64::new(0));
+        let cuts = SpeakerCuts::new(flag.clone(), RATE);
+        // The meters flag a handover while the speaker is still mid-sentence.
+        flag.fetch_add(1, Ordering::Release);
+        for _ in 0..40 {
+            tx.send(vec![0.2; CHUNK]).unwrap();
         }
-        std::thread::sleep(std::time::Duration::from_millis(150));
-        assert_eq!(cuts.load(Ordering::Relaxed), 1);
+        for _ in 0..30 {
+            tx.send(vec![0.0; CHUNK]).unwrap();
+        }
         drop(tx);
-        handle.join().unwrap();
 
+        run_worker(
+            rx,
+            pipeline,
+            StreamLabels {
+                speaker: labels::REMOTE,
+                stream: labels::SYSTEM_STREAM,
+            },
+            move |event| events_emit.lock().unwrap().push(event),
+            Arc::new(AtomicBool::new(false)),
+            Arc::new(AtomicU64::new(0)),
+            None,
+            Some(cuts),
+            None,
+        );
+
+        // 40 chunks of speech, then 200 ms of quiet.
+        assert_eq!(*cut_at.lock().unwrap(), vec![60]);
         let events = events.lock().unwrap();
         assert!(events.iter().any(|event| matches!(
             event,
@@ -876,5 +875,70 @@ mod tests {
             Some(MicMuteGate::new(|| true)),
         );
         assert!(pushed.lock().unwrap()[0].iter().all(|sample| *sample == 0.5));
+    }
+
+    mod speaker_cuts {
+        use super::super::SpeakerCuts;
+        use std::sync::atomic::{AtomicU64, Ordering};
+        use std::sync::Arc;
+
+        const RATE: u32 = 16_000;
+        /// 10 ms chunks.
+        const CHUNK: usize = RATE as usize / 100;
+
+        fn speech() -> Vec<f32> {
+            vec![0.2; CHUNK]
+        }
+
+        fn quiet() -> Vec<f32> {
+            vec![0.0; CHUNK]
+        }
+
+        /// Chunks fed until the cut fires, or `None` within `limit` chunks.
+        fn chunks_until_cut(
+            cuts: &mut SpeakerCuts,
+            mut next: impl FnMut(usize) -> Vec<f32>,
+            limit: usize,
+        ) -> Option<usize> {
+            (1..=limit).find(|&index| cuts.ready(&next(index)))
+        }
+
+        #[test]
+        fn nothing_is_cut_without_a_handover() {
+            let flag = Arc::new(AtomicU64::new(3));
+            let mut cuts = SpeakerCuts::new(flag, RATE);
+            assert_eq!(chunks_until_cut(&mut cuts, |_| quiet(), 500), None);
+        }
+
+        #[test]
+        fn a_handover_during_speech_waits_for_the_pause() {
+            let flag = Arc::new(AtomicU64::new(0));
+            let mut cuts = SpeakerCuts::new(flag.clone(), RATE);
+            flag.fetch_add(1, Ordering::Release);
+            // 50 chunks of speech, then quiet: the cut lands 200 ms into the quiet.
+            let at = chunks_until_cut(&mut cuts, |i| if i <= 50 { speech() } else { quiet() }, 500);
+            assert_eq!(at, Some(50 + 20));
+        }
+
+        #[test]
+        fn a_short_gap_between_words_is_not_a_pause() {
+            let flag = Arc::new(AtomicU64::new(0));
+            let mut cuts = SpeakerCuts::new(flag.clone(), RATE);
+            flag.fetch_add(1, Ordering::Release);
+            // 100 ms gaps every 300 ms never reach the pause, so the max wait decides.
+            let at = chunks_until_cut(&mut cuts, |i| if i % 30 < 10 { quiet() } else { speech() }, 500);
+            assert_eq!(at, Some(150));
+        }
+
+        #[test]
+        fn handovers_while_held_collapse_into_one_cut() {
+            let flag = Arc::new(AtomicU64::new(0));
+            let mut cuts = SpeakerCuts::new(flag.clone(), RATE);
+            flag.fetch_add(1, Ordering::Release);
+            assert!(!cuts.ready(&speech()));
+            flag.fetch_add(1, Ordering::Release);
+            assert_eq!(chunks_until_cut(&mut cuts, |_| quiet(), 500), Some(20));
+            assert_eq!(chunks_until_cut(&mut cuts, |_| quiet(), 500), None);
+        }
     }
 }

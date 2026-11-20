@@ -227,11 +227,14 @@ private final class BridgeSession {
         try commitCurrentUtterance(force: true, resetSession: false)
     }
 
-    /// Speaker change. Same finalize-and-reset as a silence boundary.
+    /// Speaker change or mute. Same finalize-and-reset as a silence boundary,
+    /// but whatever the recognizer decoded is kept even if the speech level
+    /// never crossed the threshold: a quiet voice is still speech, and the
+    /// fresh session after the reset would never see that audio again.
     /// `boundary-done` is always emitted so an empty utterance does not leave
     /// the Rust side waiting for a commit that will never arrive.
     func boundary() throws {
-        try commitCurrentUtterance()
+        try commitCurrentUtterance(force: true)
         emit(BoundaryDoneMessage())
     }
 
