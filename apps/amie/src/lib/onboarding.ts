@@ -7,6 +7,8 @@ export const EXPECTED_MODEL_SIZE_BYTES = 612 * 1024 * 1024;
 export type LaunchFlags = {
   /** `--onboarding-flow` (or the older `--show-onboarding`): always open the setup wizard. */
   onboardingFlow: boolean;
+  /** `--developer-mode` (or `AMIE_DEVELOPER_MODE=1`): developer-only settings and the ASR engine picker. */
+  developerMode: boolean;
 };
 
 export type SpeechModelStatus = {

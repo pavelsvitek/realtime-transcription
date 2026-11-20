@@ -19,6 +19,7 @@ import { EmptyCopy } from "../components/ui/EmptyCopy";
 import { ErrorBanner } from "../components/ui/ErrorBanner";
 import { TranscriptFeed } from "../components/TranscriptFeed";
 import { useAudioDevice } from "../hooks/useAudioDevice";
+import { useDeveloperMode } from "../hooks/useDeveloperMode";
 import { useAudioDevices } from "../hooks/useAudioDevices";
 import { silenceSourceOf } from "../lib/capture-notices";
 import { useMicLevel } from "../hooks/useMicLevel";
@@ -74,7 +75,10 @@ export function TranscribePage({
   onMeetingFinished,
 }: TranscribePageProps) {
   const [audioSource, setAudioSource] = useState<AudioSource>("both");
-  const [backend, setBackend] = useState<AsrBackend>(loadBackend);
+  const developerMode = useDeveloperMode();
+  const [storedBackend, setBackend] = useState<AsrBackend>(loadBackend);
+  // Outside developer mode the engine is always the local Nemotron model.
+  const backend: AsrBackend = developerMode ? storedBackend : "local";
   const {
     segments,
     isActive,
@@ -105,8 +109,8 @@ export function TranscribePage({
   canStartRef.current = !isActive && !isLoading && !stopping;
 
   useEffect(() => {
-    localStorage.setItem(BACKEND_STORAGE_KEY, backend);
-  }, [backend]);
+    localStorage.setItem(BACKEND_STORAGE_KEY, storedBackend);
+  }, [storedBackend]);
 
   useEffect(() => {
     if (sessionSource) {
@@ -221,13 +225,14 @@ export function TranscribePage({
       <header className="relative z-[2] flex shrink-0 items-center justify-between overflow-visible px-4 py-3">
         <div className="flex items-center gap-2.5">
           <h1 className="text-[12px] font-bold">New chat</h1>
-          {model && (
+          {developerMode && model && (
             <span className="rounded-[10px] bg-surface-muted px-2 py-0.5 text-[11px] text-text-muted">
               {model}
             </span>
           )}
         </div>
         <div className="flex items-center gap-2 overflow-visible">
+          {developerMode && (
           <label className="flex items-center gap-1.5 text-[12px] text-text-secondary">
             <span className="whitespace-nowrap">ASR</span>
             <select
@@ -236,10 +241,11 @@ export function TranscribePage({
               onChange={(e) => setBackend(e.target.value as AsrBackend)}
               disabled={isActive || isLoading || stopping}
             >
-              <option value="local">Local (Nemotron)</option>
+              <option value="local">Nemotron 3.5 ASR Streaming 0.6B CoreML INT8</option>
               <option value="xai">xAI Transcribe 2.0</option>
             </select>
           </label>
+          )}
           <MicIndicator
             isActive={isActive && !stopping}
             micActive={micActive}
