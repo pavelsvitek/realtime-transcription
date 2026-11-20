@@ -84,6 +84,7 @@ export function TranscriptIdle({
           <LiveMeetingButton
             loading={loading}
             disabled={loading}
+            shortcut="⌘ N"
             onClick={onStart}
             className="px-[18px] py-[11px] text-[14px]"
           />
