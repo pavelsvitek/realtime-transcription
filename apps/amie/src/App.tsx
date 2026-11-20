@@ -11,6 +11,7 @@ import { TranscribePage } from "./pages/TranscribePage";
 import type { FollowUpSeed } from "./lib/meetings";
 import { markOnboardingSeen } from "./lib/onboarding";
 import type { WizardStep } from "./lib/setup-wizard";
+import { trackEvent } from "./lib/telemetry";
 
 function App() {
   const [page, setPage] = useState<AppPage>("home");
@@ -33,6 +34,7 @@ function App() {
     markOnboardingSeen();
     setWizardDone(true);
     setWizardReopened(false);
+    trackEvent("onboarding_completed");
   }, []);
   const openSetupSummary = useCallback(() => {
     setWizardStep("ready");
@@ -51,7 +53,12 @@ function App() {
     if (next !== "settings") {
       lastMainPageRef.current = next;
     }
-    setPage(next);
+    setPage((prev) => {
+      if (prev !== next) {
+        trackEvent("page_viewed", { page: next });
+      }
+      return next;
+    });
   }, []);
 
   const startMeeting = useCallback(() => {
@@ -118,6 +125,7 @@ function App() {
           onDismissSkipAutoSummaryNotice={() => setSkipAutoSummaryNotice(false)}
           onFollowUpMeeting={(seed) => {
             followUpSeedRef.current = seed;
+            trackEvent("feature_used", { feature: "follow_up_meeting" });
             startMeeting();
           }}
         />
