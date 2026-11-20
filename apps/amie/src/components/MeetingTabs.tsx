@@ -3,9 +3,9 @@ import { cn } from "../lib/cn";
 export type MeetingDetailTab = "summary" | "context" | "transcript";
 
 export const MEETING_TAB_ORDER: MeetingDetailTab[] = [
-  "summary",
-  "context",
   "transcript",
+  "context",
+  "summary",
 ];
 
 const TAB_LABELS: Record<MeetingDetailTab, string> = {
@@ -26,6 +26,8 @@ type MeetingTabsProps = {
   onChange: (tab: MeetingDetailTab) => void;
   prefix?: string;
   className?: string;
+  /** Tabs that cannot be opened yet, with the reason shown next to the label. */
+  locked?: Partial<Record<MeetingDetailTab, string>>;
 };
 
 export function MeetingTabs({
@@ -33,6 +35,7 @@ export function MeetingTabs({
   onChange,
   prefix = "meeting",
   className,
+  locked,
 }: MeetingTabsProps) {
   return (
     <div
@@ -42,6 +45,7 @@ export function MeetingTabs({
       {MEETING_TAB_ORDER.map((id) => {
         const label = TAB_LABELS[id];
         const { tabId, panelId } = meetingTabDomIds(prefix, id);
+        const lockedReason = locked?.[id];
         return (
           <button
             key={id}
@@ -50,14 +54,37 @@ export function MeetingTabs({
             id={tabId}
             aria-controls={panelId}
             aria-selected={tab === id}
+            disabled={Boolean(lockedReason)}
             className={cn(
-              "cursor-pointer border-none bg-transparent px-0 pt-2 pb-2.5 font-[family-name:inherit] text-[14px] text-text-muted",
+              "flex cursor-pointer items-center gap-1.5 border-none bg-transparent px-0 pt-2 pb-2.5 font-[family-name:inherit] text-[14px] text-text-muted",
+              lockedReason && "cursor-default text-text-muted/60",
               tab === id &&
                 "font-semibold text-text-primary shadow-[inset_0_-2px_0_var(--brand-accent)]",
             )}
             onClick={() => onChange(id)}
           >
+            {lockedReason && (
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <rect x="5" y="11" width="14" height="10" rx="2" />
+                <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+              </svg>
+            )}
             {label}
+            {lockedReason && (
+              <span className="rounded-full bg-surface-muted px-[7px] py-px text-[10px] font-normal leading-[14px] text-text-muted">
+                {lockedReason}
+              </span>
+            )}
           </button>
         );
       })}
