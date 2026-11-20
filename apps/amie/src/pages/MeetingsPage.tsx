@@ -8,7 +8,7 @@ import { DeleteMeetingConfirm } from "../components/DeleteMeetingConfirm";
 import { FollowUpMeetingConfirm } from "../components/FollowUpMeetingConfirm";
 import { useStartMeetingConfirmOpen } from "../components/StartMeetingConfirm";
 import { Spinner } from "../components/Spinner";
-import { SkeletonLines } from "../components/Skeleton";
+import { SkeletonLines, SkeletonMeetingList } from "../components/Skeleton";
 import { MeetingTitle } from "../components/MeetingTitle";
 import { MeetingOverflowMenu } from "../components/MeetingOverflowMenu";
 import {
@@ -745,10 +745,7 @@ export function MeetingsPage({
       {displayError && <ErrorBanner>{displayError}</ErrorBanner>}
 
       {listQuery.isPending && !listQuery.data ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-10 text-text-secondary">
-          <Spinner />
-          <p>Loading meetings…</p>
-        </div>
+        <SkeletonMeetingList />
       ) : groups.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-10 text-text-secondary">
           <p className="m-0 text-[15px] font-semibold text-text-primary">No meetings yet</p>

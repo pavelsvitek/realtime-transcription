@@ -25,6 +25,10 @@ export function getAllMeetingsQueryOptions() {
   return queryOptions({
     queryKey: meetingKeys.list(),
     queryFn: getAllMeetings,
+    // The page unmounts when you leave it; keep the list cached so coming back
+    // shows it instantly and refreshes quietly once it is 30s old.
+    staleTime: 30_000,
+    gcTime: 60 * 60 * 1000,
   });
 }
 
