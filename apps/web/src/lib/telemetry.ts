@@ -1,6 +1,6 @@
 export const MAX_PAYLOAD_BYTES = 32 * 1024;
 export const MAX_EVENTS_PER_BATCH = 50;
-export const MAX_PROPS_BYTES = 2 * 1024;
+export const MAX_PROPS_BYTES = 4 * 1024;
 
 const ID_RE = /^[a-zA-Z0-9_-]{8,64}$/;
 const EVENT_NAME_RE = /^[a-z][a-z0-9_]{0,63}$/;
