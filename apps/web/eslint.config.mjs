@@ -11,6 +11,7 @@ export default tseslint.config(
       ".wrangler/**",
       ".tanstack/**",
       "src/routeTree.gen.ts",
+      "worker-configuration.d.ts",
     ],
   },
   js.configs.recommended,
