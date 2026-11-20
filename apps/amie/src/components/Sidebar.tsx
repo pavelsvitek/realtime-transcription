@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { getAllMeetingsQueryOptions } from "../models/Meeting";
 import { ThemeToggle } from "./ThemeToggle";
 import { useColorScheme } from "../hooks/useColorScheme";
 import { LiveMeetingButton } from "./LiveMeetingButton";
@@ -38,6 +40,7 @@ export function Sidebar({
   startDisabled = false,
 }: SidebarProps) {
   const { scheme, toggleScheme } = useColorScheme();
+  const queryClient = useQueryClient();
 
   return (
     <nav
@@ -84,6 +87,11 @@ export function Sidebar({
                 currentPage === item.id && "text-text-active",
               )}
               onClick={() => onNavigate(item.id)}
+              onMouseEnter={
+                item.id === "meetings"
+                  ? () => void queryClient.prefetchQuery(getAllMeetingsQueryOptions())
+                  : undefined
+              }
               aria-current={currentPage === item.id ? "page" : undefined}
             >
               {item.icon}
