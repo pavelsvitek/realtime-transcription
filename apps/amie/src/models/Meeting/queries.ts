@@ -33,6 +33,8 @@ export function getMeetingQueryOptions(id: string) {
     queryKey: meetingKeys.detail(id),
     queryFn: () => getMeeting(id),
     enabled: Boolean(id),
+    // Keeps a hover/selection prefetch fresh until the user actually opens it.
+    staleTime: 30_000,
   });
 }
 

@@ -8,6 +8,7 @@ import { DeleteMeetingConfirm } from "../components/DeleteMeetingConfirm";
 import { FollowUpMeetingConfirm } from "../components/FollowUpMeetingConfirm";
 import { useStartMeetingConfirmOpen } from "../components/StartMeetingConfirm";
 import { Spinner } from "../components/Spinner";
+import { SkeletonLines } from "../components/Skeleton";
 import { MeetingTitle } from "../components/MeetingTitle";
 import { MeetingOverflowMenu } from "../components/MeetingOverflowMenu";
 import {
@@ -44,6 +45,7 @@ import {
   EVENT_SUMMARY_STATUS,
 } from "../lib/tauri-events";
 import {
+  getMeetingQueryOptions,
   meetingKeys,
   useDeleteMeetingMutation,
   useGenerateMeetingSummaryMutation,
@@ -143,6 +145,14 @@ export function MeetingsPage({
     setDeleteConfirm(false);
     setView({ kind: "list" });
   }, []);
+
+  // Warm the detail cache so opening a meeting renders without a loading state.
+  const prefetchMeeting = useCallback(
+    (id: string) => {
+      void queryClient.prefetchQuery(getMeetingQueryOptions(id));
+    },
+    [queryClient],
+  );
 
   // Click and Enter both open a meeting. Neither moves the keyboard cursor.
   const openMeeting = useCallback((id: string) => {
@@ -439,7 +449,8 @@ export function MeetingsPage({
   useEffect(() => {
     if (view.kind !== "list" || !selectedId) return;
     rowRefs.current.get(selectedId)?.scrollIntoView({ block: "nearest" });
-  }, [view.kind, selectedId]);
+    prefetchMeeting(selectedId);
+  }, [view.kind, selectedId, prefetchMeeting]);
 
   const queryError =
     (view.kind === "list" && listQuery.error
@@ -525,6 +536,10 @@ export function MeetingsPage({
 
   if (view.kind === "detail") {
     const meeting = record?.meeting;
+    // While the full record loads, the list row already has the title and
+    // start time, so the page shell can render at once.
+    const shell =
+      meeting ?? meetings.find((item) => item.id === view.id) ?? null;
     const running = jobState === "running";
     const hasTranscript = Boolean(
       record?.segments.some((segment) => segment.text.trim().length > 0)
@@ -545,13 +560,13 @@ export function MeetingsPage({
         <header className="relative z-[2] flex shrink-0 items-center justify-between overflow-visible py-3 pr-6 pl-4">
           <button
             type="button"
-            className="cursor-pointer border-none bg-transparent p-0 font-[family-name:inherit] text-[12px] text-text-secondary hover:text-text-primary"
+            className="cursor-pointer border-none bg-transparent p-0 font-[family-name:inherit] text-[12px] font-bold text-text-primary"
             onClick={goBackToList}
           >
             Meetings
           </button>
           <MeetingOverflowMenu
-            disabled={mutating}
+            disabled={mutating || !record}
             followUpDisabled={meetingInProgress}
             onOpenChange={setMenuOpen}
             onFollowUp={() => setFollowUpConfirm(true)}
@@ -565,22 +580,26 @@ export function MeetingsPage({
           <ErrorBanner>Meeting not found.</ErrorBanner>
         )}
 
-        {loading ? (
+        {!shell && loading ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-10 text-text-secondary">
             <Spinner />
             <p>Loading meeting…</p>
           </div>
-        ) : meeting ? (
+        ) : shell ? (
           <div className="min-h-0 flex-1 overflow-y-auto px-8 pt-2 pb-10 [&_[hidden]]:hidden!">
-            <p className="m-0 text-[13px] text-text-secondary">{formatMeetingDetailWhen(meeting.startedAt)}</p>
+            <p className="m-0 text-[13px] text-text-secondary">{formatMeetingDetailWhen(shell.startedAt)}</p>
             <MeetingTitle
-              meetingId={meeting.id}
-              title={meeting.title}
+              meetingId={shell.id}
+              title={shell.title}
               onError={(message) => setError(message)}
             />
 
             <MeetingTabs tab={tab} onChange={setTab} />
 
+            {!meeting ? (
+              <SkeletonLines className="pt-1" />
+            ) : (
+            <>
             <div
               id={meetingTabDomIds("meeting", "summary").panelId}
               role="tabpanel"
@@ -687,6 +706,8 @@ export function MeetingsPage({
                 )}
               </section>
             </div>
+            </>
+            )}
           </div>
         ) : null}
       </main>
@@ -716,7 +737,8 @@ export function MeetingsPage({
   return (
     <>
     <main className="flex min-h-0 flex-1 flex-col overflow-hidden bg-surface-content">
-      <header className="relative z-[2] flex shrink-0 items-center justify-between overflow-visible px-4 py-3">
+      {/* min-h matches the detail header (36px menu button + py-3) so the label doesn't jump. */}
+      <header className="relative z-[2] flex min-h-[60px] shrink-0 items-center justify-between overflow-visible px-4 py-3">
         <h1 className="text-[12px] font-bold">Meetings</h1>
       </header>
 
@@ -759,6 +781,8 @@ export function MeetingsPage({
                       )}
                       aria-current={meeting.id === selectedId ? "true" : undefined}
                       onClick={() => openMeeting(meeting.id)}
+                      onMouseEnter={() => prefetchMeeting(meeting.id)}
+                      onFocus={() => prefetchMeeting(meeting.id)}
                     >
                       <span
                         className={cn(
