@@ -37,7 +37,7 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
       <head>
         <HeadContent />
       </head>
-      <body className="min-h-full bg-zinc-50 font-sans text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50">
+      <body className="min-h-full bg-background font-sans text-foreground">
         {children}
         <Scripts />
       </body>

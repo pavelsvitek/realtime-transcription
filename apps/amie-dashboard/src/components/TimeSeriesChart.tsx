@@ -79,11 +79,11 @@ export function TimeSeriesChart({
   return (
     <div className="flex flex-col gap-3 px-6 pt-5 pb-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="text-[13px] font-medium text-zinc-950 dark:text-zinc-50">
+        <div className="text-[13px] font-medium text-foreground">
           {isMcp ? "Daily MCP Tool Calls" : "Daily Active Installs & Meetings"}
         </div>
         {activePoint ? (
-          <div className="text-xs text-zinc-500 tabular-nums dark:text-zinc-400">
+          <div className="text-xs text-muted-foreground tabular-nums">
             {hoverIdx !== null ? formatShortDate(activePoint.date) : `Peak: ${formatShortDate(activePoint.date)}`}
             {" · "}
             {isMcp ? (

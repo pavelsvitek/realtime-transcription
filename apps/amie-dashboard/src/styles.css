@@ -3,13 +3,38 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-@theme {
-  --font-sans: "Inter Variable", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-}
-
 :root {
   color-scheme: light;
+  --background: #fafafa;
+  --foreground: #09090b;
+  --card: #ffffff;
+  --card-foreground: #09090b;
+  --muted: #f4f4f5;
+  --muted-foreground: #71717a;
+  --secondary: #fafafa;
+  --secondary-foreground: #52525b;
+  --primary: #18181b;
+  --primary-foreground: #ffffff;
+  --border: #e4e4e7;
+  --border-subtle: #f4f4f5;
+  --accent-blue: #2563eb;
+
+  --positive-bg: #f0fdf4;
+  --positive-border: #bbf7d0;
+  --positive-fg: #15803d;
+
+  --warning-bg: #fffbeb;
+  --warning-border: #fde68a;
+  --warning-fg: #b45309;
+
+  --danger-bg: #fef2f2;
+  --danger-border: #fecaca;
+  --danger-fg: #b91c1c;
+
+  --info-bg: #eff6ff;
+  --info-border: #bfdbfe;
+  --info-fg: #1d4ed8;
+
   --chart-primary: #18181b;
   --chart-secondary: #2563eb;
   --chart-grid: #f4f4f5;
@@ -22,6 +47,36 @@
 
 .dark {
   color-scheme: dark;
+  --background: #09090b;
+  --foreground: #fafafa;
+  --card: #18181b;
+  --card-foreground: #fafafa;
+  --muted: #27272a;
+  --muted-foreground: #a1a1aa;
+  --secondary: #121215;
+  --secondary-foreground: #d4d4d8;
+  --primary: #fafafa;
+  --primary-foreground: #09090b;
+  --border: #27272a;
+  --border-subtle: #27272a;
+  --accent-blue: #60a5fa;
+
+  --positive-bg: rgba(20, 83, 45, 0.35);
+  --positive-border: rgba(34, 197, 94, 0.28);
+  --positive-fg: #4ade80;
+
+  --warning-bg: rgba(120, 53, 15, 0.35);
+  --warning-border: rgba(245, 158, 11, 0.28);
+  --warning-fg: #fbbf24;
+
+  --danger-bg: rgba(127, 29, 29, 0.35);
+  --danger-border: rgba(239, 68, 68, 0.28);
+  --danger-fg: #f87171;
+
+  --info-bg: rgba(30, 58, 138, 0.35);
+  --info-border: rgba(59, 130, 246, 0.28);
+  --info-fg: #60a5fa;
+
   --chart-primary: #fafafa;
   --chart-secondary: #60a5fa;
   --chart-grid: #27272a;
@@ -32,19 +87,48 @@
   --chart-dot-ring: #18181b;
 }
 
+@theme inline {
+  --font-sans: "Inter Variable", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
+  --color-accent-blue: var(--accent-blue);
+
+  --color-positive-bg: var(--positive-bg);
+  --color-positive-border: var(--positive-border);
+  --color-positive-fg: var(--positive-fg);
+
+  --color-warning-bg: var(--warning-bg);
+  --color-warning-border: var(--warning-border);
+  --color-warning-fg: var(--warning-fg);
+
+  --color-danger-bg: var(--danger-bg);
+  --color-danger-border: var(--danger-border);
+  --color-danger-fg: var(--danger-fg);
+
+  --color-info-bg: var(--info-bg);
+  --color-info-border: var(--info-border);
+  --color-info-fg: var(--info-fg);
+}
+
 @layer base {
   html,
   body {
-    background-color: #fafafa;
-    color: #09090b;
+    background-color: var(--background);
+    color: var(--foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
-  }
-
-  .dark body,
-  html.dark {
-    background-color: #09090b;
-    color: #fafafa;
   }
 }
 
