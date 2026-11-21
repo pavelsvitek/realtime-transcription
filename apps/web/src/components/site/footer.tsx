@@ -11,6 +11,7 @@ const columns: { title: string; links: FooterLink[] }[] = [
       { label: "Speaker names", href: "/#speaker-id" },
       { label: "Meeting summaries", href: "/#meeting-summary" },
       { label: "Local MCP", href: "/#local-mcp" },
+      { label: "FAQ", href: "/#faq" },
     ],
   },
   {

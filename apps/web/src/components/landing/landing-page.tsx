@@ -1,4 +1,5 @@
 import { AmieWindow } from "@/components/landing/amie-window";
+import { FaqSection } from "@/components/landing/faq-section";
 import { FitStage } from "@/components/site/fit-stage";
 import { Footer } from "@/components/site/footer";
 import { GridBackground } from "@/components/landing/grid-background";
@@ -56,6 +57,7 @@ export function LandingPage() {
       </div>
       <McpSection />
       <div className="page-zoom">
+        <FaqSection />
         <Footer />
       </div>
     </main>

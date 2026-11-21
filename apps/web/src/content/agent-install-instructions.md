@@ -14,7 +14,7 @@ You are an AI agent helping your user install **Amie**, a macOS app that transcr
 - **What it does:** Amie writes down every word of a meeting as it's said, from the user's microphone and from the other people on the call. It names who is speaking in Google Meet, Zoom and Microsoft Teams, and writes a summary when the meeting ends.
 - **No bot joins the call.** Amie listens on the Mac itself, so nobody in the meeting sees an extra participant.
 - **Local by default.** Speech is transcribed on the Mac. Meetings are stored in `~/Library/Application Support/com.pavel.amie/`. Cloud transcription and AI summaries are optional and only use the user's own API key, if they add one in Settings.
-- **Works with AI agents.** Amie exposes the user's meetings to Claude, Cursor or any MCP client, and the data stays on the Mac.
+- **Works with AI agents.** Amie exposes the user's meetings to Claude, Cursor, Codex, Grok Bot or any MCP client, and the data stays on the Mac.
 - **Requirements:** macOS 15 (Sequoia) or later, on a Mac with Apple silicon (M1 or newer). Intel Macs are not supported.
 - **Website:** https://getamie.app · **Help:** https://getamie.app/support · **Email:** support@getamie.app
 

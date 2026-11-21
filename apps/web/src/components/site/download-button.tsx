@@ -25,7 +25,7 @@ function usePlatform(): Platform {
 
 type Props = {
   /** Where on the page the button sits, recorded with the click event. */
-  location: "hero" | "nav";
+  location: "hero" | "nav" | "faq";
   className: string;
   children: React.ReactNode;
 };

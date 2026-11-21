@@ -75,9 +75,9 @@ export function McpSection() {
               </span>
             </h2>
             <p className="max-w-[520px] text-lg text-raycast-body">
-              Connect Claude, Cursor, or any MCP-compatible AI tool to search
-              past meetings and pull out decisions — without uploading your
-              transcripts to the cloud.
+              Connect Claude, Cursor, Codex, Grok Bot, or any MCP-compatible AI
+              tool to search past meetings and pull out decisions — without
+              uploading your transcripts to the cloud.
             </p>
           </div>
         </div>
