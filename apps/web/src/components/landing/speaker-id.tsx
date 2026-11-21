@@ -11,13 +11,13 @@ const TILES = [
   },
   {
     speaker: "maya" as const,
-    src: "/landing/maya.png",
+    src: "/landing/maya.png?v=2",
     speaking: true,
     muted: false,
   },
   {
     speaker: "jordan" as const,
-    src: "/landing/jordan.png",
+    src: "/landing/jordan.png?v=2",
     speaking: false,
     muted: true,
   },
