@@ -4,6 +4,7 @@ import { FitStage } from "@/components/site/fit-stage";
 import { Footer } from "@/components/site/footer";
 import { GridBackground } from "@/components/landing/grid-background";
 import { Hero } from "@/components/landing/hero";
+import { HeroClaudeCard } from "@/components/landing/hero-claude-card";
 import { McpSection } from "@/components/landing/mcp-section";
 import { MeetingSummary } from "@/components/landing/meeting-summary";
 import { PrimaryNav } from "@/components/site/primary-nav";
@@ -47,6 +48,7 @@ export function LandingPage() {
                 <AmieWindow />
               </FitStage>
             </div>
+            <HeroClaudeCard />
           </div>
         </section>
         <div className="mx-auto w-full max-w-[1440px]">
