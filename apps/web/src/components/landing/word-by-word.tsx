@@ -1,15 +1,51 @@
+"use client";
+
 import { FitStage } from "@/components/site/fit-stage";
 import {
-  LIVE_WORDS,
+  LIVE_SCRIPT,
   SPEAKERS,
+  type LiveScriptLine,
   type SpeakerId,
   liveLine,
   settledLines,
 } from "@/data/roadmap-cut";
+import {
+  useLiveTranscript,
+  type LiveTranscript,
+} from "@/hooks/use-live-transcript";
 
 const CROP_LINES = settledLines.slice(-3);
 
+const LIVE_LINE: LiveScriptLine =
+  LIVE_SCRIPT.find((line) => line.at === 38) ?? {
+    at: 38,
+    speaker: liveLine.speaker,
+    text: liveLine.text,
+  };
+
+const WORD_BY_WORD_SCRIPT: readonly LiveScriptLine[] = [LIVE_LINE];
+
+// Static state shown on the server and for reduced motion: mid-sentence at 0:38.
+const STATIC_STATE: LiveTranscript = {
+  done: [],
+  active: {
+    line: LIVE_LINE,
+    words: 6,
+    total: LIVE_LINE.text.split(" ").length,
+  },
+  fading: false,
+};
+
 export function WordByWord() {
+  const { active, fading } = useLiveTranscript(
+    WORD_BY_WORD_SCRIPT,
+    STATIC_STATE,
+    { holdMs: 2200, fadeMs: 500 },
+  );
+  const words = active
+    ? active.line.text.split(" ").slice(0, active.words)
+    : LIVE_LINE.text.split(" ");
+
   return (
     <section
       id="word-by-word"
@@ -69,8 +105,8 @@ export function WordByWord() {
               text={line.text}
             />
           ))}
-          <div className="flex w-[780px] items-start gap-3">
-            <span className="w-10 shrink-0 text-sm leading-6 text-dark-text-muted">
+          <div className="flex w-[780px] items-start gap-3" aria-live="off">
+            <span className="w-10 shrink-0 text-sm leading-6 text-dark-text-muted tabular-nums">
               {liveLine.time}
             </span>
             <span
@@ -78,18 +114,29 @@ export function WordByWord() {
             >
               {SPEAKERS[liveLine.speaker].name}
             </span>
-            <span className="flex flex-wrap items-center gap-1.5">
-              {LIVE_WORDS.map((item) => (
-                <span
-                  key={item.word}
-                  className={`text-md leading-6 ${
-                    item.ink ? "text-raycast-ink" : "text-dark-text-primary"
-                  }`}
-                  style={{ opacity: item.opacity }}
-                >
-                  {item.word}
-                </span>
-              ))}
+            <span
+              className={`flex flex-wrap items-center gap-x-1.5 transition-opacity duration-500 ${
+                fading ? "opacity-0" : "opacity-100"
+              }`}
+            >
+              {words.map((word, i) => {
+                const fromEnd = words.length - 1 - i;
+                const opacity =
+                  fromEnd === 0 ? 1 : Math.max(0.4, 1 - fromEnd * 0.15);
+                return (
+                  <span
+                    key={i}
+                    className={`text-md leading-6 ${
+                      fromEnd === 0
+                        ? "text-raycast-ink"
+                        : "text-dark-text-primary"
+                    }`}
+                    style={{ opacity }}
+                  >
+                    {word}
+                  </span>
+                );
+              })}
               <span className="caret-blink h-4 w-0.5 shrink-0 rounded-[1px] bg-raycast-accent-red" />
             </span>
           </div>
