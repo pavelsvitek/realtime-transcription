@@ -208,7 +208,7 @@ export function ChatPopup({
               </div>
               <SourceChip
                 folder
-                label="Amie · this Mac"
+                label="From Amie (this Mac)"
                 opacity={
                   phase === "response1"
                     ? Math.max(0, (progress - 0.35) / 0.65)
@@ -258,7 +258,7 @@ export function ChatPopup({
                 ))}
               </div>
               <SourceChip
-                label="0:15–0:31 · this Mac"
+                label="From Amie · 0:15–0:31"
                 opacity={Math.max(0, (progress - 0.35) / 0.65)}
               />
             </div>
