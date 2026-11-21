@@ -219,7 +219,7 @@ export function SpeakerId() {
                   key={line.time}
                   className={`flex items-start gap-3 ${
                     line.live
-                      ? "rounded-md bg-dark-speaker-remote/12 px-2 py-1.5"
+                      ? "-mx-2 rounded-md bg-dark-speaker-remote/12 px-2 py-1.5"
                       : ""
                   }`}
                 >
