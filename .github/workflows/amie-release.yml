@@ -66,7 +66,7 @@ jobs:
       is_release: ${{ steps.version.outputs.is_release }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Resolve version and check it matches the tag
         id: version
@@ -177,16 +177,16 @@ jobs:
       BUNDLE_DIR: apps/amie/src-tauri/target/aarch64-apple-darwin/release/bundle
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v5
         with:
           # packageManager field in root package.json
           version: 10.33.0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: lts/*
           cache: pnpm
@@ -343,7 +343,7 @@ jobs:
           jq . dist-release/latest.json
 
       - name: Keep the final artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: amie-release
           path: dist-release/*
@@ -365,7 +365,7 @@ jobs:
       TAG: ${{ needs.preflight.outputs.tag }}
     steps:
       - name: Download the final artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: amie-release
           path: dist
