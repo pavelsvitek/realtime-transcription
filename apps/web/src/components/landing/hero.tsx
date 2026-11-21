@@ -34,13 +34,13 @@ export function Hero() {
         <div className="flex items-center gap-1.5 rounded px-2 py-0.5 bg-raycast-accent-red-soft">
           <span className="size-1.5 shrink-0 rounded-full bg-raycast-accent-red" />
           <span className="text-xs leading-[18px] font-medium tracking-[0.033em] text-raycast-accent-red">
-            Live · on device
+            Real-time · Runs on your Mac
           </span>
         </div>
         <div className="flex items-center gap-1.5 rounded border border-raycast-hairline-strong px-2 py-0.5">
           <NoBotIcon />
           <span className="text-xs leading-[18px] font-medium tracking-[0.033em] text-raycast-on-dark-mute">
-            No bot on your call
+            No bot joins your call
           </span>
         </div>
       </div>
@@ -53,22 +53,22 @@ export function Hero() {
         </span>
       </h1>
       <p className="max-w-[560px] text-center text-lg text-raycast-on-dark-mute xl:w-[560px]">
-        Amie writes every word as it’s said, from your mic and your calls. Local
-        by default.
+        Real-time transcripts and summaries from your mic and calls. Runs
+        privately on your Mac.
       </p>
-      <div id="download" className="flex flex-col items-center gap-3 pt-1 sm:flex-row sm:items-start">
-        <div className="flex flex-col items-center gap-2">
+      <div id="download" className="flex flex-col items-center gap-2.5 pt-1">
+        <div className="flex flex-col items-center gap-3 sm:flex-row">
           <DownloadButton location="hero" className="flex h-11 cursor-pointer items-center justify-center rounded-lg bg-raycast-primary px-6 text-lg leading-6 font-semibold tracking-[0.014em] text-raycast-on-primary disabled:opacity-70">
             Download for Mac
           </DownloadButton>
-          <DownloadSupportNote />
+          <a
+            href="#word-by-word"
+            className="flex h-11 items-center justify-center rounded-lg border border-raycast-hairline-strong px-6 text-lg leading-6 font-semibold tracking-[0.014em] text-raycast-ink"
+          >
+            How it works
+          </a>
         </div>
-        <a
-          href="#word-by-word"
-          className="flex h-11 items-center justify-center rounded-lg border border-raycast-hairline-strong px-6 text-lg leading-6 font-semibold tracking-[0.014em] text-raycast-ink"
-        >
-          How it works
-        </a>
+        <DownloadSupportNote />
       </div>
     </div>
   );

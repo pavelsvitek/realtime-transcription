@@ -63,10 +63,13 @@ export function DownloadButton({ location, className, children }: Props) {
       >
         <form method="dialog" className="flex flex-col gap-4">
           <p className="text-lg leading-6 font-semibold">
-            Unfortunately, {platform.label} is not supported.
+            {platform.os === "macos"
+              ? "Your macOS version isn’t supported"
+              : "Amie is only available for Mac"}
           </p>
           <p className="text-sm text-raycast-on-dark-mute">
-            Amie runs on macOS {MIN_MACOS_MAJOR} or later.
+            You’re on {platform.label}. Amie requires macOS {MIN_MACOS_MAJOR} or
+            later.
           </p>
           <button
             autoFocus
@@ -80,11 +83,11 @@ export function DownloadButton({ location, className, children }: Props) {
   );
 }
 
-/** "macOS 15+ supported" note shown under the main Download button. */
+/** Requirements note shown under the main Download button. */
 export function DownloadSupportNote() {
   return (
     <p className="text-sm text-raycast-mute">
-      macOS {MIN_MACOS_MAJOR}+ supported
+      For macOS {MIN_MACOS_MAJOR} or later (Apple Silicon)
     </p>
   );
 }
