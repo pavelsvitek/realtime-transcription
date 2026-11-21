@@ -1,15 +1,51 @@
+"use client";
+
 import { FitStage } from "@/components/site/fit-stage";
 import {
-  LIVE_WORDS,
+  LIVE_SCRIPT,
   SPEAKERS,
+  type LiveScriptLine,
   type SpeakerId,
   liveLine,
   settledLines,
 } from "@/data/roadmap-cut";
+import {
+  useLiveTranscript,
+  type LiveTranscript,
+} from "@/hooks/use-live-transcript";
 
 const CROP_LINES = settledLines.slice(-3);
 
+const LIVE_LINE: LiveScriptLine =
+  LIVE_SCRIPT.find((line) => line.at === 38) ?? {
+    at: 38,
+    speaker: liveLine.speaker,
+    text: liveLine.text,
+  };
+
+const WORD_BY_WORD_SCRIPT: readonly LiveScriptLine[] = [LIVE_LINE];
+
+// Static state shown on the server and for reduced motion: mid-sentence at 0:38.
+const STATIC_STATE: LiveTranscript = {
+  done: [],
+  active: {
+    line: LIVE_LINE,
+    words: 6,
+    total: LIVE_LINE.text.split(" ").length,
+  },
+  fading: false,
+};
+
 export function WordByWord() {
+  const { active, fading } = useLiveTranscript(
+    WORD_BY_WORD_SCRIPT,
+    STATIC_STATE,
+    { holdMs: 2200, fadeMs: 500 },
+  );
+  const words = active
+    ? active.line.text.split(" ").slice(0, active.words)
+    : LIVE_LINE.text.split(" ");
+
   return (
     <section
       id="word-by-word"
@@ -18,25 +54,25 @@ export function WordByWord() {
       <div className="flex w-full max-w-[560px] shrink-0 flex-col justify-center gap-5 xl:w-[440px]">
         <div className="flex h-6 shrink-0 items-center self-start rounded border border-raycast-accent-red/35 bg-raycast-accent-red-soft px-2.5">
           <span className="text-xs leading-3 font-medium tracking-[0.4px] text-raycast-accent-red">
-            On device
+            Real-time transcription
           </span>
         </div>
         <h2 className="flex flex-col xl:w-[440px]">
           <span className="section-title font-semibold tracking-[0.2px] text-raycast-ink">
-            Every word,
+            Words appear
           </span>
           <span className="section-title font-semibold tracking-[0.2px] text-raycast-mute">
-            as it’s said.
+            in real-time
           </span>
         </h2>
         <p className="max-w-[480px] text-lg text-raycast-body xl:w-[400px]">
-          Amie writes on your Mac as you talk. Local by default — you see the
-          words land, not a paragraph after the pause.
+          Watch the transcript stream live as people speak — no waiting for
+          pauses or for the call to end. Your audio never leaves your Mac.
         </p>
         <div className="flex h-7 shrink-0 items-center gap-2 self-start rounded-sm border border-raycast-hairline-strong px-2.5">
           <span className="size-1.5 shrink-0 rounded-full bg-raycast-accent-red" />
           <span className="text-sm leading-[13px] font-medium tracking-[0.1px] text-raycast-on-dark-mute">
-            Local (Nemotron)
+            Transcription model runs on your Mac
           </span>
         </div>
       </div>
@@ -69,8 +105,8 @@ export function WordByWord() {
               text={line.text}
             />
           ))}
-          <div className="flex w-[780px] items-start gap-3">
-            <span className="w-10 shrink-0 text-sm leading-6 text-dark-text-muted">
+          <div className="flex w-[780px] items-start gap-3" aria-live="off">
+            <span className="w-10 shrink-0 text-sm leading-6 text-dark-text-muted tabular-nums">
               {liveLine.time}
             </span>
             <span
@@ -78,18 +114,29 @@ export function WordByWord() {
             >
               {SPEAKERS[liveLine.speaker].name}
             </span>
-            <span className="flex flex-wrap items-center gap-1.5">
-              {LIVE_WORDS.map((item) => (
-                <span
-                  key={item.word}
-                  className={`text-md leading-6 ${
-                    item.ink ? "text-raycast-ink" : "text-dark-text-primary"
-                  }`}
-                  style={{ opacity: item.opacity }}
-                >
-                  {item.word}
-                </span>
-              ))}
+            <span
+              className={`flex flex-wrap items-center gap-x-1.5 transition-opacity duration-500 ${
+                fading ? "opacity-0" : "opacity-100"
+              }`}
+            >
+              {words.map((word, i) => {
+                const fromEnd = words.length - 1 - i;
+                const opacity =
+                  fromEnd === 0 ? 1 : Math.max(0.4, 1 - fromEnd * 0.15);
+                return (
+                  <span
+                    key={i}
+                    className={`text-md leading-6 ${
+                      fromEnd === 0
+                        ? "text-raycast-ink"
+                        : "text-dark-text-primary"
+                    }`}
+                    style={{ opacity }}
+                  >
+                    {word}
+                  </span>
+                );
+              })}
               <span className="caret-blink h-4 w-0.5 shrink-0 rounded-[1px] bg-raycast-accent-red" />
             </span>
           </div>

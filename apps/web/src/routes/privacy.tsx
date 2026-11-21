@@ -165,8 +165,8 @@ const sections: LegalSection[] = [
     body: (
       <>
         <p>
-          Amie includes an MCP server so AI tools such as Claude Code, Cursor
-          or Codex can read your meetings. It runs on your Mac, opens no
+          Amie includes an MCP server so AI tools such as Claude, Cursor,
+          Codex or Grok Bot can read your meetings. It runs on your Mac, opens no
           network port, and only works for the tools you connect to it
           yourself. It can read meetings, and unless you run it read‑only, it
           can edit titles, context and summaries and archive meetings. It

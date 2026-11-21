@@ -11,13 +11,13 @@ const TILES = [
   },
   {
     speaker: "maya" as const,
-    src: "/landing/maya.png",
+    src: "/landing/maya.png?v=2",
     speaking: true,
     muted: false,
   },
   {
     speaker: "jordan" as const,
-    src: "/landing/jordan.png",
+    src: "/landing/jordan.png?v=2",
     speaking: false,
     muted: true,
   },
@@ -69,7 +69,7 @@ function NameChip({
 
   return (
     <div
-      className={`absolute bottom-2.5 left-2.5 flex h-[22px] items-center gap-1.5 rounded px-2 ${ring} border`}
+      className={`absolute bottom-2.5 left-2.5 flex h-[22px] items-center gap-1.5 rounded bg-black/60 px-2 backdrop-blur-[2px] ${ring} border`}
     >
       {speaking ? (
         <span className="size-1.5 shrink-0 rounded-full bg-[#23D959]" />
@@ -122,26 +122,25 @@ export function SpeakerId() {
       <div className="flex w-full max-w-[560px] shrink-0 flex-col justify-center gap-5 xl:w-[400px]">
         <div className="flex h-6 shrink-0 items-center self-start rounded border border-raycast-accent-red/35 bg-raycast-accent-red-soft px-2.5">
           <span className="text-xs leading-3 font-medium tracking-[0.4px] text-raycast-accent-red">
-            Speaker ID
+            Who’s speaking
           </span>
         </div>
         <h2 className="flex flex-col xl:w-[400px]">
           <span className="section-title font-semibold tracking-[0.2px] text-raycast-ink">
-            Names from the call,
+            Speaker labels from
           </span>
           <span className="section-title font-semibold tracking-[0.2px] text-raycast-mute">
-            on the transcript.
+            Zoom, Meet and Teams
           </span>
         </h2>
         <p className="max-w-[480px] text-lg text-raycast-body xl:w-[380px]">
-          Amie reads Zoom, Teams and Google Meet names as people talk.
-          Automatic speaker recognition makes meeting summaries more
-          actionable.
+          Amie detects who is speaking automatically, so every line in your
+          transcript and summary is labeled with the right person.
         </p>
         <div className="flex h-7 shrink-0 items-center gap-2 self-start rounded-sm border border-raycast-hairline-strong px-2.5">
           <span className="size-1.5 shrink-0 rounded-full bg-raycast-accent-red" />
           <span className="text-sm leading-[13px] font-medium tracking-[0.1px] text-raycast-on-dark-mute">
-            Zoom · Teams · Meet
+            Automatic speaker detection
           </span>
         </div>
       </div>
@@ -220,7 +219,7 @@ export function SpeakerId() {
                   key={line.time}
                   className={`flex items-start gap-3 ${
                     line.live
-                      ? "rounded-md bg-dark-speaker-remote/12 px-2 py-1.5"
+                      ? "-mx-2 rounded-md bg-dark-speaker-remote/12 px-2 py-1.5"
                       : ""
                   }`}
                 >

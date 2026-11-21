@@ -60,30 +60,31 @@ export function McpSection() {
           <GridPattern fade="top" />
         </div>
         <div className="mx-auto w-full max-w-[calc(1440px*var(--page-zoom))]">
-          <div className="page-zoom flex w-full max-w-[560px] flex-col gap-5 px-5 pb-10 sm:px-8 xl:w-[560px] xl:px-16 xl:pb-16">
+          <div className="page-zoom flex w-full max-w-[880px] flex-col gap-5 px-5 pb-10 sm:px-8 xl:w-[880px] xl:px-16 xl:pb-16">
             <div className="flex h-6 shrink-0 items-center self-start rounded bg-raycast-accent-blue-soft px-2.5">
               <span className="text-xs leading-3 font-medium tracking-[0.4px] text-raycast-accent-blue">
-                Local MCP
+                Works with Claude
               </span>
             </div>
-            <h2 className="flex flex-col xl:w-[560px]">
+            <h2 className="flex flex-col">
               <span className="section-title font-semibold tracking-[0.2px] text-raycast-ink">
-                Ask Amie
+                Use your meetings
               </span>
               <span className="section-title font-semibold tracking-[0.2px] text-raycast-mute">
-                from anywhere.
+                in Claude, Cursor &amp; more
               </span>
             </h2>
-            <p className="max-w-[480px] text-lg text-raycast-body xl:w-[480px]">
-              Cursor, Claude, or any MCP client. Meetings stay on this Mac — no
-              cloud index.
+            <p className="max-w-[520px] text-lg text-raycast-body">
+              Connect Claude, Cursor, Codex, Grok Bot, or any MCP-compatible AI
+              tool to search past meetings and pull out decisions — without
+              uploading your transcripts to the cloud.
             </p>
           </div>
         </div>
       </div>
 
       <div ref={trackRef} className="relative h-[800vh]">
-        <div className="sticky top-0 isolate flex h-svh flex-col">
+        <div className="sticky top-0 isolate flex h-svh flex-col md:top-14 md:h-[calc(100svh-3.5rem)]">
           <div
             aria-hidden
             className="page-zoom pointer-events-none absolute inset-0 -z-10 select-none"
@@ -93,7 +94,7 @@ export function McpSection() {
           <div className="shrink-0 border-b border-raycast-hairline-soft">
             <div className="page-zoom mx-auto flex h-14 max-w-[1440px] items-center justify-between gap-4 px-5 sm:px-8 xl:px-16">
               <p className="shrink-0 text-xs font-medium tracking-[0.4px] text-raycast-accent-blue">
-                02 · LOCAL MCP
+                AI INTEGRATIONS · ON YOUR MAC
               </p>
               <p className="min-w-0 text-right text-sm text-raycast-mute">{caption}</p>
             </div>
@@ -131,7 +132,7 @@ export function McpSection() {
                     <DatabaseIcon className="size-12" />
                   </div>
                   <span className="text-sm font-medium text-raycast-mute">
-                    Amie · this Mac
+                    Your meetings · on this Mac
                   </span>
                 </div>
               </div>
@@ -198,7 +199,7 @@ function Scene({
           <DatabaseIcon className="size-40" />
         </div>
         <span className="text-sm leading-[13px] font-medium tracking-[0.2px] text-raycast-mute">
-          Amie · this Mac
+          Your meetings · on this Mac
         </span>
       </div>
     </>

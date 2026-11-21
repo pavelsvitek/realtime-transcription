@@ -18,16 +18,16 @@ export type McpFlow = "idle" | "request" | "lookup" | "reply";
 
 export const MCP_BEATS: { phase: McpPhase; weight: number; caption: string }[] =
   [
-    { phase: "query1", weight: 0.08, caption: "1 / 2 · Find meetings" },
-    { phase: "request1", weight: 0.1, caption: "1 / 2 · Request → Amie" },
-    { phase: "lookup1", weight: 0.08, caption: "1 / 2 · Amie looks it up" },
-    { phase: "reply1", weight: 0.1, caption: "1 / 2 · Reply ← Cowork" },
-    { phase: "response1", weight: 0.12, caption: "1 / 2 · Two meetings" },
-    { phase: "query2", weight: 0.08, caption: "2 / 2 · Show decisions" },
-    { phase: "request2", weight: 0.1, caption: "2 / 2 · Request → Amie" },
-    { phase: "lookup2", weight: 0.08, caption: "2 / 2 · Amie looks it up" },
-    { phase: "reply2", weight: 0.1, caption: "2 / 2 · Reply ← Cowork" },
-    { phase: "response2", weight: 0.16, caption: "2 / 2 · Decisions in Cowork" },
+    { phase: "query1", weight: 0.08, caption: "1 / 2 · Ask Claude to find recent meetings" },
+    { phase: "request1", weight: 0.1, caption: "1 / 2 · Claude queries Amie on your Mac" },
+    { phase: "lookup1", weight: 0.08, caption: "1 / 2 · Amie searches your local meetings" },
+    { phase: "reply1", weight: 0.1, caption: "1 / 2 · Amie sends matching meetings back" },
+    { phase: "response1", weight: 0.12, caption: "1 / 2 · Claude lists your recent meetings" },
+    { phase: "query2", weight: 0.08, caption: "2 / 2 · Ask for decisions from the meeting" },
+    { phase: "request2", weight: 0.1, caption: "2 / 2 · Claude requests details from Amie" },
+    { phase: "lookup2", weight: 0.08, caption: "2 / 2 · Amie reads the meeting on your Mac" },
+    { phase: "reply2", weight: 0.1, caption: "2 / 2 · Amie returns the decisions" },
+    { phase: "response2", weight: 0.16, caption: "2 / 2 · Claude shows every decision by speaker" },
   ];
 
 export type McpStory = {
