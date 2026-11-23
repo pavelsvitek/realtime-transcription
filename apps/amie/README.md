@@ -1,6 +1,6 @@
 # Amie
 
-Real-time English speech-to-text using NVIDIA Nemotron 3.5 ASR Streaming 0.6B on macOS, with optional xAI Transcribe 2.0 as a cloud backend.
+Real-time speech-to-text using NVIDIA Nemotron Labs Unified ASR 0.6B on macOS, with optional xAI Transcribe 2.0 as a cloud backend.
 
 The desktop app is **Amie** (`com.pavel.amie`). Meetings, Nemotron models, and the xAI key live in `~/Library/Application Support/com.pavel.amie/`.
 
@@ -32,9 +32,9 @@ This builds:
 
 The integration explicitly pins:
 
-- runtime: `speech-swift` 0.0.29
-- model: `aufklarer/Nemotron-3.5-ASR-Streaming-0.6B-CoreML-INT8`
-- audio: English (`en-US` prompt), 16 kHz mono, 320 ms model chunks
+- runtime: `FluidAudio` 0.18.4 (`StreamingUnifiedAsrManager`)
+- model: `FluidInference/nemotron-labs-unified-asr-0.6b-coreml` (`coreml/` subfolder, ~602 MB INT8)
+- audio: English (`en` prompt, overridable via `NEMOTRON_UNIFIED_LANGUAGE`), 16 kHz mono, `1120 ms` default streaming tier (`70_7_7_int8`; overridable via `NEMOTRON_UNIFIED_LATENCY_MS=560|1120|2080` and `NEMOTRON_UNIFIED_PRECISION=int8|fp16`)
 
 Optional override for the helper binary:
 
@@ -69,7 +69,7 @@ Home opens on the setup wizard (Welcome, speech model, microphone, system audio 
 
 Stopping `pnpm tauri dev` (or a Cargo rebuild) quits that window. The runner kills the previous `amie-dev.app` process before launching so you do not stack extra instances.
 
-Developer mode: start with `--developer-mode` (or `AMIE_DEVELOPER_MODE=1`, e.g. `AMIE_DEVELOPER_MODE=1 pnpm tauri dev`) to show the **Nemotron 3.5 ASR Streaming 0.6B CoreML INT8** badge and the **ASR** dropdown on New chat. The dropdown selects that Nemotron model or **xAI Transcribe 2.0** (persisted in `localStorage`). Without the flag both are hidden and Amie always uses Nemotron, whatever was saved. For xAI, save an API key under **Settings → Meeting summary** (stored under Application Support) or set `XAI_API_KEY`. Details: [docs/technical/xai-speech-to-text.md](../../docs/technical/xai-speech-to-text.md).
+Developer mode: start with `--developer-mode` (or `AMIE_DEVELOPER_MODE=1`, e.g. `AMIE_DEVELOPER_MODE=1 pnpm tauri dev`) to show the **Nemotron Labs Unified ASR 0.6B CoreML** badge and the **ASR** dropdown on New chat. The dropdown selects that Nemotron model or **xAI Transcribe 2.0** (persisted in `localStorage`). Without the flag both are hidden and Amie always uses Nemotron, whatever was saved. For xAI, save an API key under **Settings → Meeting summary** (stored under Application Support) or set `XAI_API_KEY`. Details: [docs/technical/xai-speech-to-text.md](../../docs/technical/xai-speech-to-text.md).
 
 ## Local MCP
 

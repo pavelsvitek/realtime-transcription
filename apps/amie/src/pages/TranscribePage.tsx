@@ -282,7 +282,7 @@ export function TranscribePage({
               onChange={(e) => setBackend(e.target.value as AsrBackend)}
               disabled={isActive || isLoading || stopping}
             >
-              <option value="local">Nemotron 3.5 ASR Streaming 0.6B CoreML INT8</option>
+              <option value="local">Nemotron Labs Unified ASR 0.6B CoreML</option>
               <option value="xai">xAI Transcribe 2.0</option>
             </select>
           </label>

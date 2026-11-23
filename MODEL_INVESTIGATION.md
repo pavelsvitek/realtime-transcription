@@ -3,24 +3,26 @@
 ## Current model
 
 The app uses
-[`nvidia/nemotron-3.5-asr-streaming-0.6b`](https://huggingface.co/nvidia/nemotron-3.5-asr-streaming-0.6b)
+[`nvidia/nemotron-labs-unified-asr-0.6b`](https://huggingface.co/nvidia/nemotron-labs-unified-asr-0.6b)
 through a community CoreML INT8 conversion:
 
-- artifact: `aufklarer/Nemotron-3.5-ASR-Streaming-0.6B-CoreML-INT8`
-- runtime: `speech-swift` 0.0.29, `NemotronStreamingASR`
-- architecture: prompt-conditioned cache-aware FastConformer encoder with an RNN-T decoder
+- artifact: `FluidInference/nemotron-labs-unified-asr-0.6b-coreml` (`coreml/` subfolder)
+- runtime: `FluidAudio` 0.18.4, `StreamingUnifiedAsrManager`
+- architecture: prompt-conditioned Unified FastConformer encoder (24 layers) with an RNN-T decoder (25 European languages + `auto`)
 - parameters: approximately 600 million
-- input: 16 kHz mono Float32 with the app explicitly selecting `en-US`
-- compiled streaming geometry: 320 ms with 240 ms lookahead
-- artifact size: approximately 612 MB
+- input: 16 kHz mono Float32 with the app defaulting to `en` (`prompt_id = 0`, overridable via `NEMOTRON_UNIFIED_LANGUAGE`)
+- compiled streaming geometry: default `70_7_7` (1,120 ms latency = 560 ms chunk + 560 ms lookahead, 5.6 s left context; overridable via `NEMOTRON_UNIFIED_LATENCY_MS=560|1120|2080` and `NEMOTRON_UNIFIED_PRECISION=int8|fp16`)
+- artifact size: approximately 602 MB (577 MB INT8 streaming encoder + 18 MB decoder + 7 MB joint + 68 KB vocab)
 
-The integration pins the artifact and loads it from the app-controlled cache rather than relying on the runtime’s changing default model.
+The integration pins the artifact and loads it from the app-controlled cache (`~/Library/Application Support/com.pavel.amie/models/nemotron/nemotron-labs-unified-asr/coreml`) rather than relying on the runtime’s default directory.
 
 ## Why it fits this app
 
-Nemotron is trained for stateful streaming. Each incoming audio frame is processed once and encoder/RNN-T state is carried forward, instead of repeatedly decoding an overlapping long window. This gives the UI sub-second cumulative hypotheses and keeps compute bounded during long calls.
+Nemotron Labs Unified ASR is trained jointly for offline and chunked streaming with mode-consistency regularization (initialized from `parakeet-tdt-0.6b-v3`). Each streaming step encodes a stateless `[left | chunk | right]` window on the Apple Neural Engine (~99.6% ANE ops, ~11–12 ms per encoder call) while carrying RNN-T decoder LSTM state forward across chunks.
 
-The app captures mic and system audio independently. Each stream runs an isolated helper process and model instance because `speech-swift` documents the model class as non-thread-safe. Static stream labels continue to provide `User` versus `Remote` attribution; Nemotron does not provide speaker diarization.
+`nemotron-bridge` uses cursor-based utterance slicing on trailing silence (`UtteranceCursor`) so per-utterance commits are emitted without resetting the 5.6 s left-context window or RNN-T state; only speaker-change `boundary` events flush and reset the session.
+
+The app captures mic and system audio independently, with one isolated helper process and model instance per stream. Static stream labels continue to provide `User` versus `Remote` attribution; Nemotron Unified ASR does not provide speaker diarization.
 
 ## Model-selection accuracy
 
@@ -35,21 +37,15 @@ Published benchmark results are not directly comparable to this repository’s g
 
 ## Runtime limitations
 
-- Model outputs are cumulative hypotheses, not text deltas.
-- There is no end-of-utterance token. The helper uses rolling energy detection, calls `finalize()` at a speech boundary, emits a commit, and creates a fresh model session.
-- `speech-swift` 0.0.23+ exposes emission-aligned word timestamps (`PartialTranscript.words`, ~80 ms encoder frame granularity), though `nemotron-bridge` currently continues to derive segment times from the audio sample clock.
-- `confidence` is based on mean token log probability and is not calibrated.
-- `segmentIndex` is not useful in the current runtime.
-- Long-running CoreML workloads may exhaust IOSurface resources. Inference runs inside autorelease pools and the app recreates helper processes between transcription sessions.
+- Model outputs are append-only cumulative transcripts (`StreamingUnifiedAsrManager.getPartialTranscript()`). `nemotron-bridge` slices per-utterance partials and commits using `UtteranceCursor`.
+- There is no end-of-utterance token. The helper uses rolling energy detection (waiting at least `max(NEMOTRON_EOU_SILENCE_MS, latencyMs)` of trailing silence so speech clears the right-context holdback) to slice a commit while keeping the 5.6 s acoustic left context warm; speaker-change `boundary` calls `finish()` and `reset()`.
+- `FluidAudio`'s `StreamingUnifiedAsrManager` exposes emission-aligned per-token/word timings (`consumeWordTimings()`), though `nemotron-bridge` currently drains them to keep memory bounded and derives segment times from the audio sample clock.
+- Buffered streaming re-encodes the `[left | chunk | right]` window each step rather than caching encoder states; at `1120 ms` (`70_7_7`), it still runs ~2× faster than Nemotron 3.5 cache-aware 320 ms on Apple Silicon ANE.
+- Helpers are terminated when their workers stop, so a new app transcription session gets fresh CoreML model processes.
 
 ## Licensing
 
-The model is governed by the NVIDIA Open Model License. Redistribution includes:
-
-- `apps/amie/licenses/NVIDIA-OPEN-MODEL-LICENSE.txt`
-- `apps/amie/licenses/NOTICE`
-
-The runtime code is Apache-2.0.
+The model is governed by the OpenMDW License Agreement, Version 1.1 (`openmdw-1.1`). Runtime code (`FluidAudio`) is Apache-2.0. Redistribution notices are tracked in `apps/amie/licenses/NOTICE`.
 
 ## Evaluation requirements
 
@@ -77,3 +73,12 @@ Nemotron 3.5 switch validation on July 17, 2026:
 - Swift helper tests, all 41 Rust unit tests, and all 8 frontend tests passed.
 
 Latency, memory, repeated-lifecycle, and long-soak figures previously collected for the English 160 ms artifact must be remeasured before being attributed to Nemotron 3.5.
+
+### Nemotron Labs Unified ASR 0.6B (`FluidAudio 0.18.4`) validation on November 23, 2026
+
+- Full 10-meeting NOTSOFAR eval-small (64.2 min far-field audio, 15,465 reference words; see `docs/eval/dataset-notsofar.md`):
+  - **Default `1120 ms INT8` (`70_7_7_int8`, cursor commits):** **39.50% macro / 39.93% micro WER** (S=823, I=100, D=5,252) in **4.65 min wall** (~2× faster than Nemotron 3.5's 8.7 min; **−15.6% substitutions**, **−27.5% insertions**).
+  - **`2080 ms INT8` (`70_13_13_int8`, cursor commits):** **39.01% macro / 39.47% micro WER** (S=775, I=94, D=5,235) in **2.86 min wall** (~3× faster than Nemotron 3.5; **−20.5% substitutions**, **−31.9% insertions**, beats Nemotron 3.5 overall macro/micro WER).
+- Dual-stream RSS check (two concurrent `nemotron-bridge` processes streaming 15 s of meeting audio with a speaker boundary): **126.1 MB total RSS** (63.0 MB + 63.2 MB), completed in 1.17 s wall (~13× real-time).
+- `nemotron-bridge` release binary shrank from **38 MB** (`speech-swift 0.0.29` with MLX) to **21 MB** (`FluidAudio 0.18.4`), linking only Apple system frameworks/dylibs (`otool -L`).
+- Fixed-reference golden file/loopback WER still needs to be measured once `golden-dataset/clips/test-youtube-video.mp4` is present locally.

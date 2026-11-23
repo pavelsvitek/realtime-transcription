@@ -168,14 +168,14 @@ mod tests {
         let status = TranscriptionStatus {
             active: false,
             loading: Some(true),
-            model: Some("Nemotron 3.5 ASR Streaming 0.6B CoreML INT8".into()),
+            model: Some("Nemotron Labs Unified ASR 0.6B CoreML".into()),
             error: None,
         };
 
         let json = serde_json::to_value(&status).unwrap();
         assert_eq!(json["active"], false);
         assert_eq!(json["loading"], true);
-        assert_eq!(json["model"], "Nemotron 3.5 ASR Streaming 0.6B CoreML INT8");
+        assert_eq!(json["model"], "Nemotron Labs Unified ASR 0.6B CoreML");
         assert!(json.get("error").is_none());
     }
 

@@ -157,7 +157,7 @@ mod tests {
     fn expected_size_matches_investigation_doc() {
         assert_eq!(
             nemotron::EXPECTED_DOWNLOAD_SIZE_BYTES,
-            612 * 1024 * 1024
+            602 * 1024 * 1024
         );
     }
 

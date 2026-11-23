@@ -12,8 +12,8 @@ let package = Package(
     ],
     dependencies: [
         .package(
-            url: "https://github.com/soniqo/speech-swift.git",
-            exact: "0.0.29"
+            url: "https://github.com/FluidInference/FluidAudio.git",
+            exact: "0.18.4"
         ),
     ],
     targets: [
@@ -22,7 +22,7 @@ let package = Package(
             name: "NemotronBridge",
             dependencies: [
                 "NemotronCore",
-                .product(name: "NemotronStreamingASR", package: "speech-swift"),
+                .product(name: "FluidAudio", package: "FluidAudio"),
             ]
         ),
         .testTarget(

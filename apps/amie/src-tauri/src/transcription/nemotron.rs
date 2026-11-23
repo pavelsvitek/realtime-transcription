@@ -13,21 +13,64 @@ use serde::{Deserialize, Serialize};
 
 use super::pipeline::{AsrOutput, AsrWord, StreamingAsr};
 
-pub const MODEL_DISPLAY_NAME: &str = "Nemotron 3.5 ASR Streaming 0.6B CoreML INT8";
+pub const MODEL_DISPLAY_NAME: &str = "Nemotron Labs Unified ASR 0.6B CoreML";
 pub const CACHE_SUBDIR: &str = "nemotron";
-pub const MODEL_REPOSITORY: &str = "aufklarer/Nemotron-3.5-ASR-Streaming-0.6B-CoreML-INT8";
-pub const MODEL_BUNDLE_SUBDIR: &str =
-    "qwen3-speech/models/aufklarer/Nemotron-3.5-ASR-Streaming-0.6B-CoreML-INT8";
-/// Approximate CoreML INT8 artifact size (see MODEL_INVESTIGATION.md).
-pub const EXPECTED_DOWNLOAD_SIZE_BYTES: u64 = 612 * 1024 * 1024;
-const REQUIRED_MODEL_COMPONENTS: &[&str] = &[
-    "encoder.mlmodelc",
-    "decoder.mlmodelc",
-    "joint.mlmodelc",
-    "config.json",
+pub const MODEL_REPOSITORY: &str = "FluidInference/nemotron-labs-unified-asr-0.6b-coreml";
+pub const MODEL_BUNDLE_SUBDIR: &str = "nemotron-labs-unified-asr/coreml";
+/// Approximate CoreML INT8 artifact size (577 MB encoder + 25 MB decoder/joint/vocab = ~602 MB).
+pub const EXPECTED_DOWNLOAD_SIZE_BYTES: u64 = 602 * 1024 * 1024;
+const DEFAULT_UNIFIED_LATENCY_SUFFIX: &str = "70_7_7";
+const DEFAULT_UNIFIED_PRECISION_INT8: bool = true;
+const SHARED_MODEL_COMPONENTS: &[&str] = &[
+    "nemotron_unified_decoder.mlmodelc",
+    "nemotron_unified_joint_decision_single_step.mlmodelc",
     "vocab.json",
-    "languages.json",
 ];
+
+fn selected_encoder_component() -> String {
+    let suffix = match std::env::var("NEMOTRON_UNIFIED_LATENCY_MS")
+        .ok()
+        .as_deref()
+        .map(str::trim)
+    {
+        Some("560") => "70_2_5",
+        Some("1120") => "70_7_7",
+        Some("2080") => "70_13_13",
+        _ => DEFAULT_UNIFIED_LATENCY_SUFFIX,
+    };
+    let is_int8 = match std::env::var("NEMOTRON_UNIFIED_PRECISION")
+        .ok()
+        .as_deref()
+        .map(str::trim)
+        .map(str::to_ascii_lowercase)
+        .as_deref()
+    {
+        Some("fp16") => false,
+        Some("int8") => true,
+        _ => DEFAULT_UNIFIED_PRECISION_INT8,
+    };
+    if is_int8 {
+        format!("nemotron_unified_encoder_streaming_{suffix}_int8.mlmodelc")
+    } else {
+        format!("nemotron_unified_encoder_streaming_{suffix}.mlmodelc")
+    }
+}
+
+fn required_model_components() -> Vec<String> {
+    let mut components = Vec::with_capacity(SHARED_MODEL_COMPONENTS.len() + 1);
+    components.push(selected_encoder_component());
+    components.extend(SHARED_MODEL_COMPONENTS.iter().map(|c| (*c).to_string()));
+    components
+}
+
+fn component_is_complete(bundle_dir: &Path, component: &str) -> bool {
+    let path = bundle_dir.join(component);
+    if component.ends_with(".mlmodelc") {
+        path.join("coremldata.bin").exists()
+    } else {
+        path.exists()
+    }
+}
 const INIT_READY_TIMEOUT: Duration = Duration::from_secs(60);
 const INIT_OVERALL_TIMEOUT: Duration = Duration::from_secs(300);
 const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(60 * 30);
@@ -369,9 +412,9 @@ pub fn validate_installation(helper_path: &Path, model_bundle_dir: &Path) -> Res
         ));
     }
 
-    for component in REQUIRED_MODEL_COMPONENTS {
-        let path = model_bundle_dir.join(component);
-        if !path.exists() {
+    for component in required_model_components() {
+        if !component_is_complete(model_bundle_dir, &component) {
+            let path = model_bundle_dir.join(&component);
             return Err(format!(
                 "Nemotron model component {} is missing at {}. Run apps/amie/scripts/setup-nemotron.sh.",
                 component,
@@ -386,9 +429,9 @@ pub fn model_bundle_ready(model_bundle_dir: &Path) -> bool {
     if !model_bundle_dir.is_dir() {
         return false;
     }
-    REQUIRED_MODEL_COMPONENTS
+    required_model_components()
         .iter()
-        .all(|component| model_bundle_dir.join(component).exists())
+        .all(|component| component_is_complete(model_bundle_dir, component))
 }
 
 /// Callback for helper download progress (0–100) and stage label from stdout JSON.
@@ -600,13 +643,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn model_bundle_path_matches_speech_swift_cache_layout() {
+    fn model_bundle_path_matches_fluidaudio_cache_layout() {
         let path = default_model_bundle_dir(Path::new("/cache"));
         assert_eq!(
             path,
-            Path::new(
-                "/cache/qwen3-speech/models/aufklarer/Nemotron-3.5-ASR-Streaming-0.6B-CoreML-INT8"
-            )
+            Path::new("/cache/nemotron-labs-unified-asr/coreml")
         );
     }
 
