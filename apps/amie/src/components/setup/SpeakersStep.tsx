@@ -41,7 +41,7 @@ export function SpeakersStep({ onNext }: { onNext: () => void }) {
             </>
           }
           title="Accessibility"
-          copy="Reads who Zoom or Teams shows as speaking. Does not record the screen."
+          copy="Reads who Zoom, Teams, or Slack shows as speaking. Does not record the screen."
           action={
             axAllowed ? (
               <Allowed label="Allowed" />

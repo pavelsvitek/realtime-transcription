@@ -145,7 +145,7 @@ export function readyRows(state: {
     {
       label: "Speaker names",
       done: state.accessibilityAllowed,
-      detail: state.accessibilityAllowed ? "Zoom & Teams" : undefined,
+      detail: state.accessibilityAllowed ? "Zoom, Teams & Slack" : undefined,
       step: "speakers",
     },
     {

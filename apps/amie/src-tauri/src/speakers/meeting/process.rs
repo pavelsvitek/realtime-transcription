@@ -6,7 +6,16 @@ use objc2_foundation::NSString;
 
 pub const ZOOM_BUNDLE: &str = "us.zoom.xos";
 pub const TEAMS_BUNDLE: &str = "com.microsoft.teams2";
+pub const SLACK_BUNDLE: &str = "com.tinyspeck.slackmacgap";
 const TEAMS_BUNDLES: &[&str] = &[TEAMS_BUNDLE, "com.microsoft.teams"];
+
+pub fn slack_pids() -> Vec<i32> {
+    pids_for(SLACK_BUNDLE)
+}
+
+pub fn slack_pid() -> Option<i32> {
+    pid_for(SLACK_BUNDLE)
+}
 
 pub fn teams_pid() -> Option<i32> {
     TEAMS_BUNDLES
@@ -56,14 +65,19 @@ fn pid_for_teams_path() -> Option<i32> {
     None
 }
 
-pub fn pid_for(bundle_id: &str) -> Option<i32> {
+pub fn pids_for(bundle_id: &str) -> Vec<i32> {
     let ident = NSString::from_str(bundle_id);
     let apps = NSRunningApplication::runningApplicationsWithBundleIdentifier(&ident);
-    let app = apps.firstObject()?;
-    let pid = app.processIdentifier();
-    if pid > 0 {
-        Some(pid)
-    } else {
-        None
+    let mut pids = Vec::new();
+    for app in apps.iter() {
+        let pid = app.processIdentifier();
+        if pid > 0 {
+            pids.push(pid);
+        }
     }
+    pids
+}
+
+pub fn pid_for(bundle_id: &str) -> Option<i32> {
+    pids_for(bundle_id).into_iter().next()
 }

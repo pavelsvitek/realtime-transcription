@@ -118,7 +118,7 @@ describe("readyRows", () => {
       ["Microphone", true, undefined],
       ["System audio", true, "tested"],
       ["Summaries", true, "xAI"],
-      ["Speaker names", true, "Zoom & Teams"],
+      ["Speaker names", true, "Zoom, Teams & Slack"],
       ["Google Meet speaker names", false, "not connected"],
     ]);
   });

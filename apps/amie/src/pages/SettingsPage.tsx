@@ -637,7 +637,7 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
                   <div className={S.accessCardMain}>
                     <h3 className={S.heading}>Accessibility</h3>
                     <p className={S.copy}>
-                      Reads who Zoom or Teams shows as speaking. Does not record the screen.
+                      Reads who Zoom, Teams, or Slack shows as speaking. Does not record the screen.
                     </p>
                     <div className={S.row}>
                       <span className={S.label}>Status</span>
@@ -686,6 +686,10 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
                       systemAccess?.accessibility.meetingApp === "teams") && (
                       <p className={S.copy}>Microsoft Teams is open.</p>
                     )}
+                    {(speakerStatus?.meetingApp === "slack" ||
+                      systemAccess?.accessibility.meetingApp === "slack") && (
+                      <p className={S.copy}>Slack is open.</p>
+                    )}
                   </div>
                   <div className={S.actions}>
                     <Button
@@ -706,7 +710,7 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
                     <h3 className={S.heading}>Google Meet extension</h3>
                     <p className={S.copy}>
                       Names remote speakers in Google Meet from the Amie for Google Meet extension.
-                      Zoom and Teams still use Accessibility.
+                      Zoom, Teams, and Slack still use Accessibility.
                     </p>
                     <div className={S.row}>
                       <span className={S.label}>Status</span>

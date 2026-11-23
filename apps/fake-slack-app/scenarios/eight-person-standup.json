@@ -1,0 +1,22 @@
+{
+  "name": "Eight-person standup with mute toggle and overlap",
+  "description": "Needs --participants 8. All seven remote participants speak in turns, with a local mute toggle, a quick handoff, and an overlap.",
+  "steps": [
+    { "speak": "Ada Lovelace", "text": "Morning everyone, let's do a quick round across the whole team." },
+    { "pause": 0.8 },
+    { "speak": "Alan Turing", "text": "Audio pipeline benchmarks are green across all devices." },
+    { "pause": 0.2 },
+    { "speak": "Grace Hopper", "text": "I fixed the macOS accessibility polling edge case." },
+    { "pause": 0.8 },
+    { "mute": true },
+    { "speak": "Katherine Johnson", "text": "Telemetry numbers look solid for the release." },
+    { "pause": 0.8 },
+    { "overlap": [
+      { "speak": "Dennis Ritchie", "text": "I can take the follow-up on the Rust parser this afternoon." },
+      { "speak": "Margaret Hamilton", "text": "I will review that pull request right after standup.", "lead": 0.8 }
+    ] },
+    { "pause": 0.8 },
+    { "mute": false },
+    { "speak": "Linus Torvalds", "text": "Keep the changes clean and small, and we are good to ship." }
+  ]
+}
