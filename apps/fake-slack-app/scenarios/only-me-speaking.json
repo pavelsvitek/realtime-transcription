@@ -1,0 +1,9 @@
+{
+  "name": "Only the local user is marked speaking",
+  "description": "Works with --participants 2 or more. The local user is never a remote name, so the system-audio line stays Remote.",
+  "steps": [
+    { "speak": "me", "text": "This is the local user. Nobody else in the call is speaking right now." },
+    { "pause": 1.0 },
+    { "speak": "Ada Lovelace", "text": "And now it is Ada, who is a remote participant." }
+  ]
+}

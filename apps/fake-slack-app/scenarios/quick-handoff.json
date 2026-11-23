@@ -1,0 +1,11 @@
+{
+  "name": "Speakers hand over faster than the pause detector",
+  "description": "Needs --participants 3 or more. Only 0.2 s between speakers, shorter than the ASR end-of-utterance silence (800 ms by default), so a speaker change has to cut the utterance. Expect Ada, Alan, Ada.",
+  "steps": [
+    { "speak": "Ada Lovelace", "text": "That covers the budget for this quarter." },
+    { "pause": 0.2 },
+    { "speak": "Alan Turing", "text": "Thanks Ada, I have one question about hiring." },
+    { "pause": 0.2 },
+    { "speak": "Ada Lovelace", "text": "Go ahead." }
+  ]
+}
