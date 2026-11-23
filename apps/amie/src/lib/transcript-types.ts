@@ -2,8 +2,38 @@ export type AudioSource = "mic" | "system" | "both";
 
 export type AsrBackend = "local" | "xai";
 
+export type AsrLanguage =
+  | "auto"
+  | "bg"
+  | "cs"
+  | "da"
+  | "de"
+  | "el"
+  | "en"
+  | "es"
+  | "et"
+  | "fi"
+  | "fr"
+  | "hr"
+  | "hu"
+  | "it"
+  | "lt"
+  | "lv"
+  | "mt"
+  | "nl"
+  | "pl"
+  | "pt"
+  | "ro"
+  | "ru"
+  | "sk"
+  | "sl"
+  | "sv"
+  | "uk";
+
 export type AsrSettings = {
   backendOptions: string[];
+  language: AsrLanguage;
+  languageFromEnv: boolean;
   xaiApiKeySet: boolean;
   xaiApiKeySaved: boolean;
   xaiApiKeyFromEnv: boolean;

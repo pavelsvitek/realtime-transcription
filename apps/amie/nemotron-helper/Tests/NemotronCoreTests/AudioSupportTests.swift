@@ -47,9 +47,12 @@ func unifiedOptionsDefaultsAndOverrides() {
     let defaults = UnifiedRuntimeOptions.fromEnvironment([:])
     #expect(defaults.latencyTier == .ms1120)
     #expect(defaults.precision == .int8)
-    #expect(defaults.language == "en")
+    #expect(defaults.language == "auto")
     #expect(defaults.encoderFilename == "nemotron_unified_encoder_streaming_70_7_7_int8.mlmodelc")
     #expect(defaults.requiredBundleComponents.count == 4)
+
+    let fromInit = defaults.withLanguage(from: "cs", environment: [:])
+    #expect(fromInit.language == "cs")
 
     let custom = UnifiedRuntimeOptions.fromEnvironment([
         "NEMOTRON_UNIFIED_LATENCY_MS": "2080",
@@ -60,6 +63,13 @@ func unifiedOptionsDefaultsAndOverrides() {
     #expect(custom.precision == .fp16)
     #expect(custom.language == "de")
     #expect(custom.encoderFilename == "nemotron_unified_encoder_streaming_70_13_13.mlmodelc")
+    // Environment variable takes precedence over init message language.
+    #expect(
+        custom.withLanguage(
+            from: "cs",
+            environment: ["NEMOTRON_UNIFIED_LANGUAGE": "de"]
+        ).language == "de"
+    )
 
     let invalid = UnifiedRuntimeOptions.fromEnvironment([
         "NEMOTRON_UNIFIED_LATENCY_MS": "999",

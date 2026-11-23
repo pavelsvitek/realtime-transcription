@@ -34,7 +34,7 @@ The integration explicitly pins:
 
 - runtime: `FluidAudio` 0.18.4 (`StreamingUnifiedAsrManager`)
 - model: `FluidInference/nemotron-labs-unified-asr-0.6b-coreml` (`coreml/` subfolder, ~602 MB INT8)
-- audio: English (`en` prompt, overridable via `NEMOTRON_UNIFIED_LANGUAGE`), 16 kHz mono, `1120 ms` default streaming tier (`70_7_7_int8`; overridable via `NEMOTRON_UNIFIED_LATENCY_MS=560|1120|2080` and `NEMOTRON_UNIFIED_PRECISION=int8|fp16`)
+- audio: automatic language detection (`auto` prompt by default, configurable across 25 European languages in **Settings → Language detection** or via `NEMOTRON_UNIFIED_LANGUAGE`), 16 kHz mono, `1120 ms` default streaming tier (`70_7_7_int8`; overridable via `NEMOTRON_UNIFIED_LATENCY_MS=560|1120|2080` and `NEMOTRON_UNIFIED_PRECISION=int8|fp16`)
 
 Optional override for the helper binary:
 

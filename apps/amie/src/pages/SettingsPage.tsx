@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { invoke } from "@tauri-apps/api/core";
 import type { AsrSettings, SummaryProvider, SummarySettings } from "../lib/transcript-types";
+import { ASR_LANGUAGES, asrLanguageLabel } from "../lib/asr-languages";
 import { summaryProviderHasKey } from "../lib/summary-providers";
 import { useSpeakerTagsStatus } from "../hooks/useSpeakerTagsStatus";
 import { codeRequirementLabel, signatureLabel } from "../lib/speaker-tags";
@@ -55,10 +56,16 @@ const PROVIDERS: { id: SummaryProvider; label: string }[] = [
   { id: "gemini", label: "Gemini" },
 ];
 
-type SettingsSection = "meeting-summary" | "mcp" | "system-access" | "privacy";
+type SettingsSection =
+  | "meeting-summary"
+  | "language-detection"
+  | "mcp"
+  | "system-access"
+  | "privacy";
 
 const NAV_ITEMS: { id: SettingsSection; label: string }[] = [
   { id: "meeting-summary", label: "Meeting summary" },
+  { id: "language-detection", label: "Language detection" },
   { id: "mcp", label: "MCP" },
   { id: "system-access", label: "System access" },
   { id: "privacy", label: "Privacy" },
@@ -363,6 +370,73 @@ export function SettingsPage({ onBack }: { onBack: () => void }) {
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-surface-content">
           <div className="min-h-0 flex-1 overflow-y-auto pt-[calc(var(--window-chrome-top)+8px)]">
+            {section === "language-detection" && (
+              <section className={S.section}>
+                <h2 className={S.paneTitle}>Language detection</h2>
+                <p className={S.copy}>
+                  Choose how Amie’s local speech model recognizes the language spoken in your
+                  meetings. Changes apply when you start your next recording.
+                </p>
+
+                <label className={S.row}>
+                  <span className={S.label}>Spoken language</span>
+                  <select
+                    className={S.input}
+                    value={settings?.language ?? "auto"}
+                    disabled={saving || !settings || settings.languageFromEnv}
+                    onChange={(e) => {
+                      const language = e.target.value;
+                      void run(async () => {
+                        await invoke("set_asr_language", { language });
+                        setStatus(
+                          `Language set to ${asrLanguageLabel(language)}. Takes effect on the next recording.`,
+                        );
+                      });
+                    }}
+                  >
+                    {ASR_LANGUAGES.map((item) => (
+                      <option key={item.code} value={item.code}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                {settings?.languageFromEnv && (
+                  <p className={S.copy}>
+                    Language is set by <code>NEMOTRON_UNIFIED_LANGUAGE</code> and cannot be edited
+                    here.
+                  </p>
+                )}
+
+                <div className="mt-1 flex flex-col gap-2.5 border-t border-border-default pt-3.5">
+                  <h3 className={S.heading}>How it works</h3>
+                  <p className={S.copy}>
+                    Amie runs <strong>NVIDIA Nemotron Unified ASR 0.6B</strong> locally on your Mac.
+                    One shared model covers all 25 European languages listed above, so switching
+                    languages needs no extra download.
+                  </p>
+                  <p className={S.copy}>
+                    <strong>Auto (default)</strong> listens without a fixed language and detects
+                    what is being spoken automatically — ideal if your meetings mix or switch
+                    languages.
+                  </p>
+                  <p className={S.copy}>
+                    <strong>Picking a specific language</strong> gives the model a language hint
+                    before the first word arrives. Because live transcription decodes short chunks
+                    (~1.1 s), <strong>Auto</strong> can occasionally misread the first word or two
+                    before enough speech is heard; selecting your language locks it in from the
+                    start and helps with short phrases or accents.
+                  </p>
+                  <p className={S.copy}>
+                    Only the 25 European languages in this list are supported locally (non-European
+                    languages such as Chinese, Japanese, Korean, Arabic, or Hindi are not supported
+                    by this model).
+                  </p>
+                </div>
+              </section>
+            )}
+
             {section === "meeting-summary" && (
               <>
                 <section className={S.section}>

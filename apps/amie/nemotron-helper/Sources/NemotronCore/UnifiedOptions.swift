@@ -36,7 +36,7 @@ public enum UnifiedPrecisionOption: String, Sendable, CaseIterable {
 public struct UnifiedRuntimeOptions: Sendable, Equatable {
     public static let defaultLatencyTier: UnifiedLatencyTier = .ms1120
     public static let defaultPrecision: UnifiedPrecisionOption = .int8
-    public static let defaultLanguage = "en"
+    public static let defaultLanguage = "auto"
 
     public static let supportedLanguages: Set<String> = [
         "auto",
@@ -57,6 +57,17 @@ public struct UnifiedRuntimeOptions: Sendable, Equatable {
         self.latencyTier = latencyTier
         self.precision = precision
         self.language = language
+    }
+
+    public static func parseLanguage(_ raw: String?) -> String? {
+        guard let normalized = raw?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased(),
+            supportedLanguages.contains(normalized)
+        else {
+            return nil
+        }
+        return normalized
     }
 
     public static func fromEnvironment(_ environment: [String: String]) -> Self {
@@ -81,18 +92,24 @@ public struct UnifiedRuntimeOptions: Sendable, Equatable {
             precision = defaultPrecision
         }
 
-        let language: String
-        if let rawLanguage = environment["NEMOTRON_UNIFIED_LANGUAGE"]?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased(),
-           supportedLanguages.contains(rawLanguage)
-        {
-            language = rawLanguage
-        } else {
-            language = defaultLanguage
-        }
+        let language = parseLanguage(environment["NEMOTRON_UNIFIED_LANGUAGE"]) ?? defaultLanguage
 
         return Self(latencyTier: latencyTier, precision: precision, language: language)
+    }
+
+    /// Resolve effective language with precedence:
+    /// `NEMOTRON_UNIFIED_LANGUAGE` env var > `init` message language > default (`"auto"`).
+    public func withLanguage(
+        from initLanguage: String?,
+        environment: [String: String]
+    ) -> Self {
+        if Self.parseLanguage(environment["NEMOTRON_UNIFIED_LANGUAGE"]) != nil {
+            return self
+        }
+        guard let parsed = Self.parseLanguage(initLanguage) else {
+            return self
+        }
+        return Self(latencyTier: latencyTier, precision: precision, language: parsed)
     }
 
     public var encoderFilename: String {

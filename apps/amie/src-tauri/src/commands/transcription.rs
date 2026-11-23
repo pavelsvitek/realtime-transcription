@@ -7,7 +7,7 @@ use tauri::{AppHandle, State};
 use crate::ipc::transcript::{TranscriptExport, TranscriptionSnapshot};
 use crate::state::TranscriptionHandle;
 use crate::telemetry::TelemetryService;
-use crate::transcription::{xai, AsrBackend, AudioSource};
+use crate::transcription::{nemotron, xai, AsrBackend, AudioSource};
 
 #[tauri::command]
 pub async fn start_transcription(
@@ -113,6 +113,8 @@ pub async fn export_transcript(
 #[serde(rename_all = "camelCase")]
 pub struct AsrSettings {
     pub backend_options: Vec<&'static str>,
+    pub language: &'static str,
+    pub language_from_env: bool,
     pub xai_api_key_set: bool,
     pub xai_api_key_saved: bool,
     pub xai_api_key_from_env: bool,
@@ -127,10 +129,18 @@ pub async fn get_asr_settings() -> Result<AsrSettings, String> {
     let saved = xai::load_api_key().is_some();
     Ok(AsrSettings {
         backend_options: vec!["local", "xai"],
+        language: nemotron::resolve_language(),
+        language_from_env: nemotron::language_from_env(),
         xai_api_key_set: saved || from_env,
         xai_api_key_saved: saved,
         xai_api_key_from_env: from_env,
     })
+}
+
+#[tauri::command]
+pub async fn set_asr_language(language: String) -> Result<(), String> {
+    nemotron::save_language(&language)?;
+    Ok(())
 }
 
 #[tauri::command]

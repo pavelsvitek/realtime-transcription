@@ -19,6 +19,12 @@ pub const MODEL_REPOSITORY: &str = "FluidInference/nemotron-labs-unified-asr-0.6
 pub const MODEL_BUNDLE_SUBDIR: &str = "nemotron-labs-unified-asr/coreml";
 /// Approximate CoreML INT8 artifact size (577 MB encoder + 25 MB decoder/joint/vocab = ~602 MB).
 pub const EXPECTED_DOWNLOAD_SIZE_BYTES: u64 = 602 * 1024 * 1024;
+pub const DEFAULT_LANGUAGE: &str = "auto";
+const LANGUAGE_FILE: &str = "asr_language";
+pub const SUPPORTED_LANGUAGES: &[&str] = &[
+    "auto", "bg", "cs", "da", "de", "el", "en", "es", "et", "fi", "fr", "hr", "hu", "it", "lt",
+    "lv", "mt", "nl", "pl", "pt", "ro", "ru", "sk", "sl", "sv", "uk",
+];
 const DEFAULT_UNIFIED_LATENCY_SUFFIX: &str = "70_7_7";
 const DEFAULT_UNIFIED_PRECISION_INT8: bool = true;
 const SHARED_MODEL_COMPONENTS: &[&str] = &[
@@ -26,6 +32,52 @@ const SHARED_MODEL_COMPONENTS: &[&str] = &[
     "nemotron_unified_joint_decision_single_step.mlmodelc",
     "vocab.json",
 ];
+
+pub fn parse_language(raw: &str) -> Option<&'static str> {
+    let normalized = raw.trim().to_ascii_lowercase();
+    SUPPORTED_LANGUAGES
+        .iter()
+        .copied()
+        .find(|&code| code == normalized)
+}
+
+pub fn language_from_env() -> bool {
+    std::env::var("NEMOTRON_UNIFIED_LANGUAGE")
+        .ok()
+        .as_deref()
+        .and_then(parse_language)
+        .is_some()
+}
+
+pub fn resolve_language() -> &'static str {
+    if let Some(env_lang) = std::env::var("NEMOTRON_UNIFIED_LANGUAGE")
+        .ok()
+        .as_deref()
+        .and_then(parse_language)
+    {
+        return env_lang;
+    }
+    load_language_at(&crate::transcription::xai::app_support_root()).unwrap_or(DEFAULT_LANGUAGE)
+}
+
+pub fn save_language(raw: &str) -> Result<&'static str, String> {
+    let code = parse_language(raw)
+        .ok_or_else(|| format!("Unsupported language code: {}", raw.trim()))?;
+    save_language_at(&crate::transcription::xai::app_support_root(), code)?;
+    Ok(code)
+}
+
+fn load_language_at(root: &Path) -> Option<&'static str> {
+    let raw = std::fs::read_to_string(root.join(LANGUAGE_FILE)).ok()?;
+    parse_language(&raw)
+}
+
+fn save_language_at(root: &Path, code: &str) -> Result<(), String> {
+    std::fs::create_dir_all(root)
+        .map_err(|e| format!("Failed to create app support dir: {e}"))?;
+    std::fs::write(root.join(LANGUAGE_FILE), code)
+        .map_err(|e| format!("Failed to save ASR language: {e}"))
+}
 
 fn selected_encoder_component() -> String {
     let suffix = match std::env::var("NEMOTRON_UNIFIED_LATENCY_MS")
@@ -111,6 +163,7 @@ struct InitRequest<'a> {
     #[serde(rename = "sampleRate")]
     sample_rate: u32,
     stream: &'a str,
+    language: &'a str,
 }
 
 #[derive(Serialize)]
@@ -212,11 +265,14 @@ impl NemotronPipeline {
             stdin,
             responses: rx,
         };
+        let language = resolve_language();
+        tracing::info!(stream, language, "Starting Nemotron helper");
         pipeline.send(&InitRequest {
             kind: "init",
             bundle_dir: model_bundle_dir.to_string_lossy().as_ref(),
             sample_rate: input_sample_rate,
             stream,
+            language,
         })?;
         Self::wait_for_ready(&pipeline.responses)?;
         Ok(pipeline)
@@ -713,5 +769,29 @@ mod tests {
         assert_eq!(percent, 42);
         assert!(stage.contains("42%"));
         assert!(parse_download_progress_line(r#"{"type":"ready","model":"x"}"#).is_none());
+    }
+
+    #[test]
+    fn parses_and_persists_supported_asr_languages() {
+        assert_eq!(parse_language("AUTO"), Some("auto"));
+        assert_eq!(parse_language(" cs "), Some("cs"));
+        assert_eq!(parse_language("en"), Some("en"));
+        assert_eq!(parse_language("ja"), None);
+        assert_eq!(parse_language(""), None);
+
+        let dir = std::env::temp_dir().join(format!(
+            "amie-asr-lang-test-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        assert_eq!(load_language_at(&dir), None);
+
+        save_language_at(&dir, "cs").unwrap();
+        assert_eq!(load_language_at(&dir), Some("cs"));
+
+        save_language_at(&dir, "auto").unwrap();
+        assert_eq!(load_language_at(&dir), Some("auto"));
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

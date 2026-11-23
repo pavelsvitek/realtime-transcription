@@ -14,6 +14,7 @@ private struct InitMessage: Decodable {
     let bundleDir: String
     let sampleRate: Int
     let stream: String
+    let language: String?
 }
 
 private struct AudioMessage: Decodable {
@@ -129,17 +130,21 @@ struct NemotronBridgeApp {
         }
 
         let bundleDir = URL(fileURLWithPath: initMessage.bundleDir, isDirectory: true)
-        try validateModelBundle(bundleDir, components: options.requiredBundleComponents)
+        let effectiveOptions = options.withLanguage(
+            from: initMessage.language,
+            environment: ProcessInfo.processInfo.environment
+        )
+        try validateModelBundle(bundleDir, components: effectiveOptions.requiredBundleComponents)
 
         emit(LoadingMessage(stage: "loading_models"))
-        let manager = makeManager(options: options)
+        let manager = makeManager(options: effectiveOptions)
         try await manager.loadModels(from: bundleDir)
 
         let session = try BridgeSession(
             manager: manager,
             inputSampleRate: initMessage.sampleRate,
             stream: initMessage.stream,
-            latencyMs: options.latencyTier.rawValue
+            latencyMs: effectiveOptions.latencyTier.rawValue
         )
         emit(ReadyMessage())
 
@@ -197,7 +202,7 @@ struct NemotronBridgeApp {
     }
 
     private static func makeManager(options: UnifiedRuntimeOptions) -> StreamingUnifiedAsrManager {
-        let language = NemotronUnifiedLanguage(rawValue: options.language) ?? .en
+        let language = NemotronUnifiedLanguage(rawValue: options.language) ?? .auto
         let unifiedConfig = UnifiedConfig(
             leftFrames: options.latencyTier.leftFrames,
             chunkFrames: options.latencyTier.chunkFrames,

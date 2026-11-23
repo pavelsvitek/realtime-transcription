@@ -10,7 +10,7 @@ through a community CoreML INT8 conversion:
 - runtime: `FluidAudio` 0.18.4, `StreamingUnifiedAsrManager`
 - architecture: prompt-conditioned Unified FastConformer encoder (24 layers) with an RNN-T decoder (25 European languages + `auto`)
 - parameters: approximately 600 million
-- input: 16 kHz mono Float32 with the app defaulting to `en` (`prompt_id = 0`, overridable via `NEMOTRON_UNIFIED_LANGUAGE`)
+- input: 16 kHz mono Float32 with the app defaulting to `auto` (`prompt_id = 127`, configurable in **Settings → Language detection** or via `NEMOTRON_UNIFIED_LANGUAGE`)
 - compiled streaming geometry: default `70_7_7` (1,120 ms latency = 560 ms chunk + 560 ms lookahead, 5.6 s left context; overridable via `NEMOTRON_UNIFIED_LATENCY_MS=560|1120|2080` and `NEMOTRON_UNIFIED_PRECISION=int8|fp16`)
 - artifact size: approximately 602 MB (577 MB INT8 streaming encoder + 18 MB decoder + 7 MB joint + 68 KB vocab)
 
