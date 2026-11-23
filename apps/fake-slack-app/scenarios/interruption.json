@@ -1,0 +1,14 @@
+{
+  "name": "Someone talks over someone else",
+  "description": "Needs --participants 3 or more. While two people speak at once the line is labelled with both names, joined by a semicolon, or falls back to Remote.",
+  "steps": [
+    { "speak": "Ada Lovelace", "text": "So the main risk with this approach is that we cannot easily measure it." },
+    { "pause": 1.0 },
+    { "overlap": [
+      { "speak": "Ada Lovelace", "text": "We would have to compare the label against the audio clock for every single line." },
+      { "speak": "Alan Turing", "text": "Sorry to jump in, but the capture clock already gives us exactly that.", "lead": 1.0 }
+    ] },
+    { "pause": 1.5 },
+    { "speak": "Alan Turing", "text": "As I was saying, the capture clock is the reference." }
+  ]
+}

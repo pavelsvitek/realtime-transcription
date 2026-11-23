@@ -11,6 +11,8 @@
     "test:desktop": "pnpm --filter amie test",
     "setup:signing": "pnpm --filter amie setup:signing",
     "fake-zoom": "bash apps/fake-zoom-app/scripts/run.sh",
-    "fake-zoom:transcript": "bash apps/fake-zoom-app/scripts/show-transcript.sh"
+    "fake-zoom:transcript": "bash apps/fake-zoom-app/scripts/show-transcript.sh",
+    "fake-slack": "bash apps/fake-slack-app/scripts/run.sh",
+    "fake-slack:transcript": "bash apps/fake-slack-app/scripts/show-transcript.sh"
   }
 }

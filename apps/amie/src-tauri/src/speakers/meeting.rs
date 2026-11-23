@@ -8,6 +8,8 @@ mod ax;
 mod process;
 
 #[cfg(target_os = "macos")]
+use super::slack;
+#[cfg(target_os = "macos")]
 use super::teams;
 #[cfg(target_os = "macos")]
 use super::zoom;
@@ -18,6 +20,7 @@ use super::zoom;
 pub enum MeetingApp {
     Zoom,
     Teams,
+    Slack,
 }
 
 impl MeetingApp {
@@ -25,6 +28,7 @@ impl MeetingApp {
         match self {
             Self::Zoom => "zoom",
             Self::Teams => "teams",
+            Self::Slack => "slack",
         }
     }
 }
@@ -79,6 +83,9 @@ pub fn running_meeting_app() -> Option<MeetingApp> {
         if process::teams_pid().is_some() {
             return Some(MeetingApp::Teams);
         }
+        if process::slack_pid().is_some() {
+            return Some(MeetingApp::Slack);
+        }
         None
     }
     #[cfg(not(target_os = "macos"))]
@@ -89,21 +96,74 @@ pub fn running_meeting_app() -> Option<MeetingApp> {
 
 #[cfg(target_os = "macos")]
 fn read_meeting_macos() -> Result<MeetingRead, String> {
-    let zoom = process::pid_for(process::ZOOM_BUNDLE);
+    let zoom_pid = process::pid_for(process::ZOOM_BUNDLE);
     let teams_pid = process::teams_pid();
-    match (zoom, teams_pid) {
-        (None, None) => Ok(MeetingRead::default()),
-        (Some(pid), None) => read_zoom(pid),
-        (None, Some(pid)) => read_teams(pid),
-        (Some(zoom_pid), Some(teams_pid)) => {
-            let zoom = read_zoom(zoom_pid)?;
-            if !zoom.speakers.is_empty() {
-                Ok(zoom)
-            } else {
-                read_teams(teams_pid)
+    let slack_pids = process::slack_pids();
+
+    if zoom_pid.is_none() && teams_pid.is_none() && slack_pids.is_empty() {
+        return Ok(MeetingRead::default());
+    }
+
+    let mut first_error: Option<String> = None;
+    let mut fallback: Option<MeetingRead> = None;
+
+    if let Some(pid) = zoom_pid {
+        match read_zoom(pid) {
+            Ok(read) if !read.speakers.is_empty() => return Ok(read),
+            Ok(read) => fallback = Some(read),
+            Err(err) => {
+                first_error.get_or_insert(err);
             }
         }
     }
+
+    if let Some(pid) = teams_pid {
+        match read_teams(pid) {
+            Ok(read) if !read.speakers.is_empty() || read.self_muted.is_some() => return Ok(read),
+            Ok(read) => {
+                if fallback.is_none() {
+                    fallback = Some(read);
+                }
+            }
+            Err(err) => {
+                first_error.get_or_insert(err);
+            }
+        }
+    }
+
+    for pid in slack_pids {
+        match read_slack(pid) {
+            Ok(read) if read.in_huddle => {
+                return Ok(MeetingRead {
+                    speakers: read.speakers,
+                    self_muted: read.self_muted,
+                });
+            }
+            Ok(_) => {
+                if fallback.is_none() {
+                    fallback = Some(MeetingRead::default());
+                }
+            }
+            Err(err) => {
+                first_error.get_or_insert(err);
+            }
+        }
+    }
+
+    if let Some(read) = fallback {
+        return Ok(read);
+    }
+    Err(first_error.unwrap_or_else(|| "No meeting app readable".into()))
+}
+
+#[cfg(target_os = "macos")]
+pub fn read_slack(pid: i32) -> Result<slack::SlackRead, String> {
+    let tree = ax::application_tree(pid, true)?;
+    let read = slack::read(&tree);
+    if read.requested_manual_accessibility && !read.in_huddle {
+        return Err("Slack accessibility tree is still closed".into());
+    }
+    Ok(read)
 }
 
 #[cfg(target_os = "macos")]

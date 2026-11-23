@@ -1,0 +1,9 @@
+{
+  "name": "One person talks",
+  "description": "Needs --participants 2 or more. Expect every system line labelled Ada Lovelace.",
+  "steps": [
+    { "speak": "Ada Lovelace", "text": "Thanks for joining everyone. Today I want to walk you through the plan for the next release." },
+    { "pause": 1.5 },
+    { "speak": "Ada Lovelace", "text": "First, the transcription pipeline is stable. Second, we are adding speaker names to every line." }
+  ]
+}

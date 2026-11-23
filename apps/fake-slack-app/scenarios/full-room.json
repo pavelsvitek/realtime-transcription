@@ -1,0 +1,15 @@
+{
+  "name": "Everyone in a six-person call speaks once",
+  "description": "Needs --participants 6. Expect one line per remote participant, in order.",
+  "steps": [
+    { "speak": "Ada Lovelace", "text": "Let's start with a quick round of updates." },
+    { "pause": 1.2 },
+    { "speak": "Alan Turing", "text": "My part is done and waiting for review." },
+    { "pause": 1.2 },
+    { "speak": "Grace Hopper", "text": "I found a bug in the build script and fixed it." },
+    { "pause": 1.2 },
+    { "speak": "Katherine Johnson", "text": "The numbers check out. I have nothing blocking." },
+    { "pause": 1.2 },
+    { "speak": "Dennis Ritchie", "text": "I will pick up the remaining tasks tomorrow." }
+  ]
+}
