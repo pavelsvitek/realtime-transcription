@@ -316,12 +316,22 @@ export function TranscribePage({
           {isActive || stopping ? (
             <Button
               variant="danger"
+              className="inline-flex items-center gap-2"
               onClick={() => void handleStop()}
               disabled={stopping}
               aria-busy={stopping}
               aria-label={stopping ? "Stopping transcription" : "Stop transcription"}
             >
-              {stopping ? <Spinner className="block size-4" /> : "Stop"}
+              {stopping ? (
+                <Spinner className="block size-4" />
+              ) : (
+                <>
+                  <span>Stop</span>
+                  <kbd className="flex h-5 min-w-5 items-center justify-center rounded-[5px] border border-white/25 bg-white/15 px-1.5 font-[family-name:inherit] text-[11px] leading-4 font-medium text-white/90">
+                    ⌘ ⌫
+                  </kbd>
+                </>
+              )}
             </Button>
           ) : (
             <LiveMeetingButton
