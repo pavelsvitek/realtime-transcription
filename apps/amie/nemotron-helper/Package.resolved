@@ -1,5 +1,5 @@
 {
-  "originHash" : "4189ad8ca7691278db6c2857b0bce9fc06b3144a46f1c525b9714a0529f2d1ea",
+  "originHash" : "49c3302793c9ce46b6470d08d2123fece17b2ac58c3bfa73c693b474bc447a3b",
   "pins" : [
     {
       "identity" : "async-http-client",
@@ -56,12 +56,21 @@
       }
     },
     {
+      "identity" : "mlx-swift-lm",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/ml-explore/mlx-swift-lm",
+      "state" : {
+        "revision" : "bd4b7434e6bdb588c7ef55706ff8904cb7fd4c57",
+        "version" : "3.31.4"
+      }
+    },
+    {
       "identity" : "speech-swift",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/soniqo/speech-swift.git",
       "state" : {
-        "revision" : "335a68c0db92564527881962ff11eb686863d2b8",
-        "version" : "0.0.22"
+        "revision" : "7f382bb4bf24d560e927893a64d8ffb9cf30bc89",
+        "version" : "0.0.29"
       }
     },
     {
@@ -263,6 +272,15 @@
       }
     },
     {
+      "identity" : "swift-sdk",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/modelcontextprotocol/swift-sdk.git",
+      "state" : {
+        "revision" : "a0ae212ebf6eab5f754c3129608bc5557637e605",
+        "version" : "0.12.1"
+      }
+    },
+    {
       "identity" : "swift-service-context",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-service-context.git",
@@ -281,12 +299,21 @@
       }
     },
     {
+      "identity" : "swift-syntax",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/swiftlang/swift-syntax.git",
+      "state" : {
+        "revision" : "79e4b74a295b6eb74a8b585e3a39d29e70c1dbd1",
+        "version" : "603.0.2"
+      }
+    },
+    {
       "identity" : "swift-system",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-system.git",
       "state" : {
-        "revision" : "b5544ba79a70a0cb3563e75bf26dc198d6b40ed3",
-        "version" : "1.7.4"
+        "revision" : "640e5755b5826f4437eaeedd366fd776737db62c",
+        "version" : "1.9.0"
       }
     },
     {
@@ -314,6 +341,15 @@
       "state" : {
         "revision" : "25c62997041c134b03ca82731ce2f6fd2cae1eb9",
         "version" : "1.0.0"
+      }
+    },
+    {
+      "identity" : "xgrammar",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/mlc-ai/xgrammar",
+      "state" : {
+        "revision" : "82505d0d987c36a4209fb3d8571cf6b0f28b5acd",
+        "version" : "0.2.7"
       }
     },
     {

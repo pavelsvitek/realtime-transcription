@@ -32,7 +32,7 @@ This builds:
 
 The integration explicitly pins:
 
-- runtime: `speech-swift` 0.0.22
+- runtime: `speech-swift` 0.0.29
 - model: `aufklarer/Nemotron-3.5-ASR-Streaming-0.6B-CoreML-INT8`
 - audio: English (`en-US` prompt), 16 kHz mono, 320 ms model chunks
 

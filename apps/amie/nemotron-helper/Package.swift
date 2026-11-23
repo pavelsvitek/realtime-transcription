@@ -13,7 +13,7 @@ let package = Package(
     dependencies: [
         .package(
             url: "https://github.com/soniqo/speech-swift.git",
-            exact: "0.0.22"
+            exact: "0.0.29"
         ),
     ],
     targets: [
