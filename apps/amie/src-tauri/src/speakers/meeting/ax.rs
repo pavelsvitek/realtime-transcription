@@ -312,6 +312,9 @@ fn read_node(element: CFTypeRef, depth: u32, enable_electron: bool) -> Result<Ax
         return Ok(AxNode::new("AXGroup"));
     }
     let role = copy_string(element, "AXRole")?.unwrap_or_else(|| "AXGroup".into());
+    if depth == 1 && role == "AXMenuBar" {
+        return Ok(AxNode::new(role));
+    }
     let mut node = AxNode::new(role);
     if let Some(title) = copy_string(element, "AXTitle")? {
         node = node.titled(title);

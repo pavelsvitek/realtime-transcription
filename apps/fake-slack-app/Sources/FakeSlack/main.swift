@@ -27,10 +27,12 @@ do {
 // MARK: Preflight
 
 let isInspectionOnly = options.printAccessibilityTree || options.snapshotPath != nil
+let allowParallel = ProcessInfo.processInfo.environment["FAKE_SLACK_ALLOW_PARALLEL"] == "1"
 
-// Two apps named com.tinyspeck.slackmacgap: Amie would read whichever macOS lists first.
-// Inspection-only runs (--print-ax / --snapshot) only read themselves and exit immediately.
-if !isInspectionOnly {
+// Two apps named com.tinyspeck.slackmacgap: Amie would read whichever macOS lists first
+// unless the other Slack is idle. Refusing by default keeps manual testing unambiguous;
+// automated harnesses can set FAKE_SLACK_ALLOW_PARALLEL=1 when real Slack is idle.
+if !isInspectionOnly && !allowParallel {
     let realSlack = NSRunningApplication
         .runningApplications(withBundleIdentifier: slackBundleIdentifier)
         .first { $0.processIdentifier != ProcessInfo.processInfo.processIdentifier }

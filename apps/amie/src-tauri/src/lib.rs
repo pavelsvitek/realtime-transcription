@@ -8,7 +8,7 @@ mod ipc;
 mod llm;
 pub mod mcp;
 mod meetings;
-mod speakers;
+pub mod speakers;
 mod state;
 pub mod telemetry;
 pub mod transcription;

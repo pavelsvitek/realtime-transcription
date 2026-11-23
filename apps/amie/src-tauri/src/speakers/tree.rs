@@ -65,6 +65,7 @@ impl AxNode {
         self
     }
 
+    #[cfg(test)]
     pub fn child(mut self, child: AxNode) -> Self {
         self.children.push(child);
         self
