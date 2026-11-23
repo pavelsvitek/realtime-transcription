@@ -7,7 +7,7 @@ The app uses
 through a community CoreML INT8 conversion:
 
 - artifact: `aufklarer/Nemotron-3.5-ASR-Streaming-0.6B-CoreML-INT8`
-- runtime: `speech-swift` 0.0.22, `NemotronStreamingASR`
+- runtime: `speech-swift` 0.0.29, `NemotronStreamingASR`
 - architecture: prompt-conditioned cache-aware FastConformer encoder with an RNN-T decoder
 - parameters: approximately 600 million
 - input: 16 kHz mono Float32 with the app explicitly selecting `en-US`
@@ -37,7 +37,7 @@ Published benchmark results are not directly comparable to this repository’s g
 
 - Model outputs are cumulative hypotheses, not text deltas.
 - There is no end-of-utterance token. The helper uses rolling energy detection, calls `finalize()` at a speech boundary, emits a commit, and creates a fresh model session.
-- The runtime exposes no token or word timestamps. Segment times are derived from the audio sample clock.
+- `speech-swift` 0.0.23+ exposes emission-aligned word timestamps (`PartialTranscript.words`, ~80 ms encoder frame granularity), though `nemotron-bridge` currently continues to derive segment times from the audio sample clock.
 - `confidence` is based on mean token log probability and is not calibrated.
 - `segmentIndex` is not useful in the current runtime.
 - Long-running CoreML workloads may exhaust IOSurface resources. Inference runs inside autorelease pools and the app recreates helper processes between transcription sessions.
