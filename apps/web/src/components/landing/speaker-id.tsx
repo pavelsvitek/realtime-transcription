@@ -127,7 +127,7 @@ export function SpeakerId() {
         </div>
         <h2 className="flex flex-col xl:w-[400px]">
           <span className="section-title font-semibold tracking-[0.2px] text-raycast-ink">
-            Speaker labels from
+            Speaker names from
           </span>
           <span className="section-title font-semibold tracking-[0.2px] text-raycast-mute">
             Zoom, Meet, Teams &amp; Slack
