@@ -9,11 +9,13 @@ const FADE = 240; // px fade at the top and bottom of the grid
 
 // Plus marks, in page coordinates (x from the left of the 1440px column).
 const MARKS: { x: number; y: number }[] = [
-  { x: 72, y: 1210 },
-  { x: 1368, y: 1480 },
-  { x: 1368, y: 1960 },
-  { x: 72, y: 2430 },
-  { x: 1368, y: 2840 },
+  { x: 72, y: 1252 },
+  { x: 1368, y: 1572 },
+  { x: 1368, y: 2132 },
+  { x: 72, y: 2692 },
+  { x: 1368, y: 3172 },
+  { x: 72, y: 3610 },
+  { x: 1368, y: 4100 },
 ];
 
 /**

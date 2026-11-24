@@ -109,10 +109,10 @@ const FAQ_ITEMS: readonly FaqItem[] = [
 
 function FaqIcon({ children }: { children: ReactNode }) {
   return (
-    <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-raycast-accent-blue-soft text-raycast-accent-blue">
+    <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-raycast-accent-blue-soft text-raycast-accent-blue">
       <svg
-        width="14"
-        height="14"
+        width="16"
+        height="16"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -132,18 +132,18 @@ export function FaqSection() {
     <section
       id="faq"
       aria-labelledby="faq-heading"
-      className="mx-auto flex w-full max-w-[1440px] flex-col gap-8 px-5 pt-16 sm:px-8 md:gap-12 md:pt-24 xl:px-[162px] xl:pt-28"
+      className="mx-auto flex w-full max-w-[1440px] flex-col gap-10 px-5 pt-20 sm:px-8 md:gap-14 md:pt-28 xl:px-16 xl:pt-32"
     >
-      <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-end">
-        <div className="flex flex-col gap-3.5">
-          <div className="flex h-5 shrink-0 items-center self-start rounded border border-raycast-accent-blue/35 bg-raycast-accent-blue-soft px-2">
-            <span className="text-[11px] leading-[11px] font-medium tracking-[0.4px] text-raycast-accent-blue">
+      <div className="flex flex-col items-start justify-between gap-5 md:flex-row md:items-end">
+        <div className="flex flex-col gap-4">
+          <div className="flex h-6 shrink-0 items-center self-start rounded border border-raycast-accent-blue/35 bg-raycast-accent-blue-soft px-2.5">
+            <span className="text-xs leading-3 font-medium tracking-[0.4px] text-raycast-accent-blue">
               FAQ
             </span>
           </div>
           <h2
             id="faq-heading"
-            className="section-title flex flex-wrap gap-x-3 font-semibold tracking-tight"
+            className="section-title flex flex-wrap gap-x-3.5 font-semibold tracking-tight"
           >
             <span className="text-raycast-ink">Frequently asked</span>
             <span className="text-raycast-mute">questions</span>
@@ -152,12 +152,12 @@ export function FaqSection() {
 
         <Link
           href="/support"
-          className="inline-flex h-[34px] shrink-0 items-center gap-1.5 rounded-md border border-raycast-hairline-strong bg-raycast-surface px-3.5 text-sm font-medium text-raycast-ink transition-colors hover:border-white/28 hover:bg-raycast-surface-elevated"
+          className="inline-flex h-10 shrink-0 items-center gap-2 rounded-md border border-raycast-hairline-strong bg-raycast-surface px-4 text-base font-medium text-raycast-ink transition-colors hover:border-white/28 hover:bg-raycast-surface-elevated"
         >
           <span>Visit Support</span>
           <svg
-            width="12"
-            height="12"
+            width="14"
+            height="14"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -173,45 +173,45 @@ export function FaqSection() {
         </Link>
       </div>
 
-      <div className="flex flex-col gap-3.5 md:gap-4">
+      <div className="flex flex-col gap-4 md:gap-5">
         {/* Q1 highlighted opener */}
-        <article className="flex flex-col items-start justify-between gap-4 rounded-[12px] border border-raycast-accent-blue/30 bg-[#101419] p-4 sm:p-6 md:flex-row md:items-center md:gap-7 md:px-7">
-          <div className="flex min-w-0 flex-1 flex-col gap-2">
-            <div className="flex items-center gap-2.5">
+        <article className="flex flex-col items-start justify-between gap-5 rounded-xl border border-raycast-accent-blue/30 bg-[#101419] p-5 sm:p-7 md:flex-row md:items-center md:gap-8 md:px-8">
+          <div className="flex min-w-0 flex-1 flex-col gap-2.5">
+            <div className="flex items-center gap-3">
               <FaqIcon>
                 <path d="M20 6 9 17l-5-5" />
               </FaqIcon>
-              <h3 className="text-[15px] leading-5 font-semibold text-raycast-ink sm:text-[16px]">
+              <h3 className="text-[17px] leading-6 font-semibold text-raycast-ink sm:text-lg">
                 Is it really free?
               </h3>
             </div>
-            <p className="text-base leading-[21px] text-[#C4C7CE]">
+            <p className="text-md leading-6 text-[#C4C7CE]">
               Yes, the app works offline with an AI model from NVIDIA. You don’t
               have to pay anything and there is no subscription.
             </p>
           </div>
           <DownloadButton
             location="faq"
-            className="flex h-[38px] w-full shrink-0 cursor-pointer items-center justify-center rounded-md bg-raycast-primary px-4 text-base font-semibold text-raycast-on-primary transition-colors hover:bg-primary-hover disabled:opacity-70 sm:w-auto"
+            className="flex h-11 w-full shrink-0 cursor-pointer items-center justify-center rounded-md bg-raycast-primary px-5 text-md font-semibold text-raycast-on-primary transition-colors hover:bg-primary-hover disabled:opacity-70 sm:w-auto"
           >
             Download for Mac
           </DownloadButton>
         </article>
 
         {/* Core 6 questions: 1 column on mobile, 2 columns on tablet/desktop */}
-        <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2 md:gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-5">
           {FAQ_ITEMS.map((item) => (
             <article
               key={item.question}
-              className="flex flex-col gap-2.5 rounded-[12px] border border-raycast-hairline-soft bg-raycast-surface p-4 sm:p-6"
+              className="flex flex-col gap-3 rounded-xl border border-raycast-hairline-soft bg-raycast-surface p-5 sm:p-7"
             >
-              <div className="flex items-start gap-2.5 sm:items-center">
+              <div className="flex items-start gap-3 sm:items-center">
                 <FaqIcon>{item.icon}</FaqIcon>
-                <h3 className="pt-0.5 text-[14px] leading-5 font-semibold text-raycast-ink sm:pt-0 sm:text-[15px]">
+                <h3 className="pt-0.5 text-[16px] leading-6 font-semibold text-raycast-ink sm:pt-0 sm:text-[17px]">
                   {item.question}
                 </h3>
               </div>
-              <p className="text-base leading-[21px] text-[#B4B4B8]">{item.answer}</p>
+              <p className="text-md leading-6 text-[#B4B4B8]">{item.answer}</p>
             </article>
           ))}
         </div>
@@ -219,36 +219,36 @@ export function FaqSection() {
         {/* Supported languages card (full-width for scannable 25-language list) */}
         <article
           id="faq-languages"
-          className="scroll-mt-20 flex flex-col gap-3.5 rounded-[12px] border border-raycast-hairline-soft bg-raycast-surface p-4 sm:p-6 md:px-7"
+          className="scroll-mt-20 flex flex-col gap-4 rounded-xl border border-raycast-hairline-soft bg-raycast-surface p-5 sm:p-7 md:px-8"
         >
-          <div className="flex flex-col items-start justify-between gap-2.5 sm:flex-row sm:items-center">
-            <div className="flex items-center gap-2.5">
+          <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
+            <div className="flex items-center gap-3">
               <FaqIcon>
                 <circle cx="12" cy="12" r="10" />
                 <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
                 <path d="M2 12h20" />
               </FaqIcon>
-              <h3 className="text-[14px] leading-5 font-semibold text-raycast-ink sm:text-[15px]">
+              <h3 className="text-[16px] leading-6 font-semibold text-raycast-ink sm:text-[17px]">
                 Which languages are supported?
               </h3>
             </div>
-            <span className="inline-flex h-[26px] shrink-0 items-center rounded-md border border-[#6FB0DE]/25 bg-[#6FB0DE]/10 px-2.5 text-[11px] font-medium text-[#BFE0F5]">
+            <span className="inline-flex h-[30px] shrink-0 items-center rounded-md border border-[#6FB0DE]/25 bg-[#6FB0DE]/10 px-3 text-xs font-medium text-[#BFE0F5]">
               Auto-detected · {SUPPORTED_LANGUAGES.length} languages
             </span>
           </div>
-          <p className="text-base leading-[21px] text-[#B4B4B8]">
+          <p className="text-md leading-6 text-[#B4B4B8]">
             Amie automatically detects and transcribes{" "}
             {SUPPORTED_LANGUAGES.length} European languages right on your Mac —
             no manual switching required:
           </p>
           <ul
             aria-label="Supported languages"
-            className="flex flex-wrap gap-1.5"
+            className="flex flex-wrap gap-2"
           >
             {SUPPORTED_LANGUAGES.map((language) => (
               <li
                 key={language}
-                className="rounded-sm border border-white/8 bg-white/[0.04] px-2 py-0.5 text-xs leading-4 font-medium text-[#D4D4D8]"
+                className="rounded-sm border border-white/8 bg-white/[0.04] px-2.5 py-1 text-sm leading-[18px] font-medium text-[#D4D4D8]"
               >
                 {language}
               </li>
@@ -257,18 +257,18 @@ export function FaqSection() {
         </article>
 
         {/* Final requirements card */}
-        <article className="flex flex-col items-start justify-between gap-3.5 rounded-[12px] border border-raycast-hairline-soft bg-raycast-surface p-4 sm:p-6 md:flex-row md:items-center md:gap-7 md:px-7">
-          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-            <h3 className="text-[14px] leading-5 font-semibold text-raycast-ink sm:text-[15px]">
+        <article className="flex flex-col items-start justify-between gap-4 rounded-xl border border-raycast-hairline-soft bg-raycast-surface p-5 sm:p-7 md:flex-row md:items-center md:gap-8 md:px-8">
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
+            <h3 className="text-[16px] leading-6 font-semibold text-raycast-ink sm:text-[17px]">
               What Mac do I need?
             </h3>
-            <p className="text-base leading-[21px] text-[#B4B4B8]">
+            <p className="text-md leading-6 text-[#B4B4B8]">
               Amie requires macOS {MIN_MACOS_MAJOR} (Sequoia) or later on an
               Apple Silicon Mac (M1 or newer). The transcription model downloads
               automatically the first time you open the app.
             </p>
           </div>
-          <span className="inline-flex h-8 shrink-0 items-center rounded-md border border-white/12 bg-white/5 px-3 text-xs font-medium text-raycast-body">
+          <span className="inline-flex h-9 shrink-0 items-center rounded-md border border-white/12 bg-white/5 px-3.5 text-sm font-medium text-raycast-body">
             macOS {MIN_MACOS_MAJOR}+ · Apple Silicon
           </span>
         </article>

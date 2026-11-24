@@ -117,15 +117,15 @@ export function SpeakerId() {
   return (
     <section
       id="speaker-id"
-      className="flex w-full flex-col gap-8 px-5 py-14 sm:px-8 md:py-16 xl:min-h-[765px] xl:flex-row xl:items-center xl:justify-center xl:gap-12 xl:px-[162px] xl:py-0"
+      className="flex w-full flex-col gap-10 px-5 py-16 sm:px-8 md:py-20 xl:min-h-[900px] xl:flex-row xl:items-center xl:gap-14 xl:px-16 xl:py-0"
     >
-      <div className="flex w-full max-w-[480px] shrink-0 flex-col justify-center gap-4 xl:w-[340px]">
-        <div className="flex h-5 shrink-0 items-center self-start rounded border border-raycast-accent-red/35 bg-raycast-accent-red-soft px-2">
-          <span className="text-[11px] leading-[11px] font-medium tracking-[0.4px] text-raycast-accent-red">
+      <div className="flex w-full max-w-[560px] shrink-0 flex-col justify-center gap-5 xl:w-[400px]">
+        <div className="flex h-6 shrink-0 items-center self-start rounded border border-raycast-accent-red/35 bg-raycast-accent-red-soft px-2.5">
+          <span className="text-xs leading-3 font-medium tracking-[0.4px] text-raycast-accent-red">
             Who’s speaking
           </span>
         </div>
-        <h2 className="flex flex-col xl:w-[340px]">
+        <h2 className="flex flex-col xl:w-[400px]">
           <span className="section-title font-semibold tracking-[0.2px] text-raycast-ink">
             Speaker labels from
           </span>
@@ -133,20 +133,19 @@ export function SpeakerId() {
             Zoom, Meet, Teams &amp; Slack
           </span>
         </h2>
-        <p className="max-w-[410px] text-[15px] leading-[25px] text-raycast-body xl:w-[324px]">
+        <p className="max-w-[480px] text-lg text-raycast-body xl:w-[380px]">
           Amie detects who is speaking automatically, so every line in your
           transcript and summary is labeled with the right person.
         </p>
-        <div className="flex h-6 shrink-0 items-center gap-1.5 self-start rounded-sm border border-raycast-hairline-strong px-2">
-          <span className="size-[5px] shrink-0 rounded-full bg-raycast-accent-red" />
-          <span className="text-xs leading-3 font-medium tracking-[0.1px] text-raycast-on-dark-mute">
+        <div className="flex h-7 shrink-0 items-center gap-2 self-start rounded-sm border border-raycast-hairline-strong px-2.5">
+          <span className="size-1.5 shrink-0 rounded-full bg-raycast-accent-red" />
+          <span className="text-sm leading-[13px] font-medium tracking-[0.1px] text-raycast-on-dark-mute">
             Automatic speaker detection
           </span>
         </div>
       </div>
 
-      <div className="w-full max-w-[728px] xl:w-[728px] xl:shrink-0">
-      <FitStage width={856} height={680}>
+      <FitStage width={856} height={680} className="xl:w-[856px] xl:shrink-0">
       <div className="pointer-events-none relative h-[680px] w-[856px] shrink-0 overflow-hidden select-none">
         <div className="absolute top-0 left-0 flex h-[680px] w-[1040px] flex-col overflow-hidden rounded-lg bg-[#1C1C1C]">
           <div className="flex h-10 shrink-0 items-center px-3.5">
@@ -248,7 +247,6 @@ export function SpeakerId() {
         </div>
       </div>
       </FitStage>
-      </div>
     </section>
   );
 }

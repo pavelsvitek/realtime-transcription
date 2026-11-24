@@ -49,15 +49,15 @@ export function WordByWord() {
   return (
     <section
       id="word-by-word"
-      className="flex w-full flex-col gap-8 px-5 py-14 sm:px-8 md:py-16 xl:flex-row xl:items-center xl:justify-center xl:gap-12 xl:px-[162px] xl:py-0"
+      className="flex w-full flex-col gap-10 px-5 py-16 sm:px-8 md:py-20 xl:flex-row xl:items-center xl:gap-16 xl:px-16 xl:py-0"
     >
-      <div className="flex w-full max-w-[480px] shrink-0 flex-col justify-center gap-4 xl:w-[374px]">
-        <div className="flex h-5 shrink-0 items-center self-start rounded border border-raycast-accent-red/35 bg-raycast-accent-red-soft px-2">
-          <span className="text-[11px] leading-[11px] font-medium tracking-[0.4px] text-raycast-accent-red">
+      <div className="flex w-full max-w-[560px] shrink-0 flex-col justify-center gap-5 xl:w-[440px]">
+        <div className="flex h-6 shrink-0 items-center self-start rounded border border-raycast-accent-red/35 bg-raycast-accent-red-soft px-2.5">
+          <span className="text-xs leading-3 font-medium tracking-[0.4px] text-raycast-accent-red">
             Real-time transcription
           </span>
         </div>
-        <h2 className="flex flex-col xl:w-[374px]">
+        <h2 className="flex flex-col xl:w-[440px]">
           <span className="section-title font-semibold tracking-[0.2px] text-raycast-ink">
             Words appear
           </span>
@@ -65,20 +65,19 @@ export function WordByWord() {
             in real-time
           </span>
         </h2>
-        <p className="max-w-[410px] text-[15px] leading-[25px] text-raycast-body xl:w-[340px]">
+        <p className="max-w-[480px] text-lg text-raycast-body xl:w-[400px]">
           Watch the transcript stream live as people speak — no waiting for
           pauses or for the call to end. Your audio never leaves your Mac.
         </p>
-        <div className="flex h-6 shrink-0 items-center gap-1.5 self-start rounded-sm border border-raycast-hairline-strong px-2">
-          <span className="size-[5px] shrink-0 rounded-full bg-raycast-accent-red" />
-          <span className="text-xs leading-3 font-medium tracking-[0.1px] text-raycast-on-dark-mute">
+        <div className="flex h-7 shrink-0 items-center gap-2 self-start rounded-sm border border-raycast-hairline-strong px-2.5">
+          <span className="size-1.5 shrink-0 rounded-full bg-raycast-accent-red" />
+          <span className="text-sm leading-[13px] font-medium tracking-[0.1px] text-raycast-on-dark-mute">
             Transcription model runs on your Mac
           </span>
         </div>
       </div>
 
-      <div className="w-full max-w-[698px] xl:w-[698px] xl:shrink-0">
-      <FitStage width={820}>
+      <FitStage width={820} className="xl:w-[820px] xl:shrink-0">
       <div className="pointer-events-none flex h-fit w-[820px] shrink-0 flex-col overflow-hidden rounded-lg bg-raycast-surface select-none shadow-[0_0_0_1px_#FFFFFF29,0_32px_80px_#0000008C]">
         <div className="flex h-[52px] shrink-0 items-center justify-between border-b border-raycast-hairline-soft px-5">
           <div className="flex h-[52px] items-center gap-5">
@@ -150,7 +149,6 @@ export function WordByWord() {
         </div>
       </div>
       </FitStage>
-      </div>
     </section>
   );
 }
