@@ -75,7 +75,9 @@ export function UpdateDialog({
       descriptionId="update-dialog-copy"
     >
       <DialogTitle id="update-dialog-title">{title}</DialogTitle>
-      <DialogDescription id="update-dialog-copy">{copy}</DialogDescription>
+      <DialogDescription id="update-dialog-copy" className="whitespace-pre-line">
+        {copy}
+      </DialogDescription>
       {view.kind === "downloading" ? (
         <div className="flex flex-col gap-2" aria-live="polite">
           <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-input">

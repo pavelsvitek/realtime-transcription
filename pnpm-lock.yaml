@@ -151,6 +151,8 @@ importers:
         specifier: ^4.1.9
         version: 4.1.11(@types/node@20.19.43)(jsdom@26.1.0)(vite@8.3.8(@types/node@20.19.43)(esbuild@0.25.12)(jiti@2.7.0))
 
+  apps/fake-slack-app: {}
+
   apps/fake-zoom-app: {}
 
   apps/server:
