@@ -51,7 +51,7 @@ export function McpSection() {
   const phoneScale = Math.min(1, (vp.w - 32) / 400, (vp.h - STICKY_HEADER - 120) / STAGE_H);
 
   return (
-    <section id="local-mcp" className="relative w-full pt-24">
+    <section id="local-mcp" className="relative w-full pt-20">
       <div className="relative isolate">
         <div
           aria-hidden
@@ -60,9 +60,9 @@ export function McpSection() {
           <GridPattern fade="top" />
         </div>
         <div className="mx-auto w-full max-w-[calc(1440px*var(--page-zoom))]">
-          <div className="page-zoom flex w-full max-w-[880px] flex-col gap-5 px-5 pb-10 sm:px-8 xl:w-[880px] xl:px-16 xl:pb-16">
-            <div className="flex h-6 shrink-0 items-center self-start rounded bg-raycast-accent-blue-soft px-2.5">
-              <span className="text-xs leading-3 font-medium tracking-[0.4px] text-raycast-accent-blue">
+          <div className="page-zoom flex w-full max-w-[750px] flex-col gap-4 px-5 pb-8 sm:px-8 xl:w-[1040px] xl:max-w-none xl:px-[162px] xl:pb-14">
+            <div className="flex h-5 shrink-0 items-center self-start rounded bg-raycast-accent-blue-soft px-2">
+              <span className="text-[11px] leading-[11px] font-medium tracking-[0.4px] text-raycast-accent-blue">
                 Works with Claude
               </span>
             </div>
@@ -74,7 +74,7 @@ export function McpSection() {
                 in Claude, Cursor &amp; more
               </span>
             </h2>
-            <p className="max-w-[520px] text-lg text-raycast-body">
+            <p className="max-w-[445px] text-[15px] leading-[25px] text-raycast-body">
               Connect Claude, Cursor, Codex, Grok Bot, or any MCP-compatible AI
               tool to search past meetings and pull out decisions — without
               uploading your transcripts to the cloud.
@@ -92,17 +92,17 @@ export function McpSection() {
             <GridPattern fadeSize={120} />
           </div>
           <div className="shrink-0 border-b border-raycast-hairline-soft">
-            <div className="page-zoom mx-auto flex h-14 max-w-[1440px] items-center justify-between gap-4 px-5 sm:px-8 xl:px-16">
-              <p className="shrink-0 text-xs font-medium tracking-[0.4px] text-raycast-accent-blue">
+            <div className="page-zoom mx-auto flex h-12 max-w-[1440px] items-center justify-between gap-4 px-5 sm:px-8 xl:px-[162px]">
+              <p className="shrink-0 text-[11px] font-medium tracking-[0.4px] text-raycast-accent-blue">
                 AI INTEGRATIONS · ON YOUR MAC
               </p>
-              <p className="min-w-0 text-right text-sm text-raycast-mute">{caption}</p>
+              <p className="min-w-0 text-right text-xs text-raycast-mute">{caption}</p>
             </div>
           </div>
           <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden">
             {desktop ? (
               <div className="mx-auto w-full max-w-[calc(1440px*var(--page-zoom))]">
-                <div className="mcp-stage relative h-[720px] w-full origin-left">
+                <div className="mcp-stage relative mx-auto h-[720px] w-[1030px] origin-center">
                   <Scene
                     phase={phase}
                     progress={progress}

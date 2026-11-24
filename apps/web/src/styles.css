@@ -267,7 +267,7 @@ body {
 }
 
 .mcp-stage {
-  transform: scale(min(1, calc((100svh - 56px) / 720)));
+  transform: scale(min(0.85, calc((100svh - 56px) / 720 * 0.85)));
   zoom: var(--page-zoom);
 }
 
@@ -292,21 +292,21 @@ body {
 }
 
 .section-title {
-  font-size: 34px;
-  line-height: 42px;
+  font-size: 29px;
+  line-height: 36px;
 }
 
 @media (min-width: 640px) {
   .section-title {
-    font-size: 44px;
-    line-height: 52px;
+    font-size: 38px;
+    line-height: 45px;
   }
 }
 
 @media (min-width: 1280px) {
   .section-title {
-    font-size: 56px;
-    line-height: 66px;
+    font-size: 48px;
+    line-height: 56px;
   }
 }
 
