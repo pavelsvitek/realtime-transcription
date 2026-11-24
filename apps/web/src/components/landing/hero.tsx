@@ -27,28 +27,6 @@ function NoBotIcon() {
   );
 }
 
-/** Globe icon used on the 25 EU languages pill. */
-function GlobeIcon() {
-  return (
-    <svg
-      width="13"
-      height="13"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="shrink-0 text-[#8CC4EA]"
-      aria-hidden
-    >
-      <circle cx="12" cy="12" r="10" />
-      <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
-      <path d="M2 12h20" />
-    </svg>
-  );
-}
-
 /** Tapered concave cradle arc beneath "25 European languages" in the hero subhead. */
 function LanguagesUnderline() {
   return (
@@ -95,15 +73,6 @@ export function Hero() {
             No bot joins your call
           </span>
         </div>
-        <a
-          href="#faq-languages"
-          className="flex items-center gap-1.5 rounded border border-[#6FB0DE]/32 bg-[#6FB0DE]/8 px-2 py-0.5 transition-colors hover:border-[#6FB0DE]/60"
-        >
-          <GlobeIcon />
-          <span className="text-xs leading-[18px] font-medium tracking-[0.033em] text-[#BFE0F5]">
-            25 EU languages
-          </span>
-        </a>
         <a
           href="#local-mcp"
           className="flex items-center gap-1.5 rounded border border-[#D97757]/40 bg-[#D97757]/16 px-2.5 py-0.5 transition-colors hover:border-[#D97757]/65"
