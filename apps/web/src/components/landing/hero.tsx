@@ -7,8 +7,8 @@ import {
 function NoBotIcon() {
   return (
     <svg
-      width="14"
-      height="14"
+      width="13"
+      height="13"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -48,7 +48,7 @@ function LanguagesUnderline() {
 /** Claude starburst mark used on the Works-with-Claude pill. */
 function ClaudeStarIcon() {
   return (
-    <svg width="13" height="13" viewBox="0 0 24 24" className="shrink-0" aria-hidden>
+    <svg width="12" height="12" viewBox="0 0 24 24" className="shrink-0" aria-hidden>
       <path
         d="M12 2C12.4 5.2 13.4 7.2 15.5 9.3C17.6 11.4 19.6 12.4 22.8 12.8C19.6 13.2 17.6 14.2 15.5 16.3C13.4 18.4 12.4 20.4 12 23.6C11.6 20.4 10.6 18.4 8.5 16.3C6.4 14.2 4.4 13.2 1.2 12.8C4.4 12.4 6.4 11.4 8.5 9.3C10.6 7.2 11.6 5.2 12 2Z"
         fill="#D97757"
@@ -59,35 +59,35 @@ function ClaudeStarIcon() {
 
 export function Hero() {
   return (
-    <div className="relative z-10 flex flex-col items-center gap-3 px-5 pt-14 sm:pt-20 md:pt-24 xl:px-0 xl:pt-[112px]">
-      <div className="flex flex-wrap items-center justify-center gap-2">
-        <div className="flex items-center gap-1.5 rounded px-2 py-0.5 bg-raycast-accent-red-soft">
-          <span className="size-1.5 shrink-0 rounded-full bg-raycast-accent-red" />
-          <span className="text-xs leading-[18px] font-medium tracking-[0.033em] text-raycast-accent-red">
+    <div className="relative z-10 flex flex-col items-center gap-[11px] px-5 pt-[50px] sm:pt-[72px] md:pt-[92px] xl:px-0 xl:pt-[106px]">
+      <div className="flex flex-wrap items-center justify-center gap-[7px]">
+        <div className="flex items-center gap-[5px] rounded px-[7px] py-0.5 bg-raycast-accent-red-soft">
+          <span className="size-[5px] shrink-0 rounded-full bg-raycast-accent-red" />
+          <span className="text-[11px] leading-[16px] font-medium tracking-[0.033em] text-raycast-accent-red">
             Real-time · Runs on your Mac
           </span>
         </div>
-        <div className="flex items-center gap-1.5 rounded border border-raycast-hairline-strong px-2 py-0.5">
+        <div className="flex items-center gap-[5px] rounded border border-raycast-hairline-strong px-[7px] py-0.5">
           <NoBotIcon />
-          <span className="text-xs leading-[18px] font-medium tracking-[0.033em] text-raycast-on-dark-mute">
+          <span className="text-[11px] leading-[16px] font-medium tracking-[0.033em] text-raycast-on-dark-mute">
             No bot joins your call
           </span>
         </div>
         <a
           href="#local-mcp"
-          className="flex items-center gap-1.5 rounded border border-[#D97757]/40 bg-[#D97757]/16 px-2.5 py-0.5 transition-colors hover:border-[#D97757]/65"
+          className="flex items-center gap-[5px] rounded border border-[#D97757]/40 bg-[#D97757]/16 px-[9px] py-0.5 transition-colors hover:border-[#D97757]/65"
         >
           <ClaudeStarIcon />
-          <span className="text-xs leading-[18px] font-medium tracking-[0.033em] text-[#F0B496]">
+          <span className="text-[11px] leading-[16px] font-medium tracking-[0.033em] text-[#F0B496]">
             Works with Claude
           </span>
         </a>
       </div>
       <h1 className="flex flex-col items-center">
-        <span className="max-w-[900px] text-center text-[40px] leading-[46px] font-semibold text-raycast-ink sm:text-[56px] sm:leading-[62px] xl:w-[900px] xl:text-[64px] xl:leading-[70px]">
+        <span className="max-w-[810px] text-center text-[36px] leading-[41px] font-semibold text-raycast-ink sm:text-[50px] sm:leading-[56px] xl:w-[810px] xl:text-[58px] xl:leading-[63px]">
           Your meetings, transcribed
         </span>
-        <span className="text-center text-[40px] leading-[46px] font-semibold text-raycast-mute sm:text-[56px] sm:leading-[62px] xl:w-[900px] xl:text-[64px] xl:leading-[70px]">
+        <span className="text-center text-[36px] leading-[41px] font-semibold text-raycast-mute sm:text-[50px] sm:leading-[56px] xl:w-[810px] xl:text-[58px] xl:leading-[63px]">
           on your Mac.
         </span>
       </h1>
@@ -102,19 +102,19 @@ export function Hero() {
         </a>{" "}
         — private on your Mac, ready for Claude.
       </p>
-      <div id="download" className="flex flex-col items-center gap-2.5 pt-1">
-        <div className="flex flex-col items-center gap-3 sm:flex-row">
-          <DownloadButton location="hero" className="flex h-11 cursor-pointer items-center justify-center rounded-lg bg-raycast-primary px-6 text-lg leading-6 font-semibold tracking-[0.014em] text-raycast-on-primary disabled:opacity-70">
+      <div id="download" className="flex flex-col items-center gap-[9px] pt-[3px]">
+        <div className="flex flex-col items-center gap-[11px] sm:flex-row">
+          <DownloadButton location="hero" className="flex h-10 cursor-pointer items-center justify-center rounded-[9px] bg-raycast-primary px-[22px] text-[16px] leading-[22px] font-semibold tracking-[0.014em] text-raycast-on-primary disabled:opacity-70">
             Download for Mac
           </DownloadButton>
           <a
             href="#word-by-word"
-            className="flex h-11 items-center justify-center rounded-lg border border-raycast-hairline-strong px-6 text-lg leading-6 font-semibold tracking-[0.014em] text-raycast-ink"
+            className="flex h-10 items-center justify-center rounded-[9px] border border-raycast-hairline-strong px-[22px] text-[16px] leading-[22px] font-semibold tracking-[0.014em] text-raycast-ink"
           >
             How it works
           </a>
         </div>
-        <DownloadSupportNote />
+        <DownloadSupportNote className="text-xs" />
       </div>
     </div>
   );

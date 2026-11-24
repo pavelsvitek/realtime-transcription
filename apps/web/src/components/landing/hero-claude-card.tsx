@@ -21,44 +21,44 @@ export function HeroClaudeCard() {
     <a
       href="#local-mcp"
       aria-label="See how Amie connects to Claude on your Mac"
-      className="group relative z-20 mx-auto mt-4 flex w-[calc(100%-2rem)] max-w-[400px] flex-col gap-3 rounded-2xl border border-[#D97757]/38 bg-[#1C1B19]/95 p-4 shadow-[0_24px_64px_rgba(0,0,0,0.85),0_0_0_1px_rgba(255,255,255,0.06)] backdrop-blur-md transition-colors hover:border-[#D97757]/65 sm:mt-5 xl:absolute xl:top-[636px] xl:right-[68px] xl:mx-0 xl:mt-0 xl:w-[344px]"
+      className="group relative z-20 mx-auto mt-3.5 flex w-[calc(100%-2rem)] max-w-[360px] flex-col gap-[11px] rounded-[16px] border border-[#D97757]/38 bg-[#1C1B19]/95 p-3.5 shadow-[0_24px_64px_rgba(0,0,0,0.85),0_0_0_1px_rgba(255,255,255,0.06)] backdrop-blur-md transition-colors hover:border-[#D97757]/65 sm:mt-[18px] xl:absolute xl:top-[579px] xl:right-[133px] xl:mx-0 xl:mt-0 xl:w-[310px]"
     >
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <ClaudeStar size={16} />
-          <span className="text-sm leading-4 font-semibold text-[#F4F3EE]">
+        <div className="flex items-center gap-[7px]">
+          <ClaudeStar size={14} />
+          <span className="text-xs leading-[15px] font-semibold text-[#F4F3EE]">
             Ask Claude
           </span>
         </div>
-        <span className="flex items-center gap-1.5 rounded-full bg-[#D97757]/15 px-2 py-0.5">
-          <span className="size-1.5 shrink-0 rounded-full bg-[#D97757]" />
-          <span className="text-[11px] leading-[14px] font-medium text-[#E8A07A]">
+        <span className="flex items-center gap-1.5 rounded-full bg-[#D97757]/15 px-[7px] py-0.5">
+          <span className="size-[5px] shrink-0 rounded-full bg-[#D97757]" />
+          <span className="text-[10px] leading-[13px] font-medium text-[#E8A07A]">
             Connected on this Mac
           </span>
         </span>
       </div>
 
       <div className="flex justify-end">
-        <div className="rounded-xl bg-[#2E2D2A] px-3 py-2">
-          <p className="text-sm leading-[18px] text-[#F4F3EE]">
+        <div className="rounded-[13px] bg-[#2E2D2A] px-[11px] py-[7px]">
+          <p className="text-xs leading-[16px] text-[#F4F3EE]">
             What did Maya decide in Sprint planning?
           </p>
         </div>
       </div>
 
-      <div className="flex items-start gap-2.5">
+      <div className="flex items-start gap-2">
         <span className="pt-0.5">
-          <ClaudeStar size={14} />
+          <ClaudeStar size={13} />
         </span>
-        <div className="flex min-w-0 flex-1 flex-col gap-2">
-          <p className="text-sm leading-[19px] text-[#F4F3EE]">
+        <div className="flex min-w-0 flex-1 flex-col gap-[7px]">
+          <p className="text-xs leading-[17px] text-[#F4F3EE]">
             Maya agreed to keep transcription local if latency stays low.
           </p>
-          <div className="flex items-center gap-2">
-            <span className="inline-flex h-[20px] items-center rounded bg-[#3A2A22] px-2 text-[11px] leading-[14px] font-medium text-[#E8A07A]">
+          <div className="flex items-center gap-[7px]">
+            <span className="inline-flex h-[18px] items-center rounded bg-[#3A2A22] px-[7px] text-[10px] leading-[13px] font-medium text-[#E8A07A]">
               From Amie · 0:31
             </span>
-            <span className="text-[11px] leading-[14px] text-[#A8A59C]">
+            <span className="text-[10px] leading-[13px] text-[#A8A59C]">
               No cloud upload
             </span>
           </div>
