@@ -2,18 +2,25 @@ import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import {
   hasSeenOnboarding,
+  isReturningModelUpgrade,
   shouldShowOnboarding,
   type LaunchFlags,
   type SpeechModelStatus,
 } from "../lib/onboarding";
 
+export type LaunchWizardDecision = {
+  show: boolean;
+  /** Existing user who already finished setup and only needs the new model. */
+  modelUpgradeOnly: boolean;
+};
+
 /**
  * Whether Home opens on the setup wizard at launch: forced by
  * `--onboarding-flow`, or while the speech model is missing, or until setup
- * was finished once. Null until decided; false when it cannot be read.
+ * was finished once. Null until decided; `{ show: false }` on error.
  */
-export function useSetupWizardOnLaunch(): boolean | null {
-  const [show, setShow] = useState<boolean | null>(null);
+export function useSetupWizardOnLaunch(): LaunchWizardDecision | null {
+  const [decision, setDecision] = useState<LaunchWizardDecision | null>(null);
   useEffect(() => {
     let cancelled = false;
     Promise.all([
@@ -22,21 +29,23 @@ export function useSetupWizardOnLaunch(): boolean | null {
     ])
       .then(([flags, model]) => {
         if (cancelled) return;
-        setShow(
-          shouldShowOnboarding({
-            force: flags.onboardingFlow,
-            modelReady: model.ready,
-            seen: hasSeenOnboarding(),
-          }),
-        );
+        const options = {
+          force: flags.onboardingFlow,
+          modelReady: model.ready,
+          seen: hasSeenOnboarding(),
+        };
+        setDecision({
+          show: shouldShowOnboarding(options),
+          modelUpgradeOnly: isReturningModelUpgrade(options),
+        });
       })
       .catch((error) => {
         console.warn("Failed to decide on the setup wizard", error);
-        if (!cancelled) setShow(false);
+        if (!cancelled) setDecision({ show: false, modelUpgradeOnly: false });
       });
     return () => {
       cancelled = true;
     };
   }, []);
-  return show;
+  return decision;
 }

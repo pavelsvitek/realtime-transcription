@@ -1,0 +1,167 @@
+import Foundation
+
+public enum UnifiedLatencyTier: Int, Sendable, CaseIterable {
+    case ms560 = 560
+    case ms1120 = 1120
+    case ms2080 = 2080
+
+    public var leftFrames: Int { 70 }
+
+    public var chunkFrames: Int {
+        switch self {
+        case .ms560: 2
+        case .ms1120: 7
+        case .ms2080: 13
+        }
+    }
+
+    public var rightFrames: Int {
+        switch self {
+        case .ms560: 5
+        case .ms1120: 7
+        case .ms2080: 13
+        }
+    }
+
+    public var contextSuffix: String {
+        "\(leftFrames)_\(chunkFrames)_\(rightFrames)"
+    }
+}
+
+public enum UnifiedPrecisionOption: String, Sendable, CaseIterable {
+    case int8
+    case fp16
+}
+
+public struct UnifiedRuntimeOptions: Sendable, Equatable {
+    public static let defaultLatencyTier: UnifiedLatencyTier = .ms1120
+    public static let defaultPrecision: UnifiedPrecisionOption = .int8
+    public static let defaultLanguage = "auto"
+
+    public static let supportedLanguages: Set<String> = [
+        "auto",
+        "bg", "cs", "da", "de", "el", "en", "es", "et", "fi", "fr",
+        "hr", "hu", "it", "lt", "lv", "mt", "nl", "pl", "pt", "ro",
+        "ru", "sk", "sl", "sv", "uk",
+    ]
+
+    public let latencyTier: UnifiedLatencyTier
+    public let precision: UnifiedPrecisionOption
+    public let language: String
+
+    public init(
+        latencyTier: UnifiedLatencyTier = Self.defaultLatencyTier,
+        precision: UnifiedPrecisionOption = Self.defaultPrecision,
+        language: String = Self.defaultLanguage
+    ) {
+        self.latencyTier = latencyTier
+        self.precision = precision
+        self.language = language
+    }
+
+    public static func parseLanguage(_ raw: String?) -> String? {
+        guard let normalized = raw?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased(),
+            supportedLanguages.contains(normalized)
+        else {
+            return nil
+        }
+        return normalized
+    }
+
+    public static func fromEnvironment(_ environment: [String: String]) -> Self {
+        let latencyTier: UnifiedLatencyTier
+        if let rawLatency = environment["NEMOTRON_UNIFIED_LATENCY_MS"]?.trimmingCharacters(in: .whitespacesAndNewlines),
+           let parsedInt = Int(rawLatency),
+           let tier = UnifiedLatencyTier(rawValue: parsedInt)
+        {
+            latencyTier = tier
+        } else {
+            latencyTier = defaultLatencyTier
+        }
+
+        let precision: UnifiedPrecisionOption
+        if let rawPrecision = environment["NEMOTRON_UNIFIED_PRECISION"]?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased(),
+           let parsed = UnifiedPrecisionOption(rawValue: rawPrecision)
+        {
+            precision = parsed
+        } else {
+            precision = defaultPrecision
+        }
+
+        let language = parseLanguage(environment["NEMOTRON_UNIFIED_LANGUAGE"]) ?? defaultLanguage
+
+        return Self(latencyTier: latencyTier, precision: precision, language: language)
+    }
+
+    /// Resolve effective language with precedence:
+    /// `NEMOTRON_UNIFIED_LANGUAGE` env var > `init` message language > default (`"auto"`).
+    public func withLanguage(
+        from initLanguage: String?,
+        environment: [String: String]
+    ) -> Self {
+        if Self.parseLanguage(environment["NEMOTRON_UNIFIED_LANGUAGE"]) != nil {
+            return self
+        }
+        guard let parsed = Self.parseLanguage(initLanguage) else {
+            return self
+        }
+        return Self(latencyTier: latencyTier, precision: precision, language: parsed)
+    }
+
+    public var encoderFilename: String {
+        let base = "nemotron_unified_encoder_streaming_\(latencyTier.contextSuffix)"
+        return precision == .int8 ? "\(base)_int8.mlmodelc" : "\(base).mlmodelc"
+    }
+
+    public var requiredBundleComponents: [String] {
+        [
+            encoderFilename,
+            "nemotron_unified_decoder.mlmodelc",
+            "nemotron_unified_joint_decision_single_step.mlmodelc",
+            "vocab.json",
+        ]
+    }
+}
+
+/// Tracks the committed prefix of an append-only streaming transcript so
+/// silence boundaries can emit utterance commits without resetting the
+/// streaming encoder's left-context window or RNN-T decoder state.
+public struct UtteranceCursor: Sendable, Equatable {
+    public private(set) var committedScalarCount = 0
+
+    public init() {}
+
+    public func pendingText(from fullTranscript: String) -> String {
+        let scalars = fullTranscript.unicodeScalars
+        let clamped = min(committedScalarCount, scalars.count)
+        let suffix = String(scalars.dropFirst(clamped))
+        return suffix.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    public mutating func commit(from fullTranscript: String) -> String {
+        let text = pendingText(from: fullTranscript)
+        committedScalarCount = fullTranscript.unicodeScalars.count
+        return text
+    }
+
+    public mutating func reset() {
+        committedScalarCount = 0
+    }
+}
+
+/// Maps FluidAudio's download `fractionCompleted` into a 0–95% progress scale
+/// for the UI. `ModelHub.download` allocates 0.0–0.5 to downloading (0.5–1.0
+/// is reserved for `.mlpackage` compilation, which does not run for precompiled
+/// `.mlmodelc` bundles), so download fractions are doubled.
+public func normalizedDownloadPercent(
+    fractionCompleted: Double,
+    isDownloadingPhase: Bool
+) -> Int {
+    let scaled = isDownloadingPhase ? (fractionCompleted * 2.0) : fractionCompleted
+    let clamped = max(0.0, min(1.0, scaled))
+    return Int((clamped * 95.0).rounded())
+}

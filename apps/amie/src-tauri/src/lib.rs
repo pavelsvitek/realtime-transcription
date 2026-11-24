@@ -132,6 +132,7 @@ pub fn run() {
             commands::transcription::get_transcription_status,
             commands::transcription::export_transcript,
             commands::transcription::get_asr_settings,
+            commands::transcription::set_asr_language,
             commands::transcription::set_xai_api_key,
             commands::transcription::clear_xai_api_key,
             commands::meetings::get_all_meetings,

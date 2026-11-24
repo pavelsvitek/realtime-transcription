@@ -4,6 +4,8 @@ use crate::transcription::nemotron;
 
 pub const MODEL_STILL_DOWNLOADING_USER_MESSAGE: &str =
     "The transcription model is still being downloaded. Check the progress in footer.";
+pub const MODEL_NOT_DOWNLOADED_USER_MESSAGE: &str =
+    "The speech model needs to be downloaded first. Open Home to download it.";
 
 #[derive(Debug, Error)]
 pub enum AppError {
@@ -38,8 +40,10 @@ impl AppError {
             Self::Capture(msg) => format!("Microphone error: {msg}"),
             Self::Asr(msg) => format!("Transcription engine error: {msg}"),
             Self::ModelLoad(msg) => {
-                if nemotron::download_in_flight() || looks_like_incomplete_model_install(msg) {
+                if nemotron::download_in_flight() {
                     MODEL_STILL_DOWNLOADING_USER_MESSAGE.into()
+                } else if looks_like_incomplete_model_install(msg) {
+                    MODEL_NOT_DOWNLOADED_USER_MESSAGE.into()
                 } else {
                     format!("Failed to load model: {msg}")
                 }
@@ -93,10 +97,16 @@ mod tests {
     }
 
     #[test]
-    fn incomplete_model_install_points_at_footer_progress() {
+    fn incomplete_model_install_message_tracks_download_state() {
         let err = AppError::ModelLoad(
             "Nemotron model component config.json is missing at /tmp/x/config.json. Run apps/amie/scripts/setup-nemotron.sh.".into(),
         );
-        assert_eq!(err.to_user_message(), MODEL_STILL_DOWNLOADING_USER_MESSAGE);
+        nemotron::end_download();
+        assert_eq!(err.to_user_message(), MODEL_NOT_DOWNLOADED_USER_MESSAGE);
+
+        assert!(nemotron::try_begin_download());
+        let while_downloading = err.to_user_message();
+        nemotron::end_download();
+        assert_eq!(while_downloading, MODEL_STILL_DOWNLOADING_USER_MESSAGE);
     }
 }

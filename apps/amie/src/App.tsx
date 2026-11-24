@@ -1,9 +1,10 @@
-import { Activity, useCallback, useRef, useState } from "react";
+import { Activity, useCallback, useEffect, useRef, useState } from "react";
 import { AppLayout } from "./components/AppLayout";
 import type { AppPage } from "./components/Sidebar";
 import { UpdateProvider } from "./components/UpdateProvider";
 import { SetupWizard } from "./components/setup/SetupWizard";
 import { useSetupWizardOnLaunch } from "./hooks/useSetupWizardOnLaunch";
+import { useSpeechModelDownload } from "./hooks/useSpeechModelDownload";
 import { HomePage } from "./pages/HomePage";
 import { MeetingsPage } from "./pages/MeetingsPage";
 import { SettingsPage } from "./pages/SettingsPage";
@@ -24,12 +25,23 @@ function App() {
   const stopMeetingRef = useRef<(() => void) | null>(null);
   const followUpSeedRef = useRef<FollowUpSeed | null>(null);
   // First-run setup on Home: decided once at launch, ended by starting a meeting.
-  // Home's "Finish setup" reopens it on the summary, where Back returns to Home.
-  const wizardOnLaunch = useSetupWizardOnLaunch();
+  // Returning users who only need the updated speech model jump straight to the
+  // model step and then back to the summary/Home.
+  const wizardLaunch = useSetupWizardOnLaunch();
+  const speechModel = useSpeechModelDownload();
   const [wizardStep, setWizardStep] = useState<WizardStep>("welcome");
   const [wizardDone, setWizardDone] = useState(false);
   const [wizardReopened, setWizardReopened] = useState(false);
-  const wizardActive = (wizardOnLaunch === true || wizardReopened) && !wizardDone;
+  const initializedLaunchStepRef = useRef(false);
+  useEffect(() => {
+    if (!wizardLaunch || initializedLaunchStepRef.current) return;
+    initializedLaunchStepRef.current = true;
+    if (wizardLaunch.modelUpgradeOnly) {
+      setWizardStep("model");
+    }
+  }, [wizardLaunch]);
+  const modelUpgradeOnly = Boolean(wizardLaunch?.modelUpgradeOnly && !wizardReopened);
+  const wizardActive = (wizardLaunch?.show === true || wizardReopened) && !wizardDone;
   const finishWizard = useCallback(() => {
     markOnboardingSeen();
     setWizardDone(true);
@@ -73,8 +85,8 @@ function App() {
       onNavigate={navigate}
       listening={listening}
       loading={starting}
-      // Start comes back on the wizard's last step, where it ends the wizard.
-      startDisabled={wizardActive && wizardStep !== "ready"}
+      // Start comes back on the wizard's last step once the speech model is ready.
+      startDisabled={wizardActive && (wizardStep !== "ready" || !speechModel.ready)}
       onStartMeeting={() => {
         if (wizardActive) finishWizard();
         startMeeting();
@@ -83,16 +95,17 @@ function App() {
         stopMeetingRef.current?.();
       }}
     >
-      {page === "home" && wizardOnLaunch !== null ? (
+      {page === "home" && wizardLaunch !== null ? (
         wizardActive ? (
           <SetupWizard
             step={wizardStep}
             onStepChange={setWizardStep}
+            modelUpgradeOnly={modelUpgradeOnly}
             onStartMeeting={() => {
               finishWizard();
               startMeeting();
             }}
-            onExit={wizardReopened ? finishWizard : undefined}
+            onExit={wizardReopened || modelUpgradeOnly ? finishWizard : undefined}
           />
         ) : (
           <HomePage

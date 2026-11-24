@@ -13,21 +13,118 @@ use serde::{Deserialize, Serialize};
 
 use super::pipeline::{AsrOutput, AsrWord, StreamingAsr};
 
-pub const MODEL_DISPLAY_NAME: &str = "Nemotron 3.5 ASR Streaming 0.6B CoreML INT8";
+pub const MODEL_DISPLAY_NAME: &str = "Nemotron Labs Unified ASR 0.6B CoreML";
 pub const CACHE_SUBDIR: &str = "nemotron";
-pub const MODEL_REPOSITORY: &str = "aufklarer/Nemotron-3.5-ASR-Streaming-0.6B-CoreML-INT8";
-pub const MODEL_BUNDLE_SUBDIR: &str =
-    "qwen3-speech/models/aufklarer/Nemotron-3.5-ASR-Streaming-0.6B-CoreML-INT8";
-/// Approximate CoreML INT8 artifact size (see MODEL_INVESTIGATION.md).
-pub const EXPECTED_DOWNLOAD_SIZE_BYTES: u64 = 612 * 1024 * 1024;
-const REQUIRED_MODEL_COMPONENTS: &[&str] = &[
-    "encoder.mlmodelc",
-    "decoder.mlmodelc",
-    "joint.mlmodelc",
-    "config.json",
-    "vocab.json",
-    "languages.json",
+pub const MODEL_REPOSITORY: &str = "FluidInference/nemotron-labs-unified-asr-0.6b-coreml";
+pub const MODEL_BUNDLE_SUBDIR: &str = "nemotron-labs-unified-asr/coreml";
+/// Legacy Nemotron 3.5 (`speech-swift`) cache folder superseded by Unified ASR.
+const LEGACY_CACHE_SUBDIR: &str = "qwen3-speech";
+/// Approximate CoreML INT8 artifact size (577 MB encoder + 25 MB decoder/joint/vocab = ~602 MB).
+pub const EXPECTED_DOWNLOAD_SIZE_BYTES: u64 = 602 * 1024 * 1024;
+pub const DEFAULT_LANGUAGE: &str = "auto";
+const LANGUAGE_FILE: &str = "asr_language";
+pub const SUPPORTED_LANGUAGES: &[&str] = &[
+    "auto", "bg", "cs", "da", "de", "el", "en", "es", "et", "fi", "fr", "hr", "hu", "it", "lt",
+    "lv", "mt", "nl", "pl", "pt", "ro", "ru", "sk", "sl", "sv", "uk",
 ];
+const DEFAULT_UNIFIED_LATENCY_SUFFIX: &str = "70_7_7";
+const DEFAULT_UNIFIED_PRECISION_INT8: bool = true;
+const SHARED_MODEL_COMPONENTS: &[&str] = &[
+    "nemotron_unified_decoder.mlmodelc",
+    "nemotron_unified_joint_decision_single_step.mlmodelc",
+    "vocab.json",
+];
+
+pub fn parse_language(raw: &str) -> Option<&'static str> {
+    let normalized = raw.trim().to_ascii_lowercase();
+    SUPPORTED_LANGUAGES
+        .iter()
+        .copied()
+        .find(|&code| code == normalized)
+}
+
+pub fn language_from_env() -> bool {
+    std::env::var("NEMOTRON_UNIFIED_LANGUAGE")
+        .ok()
+        .as_deref()
+        .and_then(parse_language)
+        .is_some()
+}
+
+pub fn resolve_language() -> &'static str {
+    if let Some(env_lang) = std::env::var("NEMOTRON_UNIFIED_LANGUAGE")
+        .ok()
+        .as_deref()
+        .and_then(parse_language)
+    {
+        return env_lang;
+    }
+    load_language_at(&crate::transcription::xai::app_support_root()).unwrap_or(DEFAULT_LANGUAGE)
+}
+
+pub fn save_language(raw: &str) -> Result<&'static str, String> {
+    let code = parse_language(raw)
+        .ok_or_else(|| format!("Unsupported language code: {}", raw.trim()))?;
+    save_language_at(&crate::transcription::xai::app_support_root(), code)?;
+    Ok(code)
+}
+
+fn load_language_at(root: &Path) -> Option<&'static str> {
+    let raw = std::fs::read_to_string(root.join(LANGUAGE_FILE)).ok()?;
+    parse_language(&raw)
+}
+
+fn save_language_at(root: &Path, code: &str) -> Result<(), String> {
+    std::fs::create_dir_all(root)
+        .map_err(|e| format!("Failed to create app support dir: {e}"))?;
+    std::fs::write(root.join(LANGUAGE_FILE), code)
+        .map_err(|e| format!("Failed to save ASR language: {e}"))
+}
+
+fn selected_encoder_component() -> String {
+    let suffix = match std::env::var("NEMOTRON_UNIFIED_LATENCY_MS")
+        .ok()
+        .as_deref()
+        .map(str::trim)
+    {
+        Some("560") => "70_2_5",
+        Some("1120") => "70_7_7",
+        Some("2080") => "70_13_13",
+        _ => DEFAULT_UNIFIED_LATENCY_SUFFIX,
+    };
+    let is_int8 = match std::env::var("NEMOTRON_UNIFIED_PRECISION")
+        .ok()
+        .as_deref()
+        .map(str::trim)
+        .map(str::to_ascii_lowercase)
+        .as_deref()
+    {
+        Some("fp16") => false,
+        Some("int8") => true,
+        _ => DEFAULT_UNIFIED_PRECISION_INT8,
+    };
+    if is_int8 {
+        format!("nemotron_unified_encoder_streaming_{suffix}_int8.mlmodelc")
+    } else {
+        format!("nemotron_unified_encoder_streaming_{suffix}.mlmodelc")
+    }
+}
+
+fn required_model_components() -> Vec<String> {
+    let mut components = Vec::with_capacity(SHARED_MODEL_COMPONENTS.len() + 1);
+    components.push(selected_encoder_component());
+    components.extend(SHARED_MODEL_COMPONENTS.iter().map(|c| (*c).to_string()));
+    components
+}
+
+fn component_is_complete(bundle_dir: &Path, component: &str) -> bool {
+    let path = bundle_dir.join(component);
+    if component.ends_with(".mlmodelc") {
+        path.join("coremldata.bin").exists()
+    } else {
+        path.exists()
+    }
+}
 const INIT_READY_TIMEOUT: Duration = Duration::from_secs(60);
 const INIT_OVERALL_TIMEOUT: Duration = Duration::from_secs(300);
 const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(60 * 30);
@@ -68,6 +165,7 @@ struct InitRequest<'a> {
     #[serde(rename = "sampleRate")]
     sample_rate: u32,
     stream: &'a str,
+    language: &'a str,
 }
 
 #[derive(Serialize)]
@@ -169,11 +267,14 @@ impl NemotronPipeline {
             stdin,
             responses: rx,
         };
+        let language = resolve_language();
+        tracing::info!(stream, language, "Starting Nemotron helper");
         pipeline.send(&InitRequest {
             kind: "init",
             bundle_dir: model_bundle_dir.to_string_lossy().as_ref(),
             sample_rate: input_sample_rate,
             stream,
+            language,
         })?;
         Self::wait_for_ready(&pipeline.responses)?;
         Ok(pipeline)
@@ -369,9 +470,9 @@ pub fn validate_installation(helper_path: &Path, model_bundle_dir: &Path) -> Res
         ));
     }
 
-    for component in REQUIRED_MODEL_COMPONENTS {
-        let path = model_bundle_dir.join(component);
-        if !path.exists() {
+    for component in required_model_components() {
+        if !component_is_complete(model_bundle_dir, &component) {
+            let path = model_bundle_dir.join(&component);
             return Err(format!(
                 "Nemotron model component {} is missing at {}. Run apps/amie/scripts/setup-nemotron.sh.",
                 component,
@@ -386,9 +487,9 @@ pub fn model_bundle_ready(model_bundle_dir: &Path) -> bool {
     if !model_bundle_dir.is_dir() {
         return false;
     }
-    REQUIRED_MODEL_COMPONENTS
+    required_model_components()
         .iter()
-        .all(|component| model_bundle_dir.join(component).exists())
+        .all(|component| component_is_complete(model_bundle_dir, component))
 }
 
 /// Callback for helper download progress (0–100) and stage label from stdout JSON.
@@ -502,6 +603,34 @@ pub fn default_model_bundle_dir(cache_root: &Path) -> PathBuf {
     cache_root.join(MODEL_BUNDLE_SUBDIR)
 }
 
+/// Removes the legacy Nemotron 3.5 (`qwen3-speech/`) cache folder once the new
+/// Unified ASR bundle is verified complete under `cache_root`. Safe no-op if
+/// the new bundle is incomplete or the legacy folder does not exist.
+pub fn cleanup_legacy_model_cache(cache_root: &Path) {
+    if !model_bundle_ready(&default_model_bundle_dir(cache_root)) {
+        return;
+    }
+    let legacy_dir = cache_root.join(LEGACY_CACHE_SUBDIR);
+    if !legacy_dir.exists() {
+        return;
+    }
+    match std::fs::remove_dir_all(&legacy_dir) {
+        Ok(()) => {
+            tracing::info!(
+                path = %legacy_dir.display(),
+                "Removed legacy Nemotron 3.5 model cache"
+            );
+        }
+        Err(error) => {
+            tracing::warn!(
+                path = %legacy_dir.display(),
+                %error,
+                "Failed to remove legacy Nemotron 3.5 model cache"
+            );
+        }
+    }
+}
+
 /// Parses helper stdout like `{"type":"loading","stage":"downloading_models 42%"}`.
 pub fn parse_download_progress_line(line: &str) -> Option<(u8, String)> {
     #[derive(Deserialize)]
@@ -515,7 +644,7 @@ pub fn parse_download_progress_line(line: &str) -> Option<(u8, String)> {
     if parsed.kind != "loading" {
         return None;
     }
-    let percent = percent_from_stage(&parsed.stage).unwrap_or(0);
+    let percent = percent_from_stage(&parsed.stage)?;
     Some((percent, parsed.stage))
 }
 
@@ -600,13 +729,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn model_bundle_path_matches_speech_swift_cache_layout() {
+    fn model_bundle_path_matches_fluidaudio_cache_layout() {
         let path = default_model_bundle_dir(Path::new("/cache"));
         assert_eq!(
             path,
-            Path::new(
-                "/cache/qwen3-speech/models/aufklarer/Nemotron-3.5-ASR-Streaming-0.6B-CoreML-INT8"
-            )
+            Path::new("/cache/nemotron-labs-unified-asr/coreml")
         );
     }
 
@@ -671,6 +798,74 @@ mod tests {
         .unwrap();
         assert_eq!(percent, 42);
         assert!(stage.contains("42%"));
+        let (warm_pct, warm_stage) =
+            parse_download_progress_line(r#"{"type":"loading","stage":"warming_models 96%"}"#)
+                .unwrap();
+        assert_eq!(warm_pct, 96);
+        assert_eq!(warm_stage, "warming_models 96%");
+        // Stage lines without a percentage must not snap progress back to 0%.
+        assert!(
+            parse_download_progress_line(r#"{"type":"loading","stage":"warming_models"}"#).is_none()
+        );
         assert!(parse_download_progress_line(r#"{"type":"ready","model":"x"}"#).is_none());
+    }
+
+    #[test]
+    fn parses_and_persists_supported_asr_languages() {
+        assert_eq!(parse_language("AUTO"), Some("auto"));
+        assert_eq!(parse_language(" cs "), Some("cs"));
+        assert_eq!(parse_language("en"), Some("en"));
+        assert_eq!(parse_language("ja"), None);
+        assert_eq!(parse_language(""), None);
+
+        let dir = std::env::temp_dir().join(format!(
+            "amie-asr-lang-test-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        assert_eq!(load_language_at(&dir), None);
+
+        save_language_at(&dir, "cs").unwrap();
+        assert_eq!(load_language_at(&dir), Some("cs"));
+
+        save_language_at(&dir, "auto").unwrap();
+        assert_eq!(load_language_at(&dir), Some("auto"));
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn cleanup_legacy_cache_only_runs_when_new_bundle_is_ready() {
+        let dir = std::env::temp_dir().join(format!(
+            "amie-legacy-cleanup-test-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        let legacy = dir.join(LEGACY_CACHE_SUBDIR).join("models");
+        std::fs::create_dir_all(&legacy).unwrap();
+        std::fs::write(legacy.join("old.bin"), b"legacy").unwrap();
+
+        // New bundle missing: legacy cache must stay intact.
+        cleanup_legacy_model_cache(&dir);
+        assert!(dir.join(LEGACY_CACHE_SUBDIR).exists());
+
+        // Populate every required component of the new Unified ASR bundle.
+        let bundle = default_model_bundle_dir(&dir);
+        std::fs::create_dir_all(&bundle).unwrap();
+        for component in required_model_components() {
+            if component.ends_with(".mlmodelc") {
+                let comp_dir = bundle.join(&component);
+                std::fs::create_dir_all(&comp_dir).unwrap();
+                std::fs::write(comp_dir.join("coremldata.bin"), b"ok").unwrap();
+            } else {
+                std::fs::write(bundle.join(&component), b"{}").unwrap();
+            }
+        }
+
+        cleanup_legacy_model_cache(&dir);
+        assert!(!dir.join(LEGACY_CACHE_SUBDIR).exists());
+        assert!(model_bundle_ready(&bundle));
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

@@ -20,6 +20,8 @@ import { WelcomeStep } from "./WelcomeStep";
 type SetupWizardProps = {
   step: WizardStep;
   onStepChange: (step: WizardStep) => void;
+  /** Returning user who already finished onboarding and only needs the new model. */
+  modelUpgradeOnly?: boolean;
   /** Start a meeting on the last step; the wizard ends with it. */
   onStartMeeting: () => void;
   /** When set, the summary gets a Back link that calls this (opened from Home). */
@@ -27,7 +29,13 @@ type SetupWizardProps = {
 };
 
 /** First-run setup on Home ("B · Setup wizard" in Paper). */
-export function SetupWizard({ step, onStepChange, onStartMeeting, onExit }: SetupWizardProps) {
+export function SetupWizard({
+  step,
+  onStepChange,
+  modelUpgradeOnly = false,
+  onStartMeeting,
+  onExit,
+}: SetupWizardProps) {
   const model = useSpeechModelDownload();
   // The last sound test, remembered on this Mac so Home's setup note knows it too.
   const [systemAudio, setSystemAudio] = useState<SystemAudioTestResult>(loadSystemAudioTest);
@@ -35,9 +43,15 @@ export function SetupWizard({ step, onStepChange, onStartMeeting, onExit }: Setu
     saveSystemAudioTest(result);
     setSystemAudio(result);
   };
-  // Set when a step is opened from the recap: Continue, Skip and Back lead back to it.
-  const [returnToReady, setReturnToReady] = useState(false);
-  const back = returnToReady && step !== "ready" ? "ready" : previousWizardStep(step);
+  // Set when a step is opened from the recap or for a returning-user model upgrade:
+  // Continue, Skip and Back lead straight back to Ready instead of re-walking all steps.
+  const [returnToReady, setReturnToReady] = useState(modelUpgradeOnly);
+  const back =
+    modelUpgradeOnly && step === "model"
+      ? null
+      : returnToReady && step !== "ready"
+        ? "ready"
+        : previousWizardStep(step);
   const showBack = back !== null || (step === "ready" && onExit !== undefined);
 
   const goTo = (target: WizardStep) => {
@@ -72,7 +86,7 @@ export function SetupWizard({ step, onStepChange, onStartMeeting, onExit }: Setu
         ) : null}
 
         {step === "welcome" ? <WelcomeStep onNext={next} /> : null}
-        {step === "model" ? <ModelStep onNext={next} /> : null}
+        {step === "model" ? <ModelStep isUpgrade={modelUpgradeOnly} onNext={next} /> : null}
         {step === "microphone" ? <MicrophoneStep onNext={next} /> : null}
         {step === "systemAudio" ? (
           <SystemAudioStep result={systemAudio} onResult={recordSystemAudio} onNext={next} />

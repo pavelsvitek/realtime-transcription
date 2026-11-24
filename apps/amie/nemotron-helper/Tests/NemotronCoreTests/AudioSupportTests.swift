@@ -41,3 +41,68 @@ func linearResamplerPreservesDuration() {
     #expect(output.count == 16_000)
     #expect(output.allSatisfy { abs($0 - 0.25) < 0.0001 })
 }
+
+@Test
+func unifiedOptionsDefaultsAndOverrides() {
+    let defaults = UnifiedRuntimeOptions.fromEnvironment([:])
+    #expect(defaults.latencyTier == .ms1120)
+    #expect(defaults.precision == .int8)
+    #expect(defaults.language == "auto")
+    #expect(defaults.encoderFilename == "nemotron_unified_encoder_streaming_70_7_7_int8.mlmodelc")
+    #expect(defaults.requiredBundleComponents.count == 4)
+
+    let fromInit = defaults.withLanguage(from: "cs", environment: [:])
+    #expect(fromInit.language == "cs")
+
+    let custom = UnifiedRuntimeOptions.fromEnvironment([
+        "NEMOTRON_UNIFIED_LATENCY_MS": "2080",
+        "NEMOTRON_UNIFIED_PRECISION": "FP16",
+        "NEMOTRON_UNIFIED_LANGUAGE": "de",
+    ])
+    #expect(custom.latencyTier == .ms2080)
+    #expect(custom.precision == .fp16)
+    #expect(custom.language == "de")
+    #expect(custom.encoderFilename == "nemotron_unified_encoder_streaming_70_13_13.mlmodelc")
+    // Environment variable takes precedence over init message language.
+    #expect(
+        custom.withLanguage(
+            from: "cs",
+            environment: ["NEMOTRON_UNIFIED_LANGUAGE": "de"]
+        ).language == "de"
+    )
+
+    let invalid = UnifiedRuntimeOptions.fromEnvironment([
+        "NEMOTRON_UNIFIED_LATENCY_MS": "999",
+        "NEMOTRON_UNIFIED_PRECISION": "fp32",
+        "NEMOTRON_UNIFIED_LANGUAGE": "xx",
+    ])
+    #expect(invalid == defaults)
+}
+
+@Test
+func utteranceCursorSlicesCommitsWithoutResettingContext() {
+    var cursor = UtteranceCursor()
+    #expect(cursor.pendingText(from: "Hello world.") == "Hello world.")
+
+    let firstCommit = cursor.commit(from: "Hello world.")
+    #expect(firstCommit == "Hello world.")
+    #expect(cursor.pendingText(from: "Hello world.") == "")
+
+    #expect(cursor.pendingText(from: "Hello world. How are you?") == "How are you?")
+    let secondCommit = cursor.commit(from: "Hello world. How are you?")
+    #expect(secondCommit == "How are you?")
+
+    cursor.reset()
+    #expect(cursor.committedScalarCount == 0)
+    #expect(cursor.pendingText(from: "New speaker.") == "New speaker.")
+}
+
+@Test
+func normalizedDownloadPercentMapsDownloadAndCompilePhases() {
+    #expect(normalizedDownloadPercent(fractionCompleted: 0.0, isDownloadingPhase: true) == 0)
+    #expect(normalizedDownloadPercent(fractionCompleted: 0.25, isDownloadingPhase: true) == 48)
+    #expect(normalizedDownloadPercent(fractionCompleted: 0.5, isDownloadingPhase: true) == 95)
+    #expect(normalizedDownloadPercent(fractionCompleted: 0.8, isDownloadingPhase: true) == 95)
+    #expect(normalizedDownloadPercent(fractionCompleted: 0.5, isDownloadingPhase: false) == 48)
+    #expect(normalizedDownloadPercent(fractionCompleted: 1.0, isDownloadingPhase: false) == 95)
+}

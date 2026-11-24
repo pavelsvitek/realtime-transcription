@@ -73,7 +73,7 @@ mod tests {
         let config = AppConfig::load();
         let bundle = config.model_bundle_dir.to_string_lossy();
         assert!(bundle.contains(APP_SUPPORT_SUBDIR));
-        assert!(bundle.ends_with("Nemotron-3.5-ASR-Streaming-0.6B-CoreML-INT8"));
+        assert!(bundle.ends_with("nemotron-labs-unified-asr/coreml"));
     }
 
     #[test]
