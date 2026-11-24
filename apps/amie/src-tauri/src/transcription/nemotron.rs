@@ -614,7 +614,7 @@ pub fn parse_download_progress_line(line: &str) -> Option<(u8, String)> {
     if parsed.kind != "loading" {
         return None;
     }
-    let percent = percent_from_stage(&parsed.stage).unwrap_or(0);
+    let percent = percent_from_stage(&parsed.stage)?;
     Some((percent, parsed.stage))
 }
 
@@ -768,6 +768,15 @@ mod tests {
         .unwrap();
         assert_eq!(percent, 42);
         assert!(stage.contains("42%"));
+        let (warm_pct, warm_stage) =
+            parse_download_progress_line(r#"{"type":"loading","stage":"warming_models 96%"}"#)
+                .unwrap();
+        assert_eq!(warm_pct, 96);
+        assert_eq!(warm_stage, "warming_models 96%");
+        // Stage lines without a percentage must not snap progress back to 0%.
+        assert!(
+            parse_download_progress_line(r#"{"type":"loading","stage":"warming_models"}"#).is_none()
+        );
         assert!(parse_download_progress_line(r#"{"type":"ready","model":"x"}"#).is_none());
     }
 

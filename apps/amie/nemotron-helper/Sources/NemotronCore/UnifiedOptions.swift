@@ -152,3 +152,16 @@ public struct UtteranceCursor: Sendable, Equatable {
         committedScalarCount = 0
     }
 }
+
+/// Maps FluidAudio's download `fractionCompleted` into a 0–95% progress scale
+/// for the UI. `ModelHub.download` allocates 0.0–0.5 to downloading (0.5–1.0
+/// is reserved for `.mlpackage` compilation, which does not run for precompiled
+/// `.mlmodelc` bundles), so download fractions are doubled.
+public func normalizedDownloadPercent(
+    fractionCompleted: Double,
+    isDownloadingPhase: Bool
+) -> Int {
+    let scaled = isDownloadingPhase ? (fractionCompleted * 2.0) : fractionCompleted
+    let clamped = max(0.0, min(1.0, scaled))
+    return Int((clamped * 95.0).rounded())
+}

@@ -96,3 +96,13 @@ func utteranceCursorSlicesCommitsWithoutResettingContext() {
     #expect(cursor.committedScalarCount == 0)
     #expect(cursor.pendingText(from: "New speaker.") == "New speaker.")
 }
+
+@Test
+func normalizedDownloadPercentMapsDownloadAndCompilePhases() {
+    #expect(normalizedDownloadPercent(fractionCompleted: 0.0, isDownloadingPhase: true) == 0)
+    #expect(normalizedDownloadPercent(fractionCompleted: 0.25, isDownloadingPhase: true) == 48)
+    #expect(normalizedDownloadPercent(fractionCompleted: 0.5, isDownloadingPhase: true) == 95)
+    #expect(normalizedDownloadPercent(fractionCompleted: 0.8, isDownloadingPhase: true) == 95)
+    #expect(normalizedDownloadPercent(fractionCompleted: 0.5, isDownloadingPhase: false) == 48)
+    #expect(normalizedDownloadPercent(fractionCompleted: 1.0, isDownloadingPhase: false) == 95)
+}

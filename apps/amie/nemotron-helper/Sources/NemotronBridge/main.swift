@@ -187,7 +187,16 @@ struct NemotronBridgeApp {
             try await manager.loadModels(
                 to: cacheRoot,
                 progressHandler: { progress in
-                    let pct = max(0, min(100, Int((progress.fractionCompleted * 100.0).rounded())))
+                    let isDownloading: Bool
+                    if case .downloading = progress.phase {
+                        isDownloading = true
+                    } else {
+                        isDownloading = false
+                    }
+                    let pct = normalizedDownloadPercent(
+                        fractionCompleted: progress.fractionCompleted,
+                        isDownloadingPhase: isDownloading
+                    )
                     if throttle.shouldEmit(percent: pct) {
                         emit(LoadingMessage(stage: "downloading_models \(pct)%"))
                     }
@@ -195,7 +204,7 @@ struct NemotronBridgeApp {
             )
         }
 
-        emit(LoadingMessage(stage: "warming_models"))
+        emit(LoadingMessage(stage: "warming_models 96%"))
         try await warmUp(manager: manager)
         try validateModelBundle(bundleDir, components: options.requiredBundleComponents)
         emit(DownloadedMessage(modelPath: bundleDir.path))

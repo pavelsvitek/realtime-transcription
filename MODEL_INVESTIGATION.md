@@ -45,7 +45,10 @@ Published benchmark results are not directly comparable to this repository’s g
 
 ## Licensing
 
-The model is governed by the OpenMDW License Agreement, Version 1.1 (`openmdw-1.1`). Runtime code (`FluidAudio`) is Apache-2.0. Redistribution notices are tracked in `apps/amie/licenses/NOTICE`.
+The model is governed by the OpenMDW License Agreement, Version 1.1 (`openmdw-1.1`). Runtime code (`FluidAudio`) is Apache-2.0. Redistribution includes:
+
+- `apps/amie/licenses/OPENMDW-1.1.txt`
+- `apps/amie/licenses/NOTICE`
 
 ## Evaluation requirements
 

@@ -31,7 +31,7 @@
       "binaries/nemotron-bridge"
     ],
     "resources": [
-      "../licenses/NVIDIA-OPEN-MODEL-LICENSE.txt",
+      "../licenses/OPENMDW-1.1.txt",
       "../licenses/NOTICE"
     ],
     "icon": [

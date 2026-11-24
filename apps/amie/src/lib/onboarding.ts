@@ -2,7 +2,7 @@
 export const ONBOARDING_SEEN_STORAGE_KEY = "amie-onboarding-seen";
 
 /** Approximate CoreML INT8 speech model size (MODEL_INVESTIGATION.md). */
-export const EXPECTED_MODEL_SIZE_BYTES = 612 * 1024 * 1024;
+export const EXPECTED_MODEL_SIZE_BYTES = 602 * 1024 * 1024;
 
 export type LaunchFlags = {
   /** `--onboarding-flow` (or the older `--show-onboarding`): always open the setup wizard. */
