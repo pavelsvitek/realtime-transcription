@@ -130,7 +130,7 @@ export function SpeakerId() {
             Speaker labels from
           </span>
           <span className="section-title font-semibold tracking-[0.2px] text-raycast-mute">
-            Zoom, Meet and Teams
+            Zoom, Meet, Teams &amp; Slack
           </span>
         </h2>
         <p className="max-w-[480px] text-lg text-raycast-body xl:w-[380px]">

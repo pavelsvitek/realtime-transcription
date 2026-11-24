@@ -55,10 +55,10 @@ const sections: LegalSection[] = [
             <code>~/Library/Application Support/com.pavel.amie/</code>).
           </li>
           <li>
-            <strong>Speaker names.</strong> For Zoom and Microsoft Teams, Amie
-            can use macOS Accessibility, if you allow it, to read who is
-            speaking from the meeting window. For Google Meet, the browser
-            extension does this (see{" "}
+            <strong>Speaker names.</strong> For Zoom, Microsoft Teams and
+            Slack, Amie can use macOS Accessibility, if you allow it, to read
+            who is speaking from the meeting window. For Google Meet, the
+            browser extension does this (see{" "}
             <a href="#meet-extension">Amie for Google Meet</a>). Names are used
             to label transcript lines and are stored with the transcript.
           </li>

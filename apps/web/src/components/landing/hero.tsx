@@ -27,6 +27,46 @@ function NoBotIcon() {
   );
 }
 
+/** Globe icon used on the 25 EU languages pill. */
+function GlobeIcon() {
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="shrink-0 text-[#8CC4EA]"
+      aria-hidden
+    >
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+      <path d="M2 12h20" />
+    </svg>
+  );
+}
+
+/** Tapered concave cradle arc beneath "25 European languages" in the hero subhead. */
+function LanguagesUnderline() {
+  return (
+    <svg
+      viewBox="0 0 206 11"
+      fill="none"
+      preserveAspectRatio="none"
+      className="pointer-events-none absolute -right-0.5 -bottom-1.5 -left-0.5 h-[11px] w-[calc(100%+4px)]"
+      aria-hidden
+    >
+      <path
+        d="M 1.5 2.4 C 54 6.6, 152 6.6, 204.5 2.4 C 205.5 2.0, 205.6 3.3, 204.5 3.9 C 152 9.4, 54 9.4, 1.5 3.9 C 0.4 3.3, 0.5 2.0, 1.5 2.4 Z"
+        fill="#6FB0DE"
+      />
+    </svg>
+  );
+}
+
 /** Claude starburst mark used on the Works-with-Claude pill. */
 function ClaudeStarIcon() {
   return (
@@ -56,6 +96,15 @@ export function Hero() {
           </span>
         </div>
         <a
+          href="#faq-languages"
+          className="flex items-center gap-1.5 rounded border border-[#6FB0DE]/32 bg-[#6FB0DE]/8 px-2 py-0.5 transition-colors hover:border-[#6FB0DE]/60"
+        >
+          <GlobeIcon />
+          <span className="text-xs leading-[18px] font-medium tracking-[0.033em] text-[#BFE0F5]">
+            25 EU languages
+          </span>
+        </a>
+        <a
           href="#local-mcp"
           className="flex items-center gap-1.5 rounded border border-[#D97757]/40 bg-[#D97757]/16 px-2.5 py-0.5 transition-colors hover:border-[#D97757]/65"
         >
@@ -73,9 +122,16 @@ export function Hero() {
           on your Mac.
         </span>
       </h1>
-      <p className="max-w-[560px] text-center text-lg text-raycast-on-dark-mute xl:w-[560px]">
-        Real-time transcripts and summaries from your mic and calls. Runs
-        privately on your Mac — ready for Claude.
+      <p className="max-w-[600px] text-center text-lg leading-[31px] text-raycast-on-dark-mute xl:w-[600px]">
+        Real-time transcripts and summaries in{" "}
+        <a
+          href="#faq-languages"
+          className="relative inline-block font-medium text-raycast-ink transition-opacity hover:opacity-90"
+        >
+          25 European languages
+          <LanguagesUnderline />
+        </a>{" "}
+        — private on your Mac, ready for Claude.
       </p>
       <div id="download" className="flex flex-col items-center gap-2.5 pt-1">
         <div className="flex flex-col items-center gap-3 sm:flex-row">

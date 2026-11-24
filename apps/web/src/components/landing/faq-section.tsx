@@ -9,6 +9,34 @@ type FaqItem = {
   icon: ReactNode;
 };
 
+const SUPPORTED_LANGUAGES = [
+  "Bulgarian",
+  "Croatian",
+  "Czech",
+  "Danish",
+  "Dutch",
+  "English",
+  "Estonian",
+  "Finnish",
+  "French",
+  "German",
+  "Greek",
+  "Hungarian",
+  "Italian",
+  "Latvian",
+  "Lithuanian",
+  "Maltese",
+  "Polish",
+  "Portuguese",
+  "Romanian",
+  "Russian",
+  "Slovak",
+  "Slovenian",
+  "Spanish",
+  "Swedish",
+  "Ukrainian",
+] as const;
+
 const FAQ_ITEMS: readonly FaqItem[] = [
   {
     question: "Does a bot join my call?",
@@ -25,7 +53,7 @@ const FAQ_ITEMS: readonly FaqItem[] = [
   {
     question: "Which meeting apps does Amie work with?",
     answer:
-      "Any app that plays audio on your Mac — Zoom, Google Meet, Microsoft Teams, Slack, FaceTime, Discord, or browser calls. Zoom, Teams, and Meet also get automatic speaker labels.",
+      "Any app that plays audio on your Mac — Zoom, Google Meet, Microsoft Teams, Slack, FaceTime, Discord, or browser calls. Zoom, Teams, Meet, and Slack also get automatic speaker labels.",
     icon: (
       <>
         <rect x="2" y="5" width="14" height="14" rx="2" />
@@ -59,7 +87,7 @@ const FAQ_ITEMS: readonly FaqItem[] = [
   {
     question: "How does speaker detection work without a bot?",
     answer:
-      "For Zoom and Teams, Amie reads who is speaking from the meeting window via macOS Accessibility. For Google Meet, our Chrome/Brave extension sends names directly to Amie on your Mac.",
+      "For Zoom, Teams, and Slack, Amie reads who is speaking from the meeting window via macOS Accessibility. For Google Meet, our Chrome/Brave extension sends names directly to Amie on your Mac.",
     icon: (
       <>
         <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
@@ -187,6 +215,46 @@ export function FaqSection() {
             </article>
           ))}
         </div>
+
+        {/* Supported languages card (full-width for scannable 25-language list) */}
+        <article
+          id="faq-languages"
+          className="scroll-mt-20 flex flex-col gap-4 rounded-xl border border-raycast-hairline-soft bg-raycast-surface p-5 sm:p-7 md:px-8"
+        >
+          <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
+            <div className="flex items-center gap-3">
+              <FaqIcon>
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+                <path d="M2 12h20" />
+              </FaqIcon>
+              <h3 className="text-[16px] leading-6 font-semibold text-raycast-ink sm:text-[17px]">
+                Which languages are supported?
+              </h3>
+            </div>
+            <span className="inline-flex h-[30px] shrink-0 items-center rounded-md border border-[#6FB0DE]/25 bg-[#6FB0DE]/10 px-3 text-xs font-medium text-[#BFE0F5]">
+              Auto-detected · {SUPPORTED_LANGUAGES.length} languages
+            </span>
+          </div>
+          <p className="text-md leading-6 text-[#B4B4B8]">
+            Amie automatically detects and transcribes{" "}
+            {SUPPORTED_LANGUAGES.length} European languages right on your Mac —
+            no manual switching required:
+          </p>
+          <ul
+            aria-label="Supported languages"
+            className="flex flex-wrap gap-2"
+          >
+            {SUPPORTED_LANGUAGES.map((language) => (
+              <li
+                key={language}
+                className="rounded-sm border border-white/8 bg-white/[0.04] px-2.5 py-1 text-sm leading-[18px] font-medium text-[#D4D4D8]"
+              >
+                {language}
+              </li>
+            ))}
+          </ul>
+        </article>
 
         {/* Final requirements card */}
         <article className="flex flex-col items-start justify-between gap-4 rounded-xl border border-raycast-hairline-soft bg-raycast-surface p-5 sm:p-7 md:flex-row md:items-center md:gap-8 md:px-8">
