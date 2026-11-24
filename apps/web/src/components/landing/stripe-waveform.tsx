@@ -7,7 +7,7 @@ export function StripeWaveform() {
       aria-hidden
       viewBox="0 0 1440 400"
       preserveAspectRatio="none"
-      className="pointer-events-none absolute inset-x-0 top-[470px] h-[300px] w-full sm:top-[500px] sm:h-[420px] xl:top-[360px] xl:h-[640px]"
+      className="pointer-events-none absolute inset-x-0 top-[400px] h-[255px] w-full sm:top-[425px] sm:h-[357px] xl:top-[315px] xl:h-[544px]"
     >
       <defs>
         <linearGradient

@@ -30,11 +30,11 @@ export function LandingPage() {
       </div>
       <div className="page-zoom relative isolate overflow-x-clip">
         <GridBackground />
-        <section className="relative overflow-x-clip pb-20 xl:h-[1256px] xl:pb-0">
+        <section className="relative overflow-x-clip pb-16 xl:h-[1076px] xl:pb-0">
           <StripeWaveform />
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-x-0 bottom-0 h-[160px] xl:top-[860px] xl:bottom-auto xl:h-[280px]"
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-[136px] xl:top-[740px] xl:bottom-auto xl:h-[238px]"
             style={{
               backgroundImage:
                 "linear-gradient(in oklab 180deg, oklab(13.4% -.0007 -0.005 / 0%) 0%, var(--color-raycast-canvas) 100%)",
@@ -43,7 +43,7 @@ export function LandingPage() {
           <div className="relative mx-auto w-full xl:h-full xl:w-[1440px]">
             <Hero />
             <WorksWith />
-            <div className="relative z-10 mx-auto mt-10 w-full px-4 sm:px-8 xl:absolute xl:top-[512px] xl:left-[200px] xl:mx-0 xl:mt-0 xl:w-[1040px] xl:p-0">
+            <div className="relative z-10 mx-auto mt-8 w-full max-w-[948px] px-4 sm:px-8 xl:absolute xl:top-[444px] xl:left-[278px] xl:mx-0 xl:mt-0 xl:w-[884px] xl:max-w-none xl:p-0">
               <FitStage width={1040} height={680}>
                 <AmieWindow />
               </FitStage>

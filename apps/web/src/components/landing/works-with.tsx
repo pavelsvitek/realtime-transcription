@@ -15,7 +15,7 @@ const SLACK_PATH = "M11.0 5.0 H8.7 A2.3 2.3 0 1 1 11.0 2.7 Z M2.7 6.4 H8.7 A2.3 
 
 function MeetMark() {
   return (
-    <svg viewBox="0 0 24 24" className="size-[18px] shrink-0" aria-hidden>
+    <svg viewBox="0 0 24 24" className="size-[15px] shrink-0" aria-hidden>
       <path d={MEET_PATH} fill="#fff" />
     </svg>
   );
@@ -24,7 +24,7 @@ function MeetMark() {
 function ZoomMark() {
   // The Z sits in a 256px box; crop to its bounds so it matches the other marks.
   return (
-    <svg viewBox="44 60 168 136" className="h-[18px] w-[22px] shrink-0" aria-hidden>
+    <svg viewBox="44 60 168 136" className="h-[15px] w-[19px] shrink-0" aria-hidden>
       <path d={ZOOM_PATH} fill="#fff" />
     </svg>
   );
@@ -32,7 +32,7 @@ function ZoomMark() {
 
 function TeamsMark() {
   return (
-    <svg viewBox="0 0 24 24" className="size-[18px] shrink-0" aria-hidden>
+    <svg viewBox="0 0 24 24" className="size-[15px] shrink-0" aria-hidden>
       <path d={TEAMS_PATH} fill="#fff" />
     </svg>
   );
@@ -40,7 +40,7 @@ function TeamsMark() {
 
 function SlackMark() {
   return (
-    <svg viewBox="0 0 24 24" className="size-[18px] shrink-0" aria-hidden>
+    <svg viewBox="0 0 24 24" className="size-[15px] shrink-0" aria-hidden>
       <path d={SLACK_PATH} fill="#fff" />
     </svg>
   );
@@ -55,15 +55,15 @@ const PLATFORMS = [
 
 export function WorksWith() {
   return (
-    <div className="relative z-20 mt-7 flex justify-center px-4 xl:absolute xl:inset-x-0 xl:top-[489px] xl:mt-0 xl:px-0">
-      <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-3 rounded-xl py-3 xl:h-11 xl:flex-nowrap xl:gap-5 xl:py-0 bg-raycast-surface px-[22px] shadow-[0_0_0_1px_#FFFFFF24,0_16px_40px_#00000099]">
-        <span className="text-[13px] leading-4 text-raycast-mute">Works with</span>
+    <div className="relative z-20 mt-6 flex justify-center px-4 xl:absolute xl:inset-x-0 xl:top-[425px] xl:mt-0 xl:px-0">
+      <div className="flex flex-wrap items-center justify-center gap-x-3.5 gap-y-2.5 rounded-[12px] py-2.5 xl:h-[38px] xl:flex-nowrap xl:gap-4 xl:py-0 bg-raycast-surface px-[18px] shadow-[0_0_0_1px_#FFFFFF24,0_16px_40px_#00000099]">
+        <span className="text-[11px] leading-[14px] text-raycast-mute">Works with</span>
         {PLATFORMS.map(({ name, Mark }) => (
-          <div key={name} className="flex items-center gap-5">
-            <span className="hidden h-[18px] w-px bg-white/[.14] sm:block" />
-            <div className="flex items-center gap-2">
+          <div key={name} className="flex items-center gap-4">
+            <span className="hidden h-[15px] w-px bg-white/[.14] sm:block" />
+            <div className="flex items-center gap-1.5">
               <Mark />
-              <span className="text-sm leading-4 font-medium text-raycast-ink">{name}</span>
+              <span className="text-xs leading-[14px] font-medium text-raycast-ink">{name}</span>
             </div>
           </div>
         ))}
