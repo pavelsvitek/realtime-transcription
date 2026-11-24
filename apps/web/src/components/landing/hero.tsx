@@ -34,7 +34,7 @@ function LanguagesUnderline() {
       viewBox="0 0 206 11"
       fill="none"
       preserveAspectRatio="none"
-      className="pointer-events-none absolute -right-0.5 -bottom-[5px] -left-0.5 h-[10px] w-[calc(100%+4px)]"
+      className="pointer-events-none absolute -right-0.5 -bottom-1.5 -left-0.5 h-[11px] w-[calc(100%+4px)]"
       aria-hidden
     >
       <path
@@ -91,7 +91,7 @@ export function Hero() {
           on your Mac.
         </span>
       </h1>
-      <p className="max-w-[540px] text-center text-[16px] leading-[28px] text-raycast-on-dark-mute xl:w-[540px]">
+      <p className="max-w-[600px] text-center text-lg leading-[31px] text-raycast-on-dark-mute xl:w-[600px]">
         Real-time transcripts and summaries in{" "}
         <a
           href="#faq-languages"
