@@ -27,6 +27,24 @@ function NoBotIcon() {
   );
 }
 
+/** Tapered concave cradle arc beneath "25 European languages" in the hero subhead. */
+function LanguagesUnderline() {
+  return (
+    <svg
+      viewBox="0 0 206 11"
+      fill="none"
+      preserveAspectRatio="none"
+      className="pointer-events-none absolute -right-0.5 -bottom-1.5 -left-0.5 h-[11px] w-[calc(100%+4px)]"
+      aria-hidden
+    >
+      <path
+        d="M 1.5 2.4 C 54 6.6, 152 6.6, 204.5 2.4 C 205.5 2.0, 205.6 3.3, 204.5 3.9 C 152 9.4, 54 9.4, 1.5 3.9 C 0.4 3.3, 0.5 2.0, 1.5 2.4 Z"
+        fill="#6FB0DE"
+      />
+    </svg>
+  );
+}
+
 /** Claude starburst mark used on the Works-with-Claude pill. */
 function ClaudeStarIcon() {
   return (
@@ -41,7 +59,7 @@ function ClaudeStarIcon() {
 
 export function Hero() {
   return (
-    <div className="relative z-10 flex flex-col items-center gap-3 px-5 pt-12 sm:pt-16 xl:px-0">
+    <div className="relative z-10 flex flex-col items-center gap-3 px-5 pt-14 sm:pt-20 md:pt-24 xl:px-0 xl:pt-[112px]">
       <div className="flex flex-wrap items-center justify-center gap-2">
         <div className="flex items-center gap-1.5 rounded px-2 py-0.5 bg-raycast-accent-red-soft">
           <span className="size-1.5 shrink-0 rounded-full bg-raycast-accent-red" />
@@ -73,9 +91,16 @@ export function Hero() {
           on your Mac.
         </span>
       </h1>
-      <p className="max-w-[560px] text-center text-lg text-raycast-on-dark-mute xl:w-[560px]">
-        Real-time transcripts and summaries from your mic and calls. Runs
-        privately on your Mac — ready for Claude.
+      <p className="max-w-[600px] text-center text-lg leading-[31px] text-raycast-on-dark-mute xl:w-[600px]">
+        Real-time transcripts and summaries in{" "}
+        <a
+          href="#faq-languages"
+          className="relative inline-block font-medium text-raycast-ink transition-opacity hover:opacity-90"
+        >
+          25 European languages
+          <LanguagesUnderline />
+        </a>{" "}
+        — private on your Mac, ready for Claude.
       </p>
       <div id="download" className="flex flex-col items-center gap-2.5 pt-1">
         <div className="flex flex-col items-center gap-3 sm:flex-row">

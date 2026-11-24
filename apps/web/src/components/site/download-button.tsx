@@ -86,8 +86,9 @@ export function DownloadButton({ location, className, children }: Props) {
 /** Requirements note shown under the main Download button. */
 export function DownloadSupportNote() {
   return (
-    <p className="text-sm text-raycast-mute">
-      For macOS {MIN_MACOS_MAJOR} or later (Apple Silicon)
+    <p className="text-center text-sm text-raycast-mute">
+      For macOS {MIN_MACOS_MAJOR} or later (Apple Silicon) · Auto-detects 25
+      European languages
     </p>
   );
 }

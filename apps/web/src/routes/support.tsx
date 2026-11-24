@@ -67,8 +67,8 @@ const sections: LegalSection[] = [
           </li>
           <li>
             <strong>Accessibility</strong> (optional) to show who is speaking
-            in Zoom and Microsoft Teams. You can turn it on from Settings in
-            Amie.
+            in Zoom, Microsoft Teams and Slack. You can turn it on from
+            Settings in Amie.
           </li>
         </ul>
         <h3>The other side of the call isn’t transcribed</h3>

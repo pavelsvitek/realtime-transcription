@@ -11,7 +11,7 @@ You are an AI agent helping your user install **Amie**, a macOS app that transcr
 
 ## About Amie
 
-- **What it does:** Amie writes down every word of a meeting as it's said, from the user's microphone and from the other people on the call. It names who is speaking in Google Meet, Zoom and Microsoft Teams, and writes a summary when the meeting ends.
+- **What it does:** Amie writes down every word of a meeting as it's said, from the user's microphone and from the other people on the call. It names who is speaking in Google Meet, Zoom, Microsoft Teams and Slack, and writes a summary when the meeting ends.
 - **No bot joins the call.** Amie listens on the Mac itself, so nobody in the meeting sees an extra participant.
 - **Local by default.** Speech is transcribed on the Mac. Meetings are stored in `~/Library/Application Support/com.pavel.amie/`. Cloud transcription and AI summaries are optional and only use the user's own API key, if they add one in Settings.
 - **Works with AI agents.** Amie exposes the user's meetings to Claude, Cursor, Codex, Grok Bot or any MCP client, and the data stays on the Mac.
@@ -105,7 +105,7 @@ Confirm it worked: `ls -d /Applications/Amie.app`.
 
 ## Step 4: Allow Accessibility to see who is speaking
 
-**Tell the user:** "Next is Accessibility. Amie uses it only to read the name of the person speaking in Zoom and Microsoft Teams, so your transcript shows who said what instead of 'Speaker 2'. It's optional. Amie still transcribes without it, but speaker names make transcripts and summaries much more useful. Would you like to turn it on?"
+**Tell the user:** "Next is Accessibility. Amie uses it only to read the name of the person speaking in Zoom, Microsoft Teams and Slack, so your transcript shows who said what instead of 'Speaker 2'. It's optional. Amie still transcribes without it, but speaker names make transcripts and summaries much more useful. Would you like to turn it on?"
 
 If they say yes:
 
