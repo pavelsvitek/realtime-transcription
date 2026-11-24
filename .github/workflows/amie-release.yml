@@ -50,9 +50,12 @@ concurrency:
 
 env:
   RELEASE_NOTES: |
-    This update includes reliability improvements and bug fixes. Amie will restart automatically after the update.
+    What's new in Amie 0.7.0:
 
-    Your meetings and settings stay on this Mac.
+    • 25 European languages — Amie now runs an upgraded local speech model that automatically detects the language being spoken across 25 European languages. You can also lock in a specific language anytime in Settings → Language detection.
+    • Slack Huddle speaker names — Amie now identifies who is speaking during Slack Huddles, alongside Zoom, Microsoft Teams, and Google Meet.
+
+    After updating, Amie will restart automatically and prompt you to download the new local speech model (~602 MB). Your meetings and settings stay on this Mac.
 
 jobs:
   # ---------------------------------------------------------------- Stage 0
