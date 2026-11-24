@@ -91,8 +91,7 @@ export function DownloadSupportNote({
 }) {
   return (
     <p className={`text-center text-raycast-mute ${className}`}>
-      For macOS {MIN_MACOS_MAJOR} or later (Apple Silicon) · Auto-detects 25
-      European languages
+      Free · No account needed · macOS {MIN_MACOS_MAJOR}+ on Apple Silicon
     </p>
   );
 }

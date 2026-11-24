@@ -3,30 +3,6 @@ import {
   DownloadSupportNote,
 } from "@/components/site/download-button";
 
-/** A bot head with a slash: Amie listens on your Mac, nothing joins the call. */
-function NoBotIcon() {
-  return (
-    <svg
-      width="13"
-      height="13"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="shrink-0 text-raycast-on-dark-mute"
-      aria-hidden
-    >
-      <rect x="4" y="8" width="16" height="12" rx="3" />
-      <path d="M12 8V4" />
-      <circle cx="12" cy="3" r="1" />
-      <path d="M9 14h.01M15 14h.01" />
-      <path d="M3 3l18 18" />
-    </svg>
-  );
-}
-
 /** Tapered concave cradle arc beneath "25 European languages" in the hero subhead. */
 function LanguagesUnderline() {
   return (
@@ -64,13 +40,7 @@ export function Hero() {
         <div className="flex items-center gap-[5px] rounded px-[7px] py-0.5 bg-raycast-accent-red-soft">
           <span className="size-[5px] shrink-0 rounded-full bg-raycast-accent-red" />
           <span className="text-[11px] leading-[16px] font-medium tracking-[0.033em] text-raycast-accent-red">
-            Real-time · Runs on your Mac
-          </span>
-        </div>
-        <div className="flex items-center gap-[5px] rounded border border-raycast-hairline-strong px-[7px] py-0.5">
-          <NoBotIcon />
-          <span className="text-[11px] leading-[16px] font-medium tracking-[0.033em] text-raycast-on-dark-mute">
-            No bot joins your call
+            Free for Mac · Runs offline
           </span>
         </div>
         <a
@@ -85,33 +55,33 @@ export function Hero() {
       </div>
       <h1 className="flex flex-col items-center">
         <span className="max-w-[810px] text-center text-[36px] leading-[41px] font-semibold text-raycast-ink sm:text-[50px] sm:leading-[56px] xl:w-[810px] xl:text-[58px] xl:leading-[63px]">
-          Your meetings, transcribed
+          Live meeting transcripts
         </span>
         <span className="text-center text-[36px] leading-[41px] font-semibold text-raycast-mute sm:text-[50px] sm:leading-[56px] xl:w-[810px] xl:text-[58px] xl:leading-[63px]">
-          on your Mac.
+          without a bot in the call.
         </span>
       </h1>
-      <p className="max-w-[600px] text-center text-lg leading-[31px] text-raycast-on-dark-mute xl:w-[600px]">
-        Real-time transcripts and summaries in{" "}
+      <p className="max-w-[640px] text-center text-lg leading-[31px] text-raycast-on-dark-mute xl:w-[640px]">
+        Amie transcribes your Mac’s audio live in{" "}
         <a
           href="#faq-languages"
           className="relative inline-block font-medium text-raycast-ink transition-opacity hover:opacity-90"
         >
           25 European languages
           <LanguagesUnderline />
-        </a>{" "}
-        — private on your Mac, ready for Claude.
+        </a>
+        . Meetings stay local and connect to Claude or Cursor.
       </p>
       <div id="download" className="flex flex-col items-center gap-[9px] pt-[3px]">
         <div className="flex flex-col items-center gap-[11px] sm:flex-row">
           <DownloadButton location="hero" className="flex h-10 cursor-pointer items-center justify-center rounded-[9px] bg-raycast-primary px-[22px] text-[16px] leading-[22px] font-semibold tracking-[0.014em] text-raycast-on-primary disabled:opacity-70">
-            Download for Mac
+            Download free for Mac
           </DownloadButton>
           <a
             href="#word-by-word"
             className="flex h-10 items-center justify-center rounded-[9px] border border-raycast-hairline-strong px-[22px] text-[16px] leading-[22px] font-semibold tracking-[0.014em] text-raycast-ink"
           >
-            How it works
+            See how it works
           </a>
         </div>
         <DownloadSupportNote className="text-xs" />
