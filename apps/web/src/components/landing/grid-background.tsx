@@ -4,18 +4,18 @@
  * Mirrors "Landing — Variant B · Grid" in Paper (page "Landing · Brand colors").
  */
 
-const GRID_START = 820; // px from the top of the page, just below the hero window
+const GRID_START = 880; // px from the top of the page, just below the hero window
 const FADE = 240; // px fade at the top and bottom of the grid
 
 // Plus marks, in page coordinates (x from the left of the 1440px column).
 const MARKS: { x: number; y: number }[] = [
-  { x: 72, y: 1252 },
-  { x: 1368, y: 1572 },
-  { x: 1368, y: 2132 },
-  { x: 72, y: 2692 },
-  { x: 1368, y: 3172 },
-  { x: 72, y: 3610 },
-  { x: 1368, y: 4100 },
+  { x: 72, y: 1312 },
+  { x: 1368, y: 1632 },
+  { x: 1368, y: 2192 },
+  { x: 72, y: 2752 },
+  { x: 1368, y: 3232 },
+  { x: 72, y: 3670 },
+  { x: 1368, y: 4160 },
 ];
 
 /**
@@ -55,7 +55,7 @@ export function GridBackground() {
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute inset-x-0 top-[544px] bottom-0 -z-10 select-none xl:top-[820px]"
+      className="pointer-events-none absolute inset-x-0 top-[576px] bottom-0 -z-10 select-none xl:top-[880px]"
     >
       <GridPattern />
       <div className="absolute inset-0 mx-auto hidden w-[1440px] xl:block">
