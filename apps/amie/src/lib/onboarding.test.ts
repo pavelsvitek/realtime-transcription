@@ -6,6 +6,7 @@ import {
   downloadFooterStatus,
   formatTranscriptionError,
   hasSeenOnboarding,
+  isReturningModelUpgrade,
   markOnboardingSeen,
   shouldShowOnboarding,
 } from "./onboarding";
@@ -70,6 +71,21 @@ describe("onboarding prefs", () => {
     expect(
       shouldShowOnboarding({ force: true, modelReady: true, seen: true }),
     ).toBe(true);
+  });
+
+  it("identifies returning users who only need the updated speech model", () => {
+    expect(
+      isReturningModelUpgrade({ force: false, modelReady: false, seen: true }),
+    ).toBe(true);
+    expect(
+      isReturningModelUpgrade({ force: false, modelReady: false, seen: false }),
+    ).toBe(false);
+    expect(
+      isReturningModelUpgrade({ force: false, modelReady: true, seen: true }),
+    ).toBe(false);
+    expect(
+      isReturningModelUpgrade({ force: true, modelReady: false, seen: true }),
+    ).toBe(false);
   });
 
   it("softens incomplete-model errors while downloading", () => {

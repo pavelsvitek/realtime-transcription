@@ -55,9 +55,13 @@ pub fn get_launch_flags() -> LaunchFlags {
 #[tauri::command]
 pub fn get_speech_model_status() -> SpeechModelStatus {
     let config = AppConfig::load();
+    let ready = nemotron::model_bundle_ready(&config.model_bundle_dir);
+    if ready {
+        nemotron::cleanup_legacy_model_cache(&AppConfig::default_model_cache_root());
+    }
     let downloading = nemotron::download_in_flight();
     SpeechModelStatus {
-        ready: nemotron::model_bundle_ready(&config.model_bundle_dir),
+        ready,
         downloading,
         download_percent: if downloading {
             Some(nemotron::download_percent())
@@ -94,6 +98,7 @@ pub fn start_speech_model_download(app: AppHandle) -> Result<SpeechModelStatus, 
 
     let helper_path = config.helper_path.clone();
     let cache_root = AppConfig::default_model_cache_root();
+    let cache_root_for_cleanup = cache_root.clone();
     let app_for_progress = app.clone();
     let on_progress: Arc<nemotron::DownloadProgressFn> = Arc::new(move |percent, stage| {
         nemotron::set_download_percent(percent);
@@ -109,6 +114,7 @@ pub fn start_speech_model_download(app: AppHandle) -> Result<SpeechModelStatus, 
         nemotron::end_download();
         match result {
             Ok(Ok(())) => {
+                nemotron::cleanup_legacy_model_cache(&cache_root_for_cleanup);
                 nemotron::set_download_percent(100);
                 emit_progress(&app, false, 100, "ready", true);
                 tracing::info!("Speech model download finished");

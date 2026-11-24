@@ -17,6 +17,8 @@ pub const MODEL_DISPLAY_NAME: &str = "Nemotron Labs Unified ASR 0.6B CoreML";
 pub const CACHE_SUBDIR: &str = "nemotron";
 pub const MODEL_REPOSITORY: &str = "FluidInference/nemotron-labs-unified-asr-0.6b-coreml";
 pub const MODEL_BUNDLE_SUBDIR: &str = "nemotron-labs-unified-asr/coreml";
+/// Legacy Nemotron 3.5 (`speech-swift`) cache folder superseded by Unified ASR.
+const LEGACY_CACHE_SUBDIR: &str = "qwen3-speech";
 /// Approximate CoreML INT8 artifact size (577 MB encoder + 25 MB decoder/joint/vocab = ~602 MB).
 pub const EXPECTED_DOWNLOAD_SIZE_BYTES: u64 = 602 * 1024 * 1024;
 pub const DEFAULT_LANGUAGE: &str = "auto";
@@ -601,6 +603,34 @@ pub fn default_model_bundle_dir(cache_root: &Path) -> PathBuf {
     cache_root.join(MODEL_BUNDLE_SUBDIR)
 }
 
+/// Removes the legacy Nemotron 3.5 (`qwen3-speech/`) cache folder once the new
+/// Unified ASR bundle is verified complete under `cache_root`. Safe no-op if
+/// the new bundle is incomplete or the legacy folder does not exist.
+pub fn cleanup_legacy_model_cache(cache_root: &Path) {
+    if !model_bundle_ready(&default_model_bundle_dir(cache_root)) {
+        return;
+    }
+    let legacy_dir = cache_root.join(LEGACY_CACHE_SUBDIR);
+    if !legacy_dir.exists() {
+        return;
+    }
+    match std::fs::remove_dir_all(&legacy_dir) {
+        Ok(()) => {
+            tracing::info!(
+                path = %legacy_dir.display(),
+                "Removed legacy Nemotron 3.5 model cache"
+            );
+        }
+        Err(error) => {
+            tracing::warn!(
+                path = %legacy_dir.display(),
+                %error,
+                "Failed to remove legacy Nemotron 3.5 model cache"
+            );
+        }
+    }
+}
+
 /// Parses helper stdout like `{"type":"loading","stage":"downloading_models 42%"}`.
 pub fn parse_download_progress_line(line: &str) -> Option<(u8, String)> {
     #[derive(Deserialize)]
@@ -800,6 +830,41 @@ mod tests {
 
         save_language_at(&dir, "auto").unwrap();
         assert_eq!(load_language_at(&dir), Some("auto"));
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn cleanup_legacy_cache_only_runs_when_new_bundle_is_ready() {
+        let dir = std::env::temp_dir().join(format!(
+            "amie-legacy-cleanup-test-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        let legacy = dir.join(LEGACY_CACHE_SUBDIR).join("models");
+        std::fs::create_dir_all(&legacy).unwrap();
+        std::fs::write(legacy.join("old.bin"), b"legacy").unwrap();
+
+        // New bundle missing: legacy cache must stay intact.
+        cleanup_legacy_model_cache(&dir);
+        assert!(dir.join(LEGACY_CACHE_SUBDIR).exists());
+
+        // Populate every required component of the new Unified ASR bundle.
+        let bundle = default_model_bundle_dir(&dir);
+        std::fs::create_dir_all(&bundle).unwrap();
+        for component in required_model_components() {
+            if component.ends_with(".mlmodelc") {
+                let comp_dir = bundle.join(&component);
+                std::fs::create_dir_all(&comp_dir).unwrap();
+                std::fs::write(comp_dir.join("coremldata.bin"), b"ok").unwrap();
+            } else {
+                std::fs::write(bundle.join(&component), b"{}").unwrap();
+            }
+        }
+
+        cleanup_legacy_model_cache(&dir);
+        assert!(!dir.join(LEGACY_CACHE_SUBDIR).exists());
+        assert!(model_bundle_ready(&bundle));
 
         let _ = std::fs::remove_dir_all(&dir);
     }

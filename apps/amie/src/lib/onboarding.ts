@@ -47,6 +47,18 @@ export function shouldShowOnboarding(options: {
 }
 
 /**
+ * True when an existing user who already finished onboarding launches an app
+ * update that requires downloading a new speech model.
+ */
+export function isReturningModelUpgrade(options: {
+  force: boolean;
+  modelReady: boolean;
+  seen: boolean;
+}): boolean {
+  return !options.force && options.seen && !options.modelReady;
+}
+
+/**
  * Mark setup as finished so the wizard does not open again once the model is
  * ready. Called when the wizard ends. A missing model still reopens it.
  */

@@ -5,7 +5,13 @@ import { EXPECTED_MODEL_SIZE_BYTES, type SpeechModelStatus } from "../../lib/onb
 import { downloadedMegabytes, totalMegabytes } from "../../lib/setup-wizard";
 import { ArrowRight, Check, ErrorText, PrimaryButton, ProgressTrack, StepLayout } from "./ui";
 
-export function ModelStep({ onNext }: { onNext: () => void }) {
+export function ModelStep({
+  isUpgrade = false,
+  onNext,
+}: {
+  isUpgrade?: boolean;
+  onNext: () => void;
+}) {
   const model = useSpeechModelDownload();
   const [status, setStatus] = useState<SpeechModelStatus | null>(null);
   const [starting, setStarting] = useState(false);
@@ -38,8 +44,12 @@ export function ModelStep({ onNext }: { onNext: () => void }) {
   return (
     <StepLayout
       step="model"
-      title="Download the speech model"
-      copy={`Amie transcribes on this Mac with a local speech model (${totalMb} MB). Nothing leaves your device, and nothing downloads until you click Download.`}
+      title={isUpgrade ? "Update the speech model" : "Download the speech model"}
+      copy={
+        isUpgrade
+          ? `Amie now uses a newer, faster local speech model (${totalMb} MB) with automatic 25-language detection. Your meetings and settings are safe — click Download to fetch it.`
+          : `Amie transcribes on this Mac with a local speech model (${totalMb} MB). Nothing leaves your device, and nothing downloads until you click Download.`
+      }
     >
       <div className="mt-7 flex w-full flex-col gap-2.5 rounded-xl border border-border-default bg-surface-content px-[18px] py-4">
         <div className="flex w-full items-center gap-3">
@@ -88,7 +98,11 @@ export function ModelStep({ onNext }: { onNext: () => void }) {
           </PrimaryButton>
         )}
         <span className="text-[13px] leading-[19px] text-text-muted">
-          {started ? "Next: let Amie hear your microphone" : `About ${totalMb} MB`}
+          {started
+            ? isUpgrade
+              ? "Your permissions and settings are already saved"
+              : "Next: let Amie hear your microphone"
+            : `About ${totalMb} MB`}
         </span>
       </div>
     </StepLayout>
