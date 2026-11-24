@@ -70,7 +70,7 @@ export function Hero() {
           25 European languages
           <LanguagesUnderline />
         </a>
-        . Meetings stay local and connect to Claude or Cursor.
+        . Meetings stay local and connect directly to Claude.
       </p>
       <div id="download" className="flex flex-col items-center gap-[9px] pt-[3px]">
         <div className="flex flex-col items-center gap-[11px] sm:flex-row">

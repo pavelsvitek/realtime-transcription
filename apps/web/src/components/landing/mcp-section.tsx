@@ -68,16 +68,16 @@ export function McpSection() {
             </div>
             <h2 className="flex flex-col">
               <span className="section-title font-semibold tracking-[0.2px] text-raycast-ink">
-                Use your meetings
+                Ask <span className="text-[#D97757]">Claude</span>
               </span>
               <span className="section-title font-semibold tracking-[0.2px] text-raycast-mute">
-                in Claude, Cursor &amp; more
+                about any past meeting.
               </span>
             </h2>
             <p className="max-w-[520px] text-lg text-raycast-body">
-              Connect Claude, Cursor, Codex, Grok Bot, or any MCP-compatible AI
-              tool to search past meetings and pull out decisions — without
-              uploading your transcripts to the cloud.
+              Connect Claude (or any MCP client like Cursor or Codex) to Amie’s
+              local MCP server to search past calls and pull out decisions. Your
+              archive stays on your Mac instead of syncing to our servers.
             </p>
           </div>
         </div>
@@ -94,7 +94,7 @@ export function McpSection() {
           <div className="shrink-0 border-b border-raycast-hairline-soft">
             <div className="page-zoom mx-auto flex h-14 max-w-[1440px] items-center justify-between gap-4 px-5 sm:px-8 xl:px-16">
               <p className="shrink-0 text-xs font-medium tracking-[0.4px] text-raycast-accent-blue">
-                AI INTEGRATIONS · ON YOUR MAC
+                LOCAL MCP · ON YOUR MAC
               </p>
               <p className="min-w-0 text-right text-sm text-raycast-mute">{caption}</p>
             </div>

@@ -15,21 +15,21 @@ export function MeetingSummary() {
         </div>
         <h2 className="flex flex-col xl:w-[400px]">
           <span className="section-title font-semibold tracking-[0.2px] text-raycast-ink">
-            Instant summaries
+            Summaries that track
           </span>
           <span className="section-title font-semibold tracking-[0.2px] text-raycast-mute">
-            with decisions by speaker
+            decisions.
           </span>
         </h2>
         <p className="max-w-[480px] text-lg text-raycast-body xl:w-[380px]">
-          When your meeting ends, Amie writes a structured summary with key
-          decisions and next steps — keeping every speaker’s name attached so
-          you know who owns what.
+          Hit Stop and Amie summarizes the call with each speaker tied to their
+          decisions and next steps. Summaries are optional and use your own
+          OpenAI, Gemini, or xAI key.
         </p>
         <div className="flex h-7 shrink-0 items-center gap-2 self-start rounded-sm border border-raycast-hairline-strong px-2.5">
           <span className="size-1.5 shrink-0 rounded-full bg-raycast-accent-red" />
           <span className="text-sm leading-[13px] font-medium tracking-[0.1px] text-raycast-on-dark-mute">
-            Generated automatically
+            Optional · Bring your own API key
           </span>
         </div>
       </div>
