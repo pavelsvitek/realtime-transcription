@@ -59,7 +59,7 @@ function ClaudeStarIcon() {
 
 export function Hero() {
   return (
-    <div className="relative z-10 flex flex-col items-center gap-3 px-5 pt-12 sm:pt-16 xl:px-0">
+    <div className="relative z-10 flex flex-col items-center gap-3 px-5 pt-14 sm:pt-20 md:pt-24 xl:px-0 xl:pt-[112px]">
       <div className="flex flex-wrap items-center justify-center gap-2">
         <div className="flex items-center gap-1.5 rounded px-2 py-0.5 bg-raycast-accent-red-soft">
           <span className="size-1.5 shrink-0 rounded-full bg-raycast-accent-red" />

@@ -55,7 +55,7 @@ const PLATFORMS = [
 
 export function WorksWith() {
   return (
-    <div className="relative z-20 mt-10 flex justify-center px-4 xl:absolute xl:inset-x-0 xl:top-[489px] xl:mt-0 xl:px-0">
+    <div className="relative z-20 mt-7 flex justify-center px-4 xl:absolute xl:inset-x-0 xl:top-[489px] xl:mt-0 xl:px-0">
       <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-3 rounded-xl py-3 xl:h-11 xl:flex-nowrap xl:gap-5 xl:py-0 bg-raycast-surface px-[22px] shadow-[0_0_0_1px_#FFFFFF24,0_16px_40px_#00000099]">
         <span className="text-[13px] leading-4 text-raycast-mute">Works with</span>
         {PLATFORMS.map(({ name, Mark }) => (
