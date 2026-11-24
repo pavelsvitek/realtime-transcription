@@ -5,6 +5,7 @@ import { MIN_MACOS_MAJOR } from "@/lib/platform";
 
 type FaqItem = {
   question: string;
+  heading?: ReactNode;
   answer: string;
   icon: ReactNode;
 };
@@ -98,9 +99,15 @@ const FAQ_ITEMS: readonly FaqItem[] = [
     ),
   },
   {
-    question: "How can I use my meetings in Claude, Codex, or Cursor?",
+    question: "How can I use my meetings in Claude?",
+    heading: (
+      <>
+        How can I use my meetings in{" "}
+        <span className="text-[#D97757]">Claude</span>?
+      </>
+    ),
     answer:
-      "Amie includes a built-in local MCP server that connects to Claude, Cursor, Codex, Grok Bot, or any MCP-compatible AI tool — search past meetings and pull out decisions while everything stays on your Mac.",
+      "Amie includes a built-in local MCP server for Claude (and other MCP tools like Cursor or Codex). Search past meetings and pull out decisions while your archive stays on your Mac.",
     icon: (
       <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5Z" />
     ),
@@ -208,7 +215,7 @@ export function FaqSection() {
               <div className="flex items-start gap-3 sm:items-center">
                 <FaqIcon>{item.icon}</FaqIcon>
                 <h3 className="pt-0.5 text-[16px] leading-6 font-semibold text-raycast-ink sm:pt-0 sm:text-[17px]">
-                  {item.question}
+                  {item.heading ?? item.question}
                 </h3>
               </div>
               <p className="text-md leading-6 text-[#B4B4B8]">{item.answer}</p>

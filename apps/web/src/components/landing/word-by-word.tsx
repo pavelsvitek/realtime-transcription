@@ -54,25 +54,26 @@ export function WordByWord() {
       <div className="flex w-full max-w-[560px] shrink-0 flex-col justify-center gap-5 xl:w-[440px]">
         <div className="flex h-6 shrink-0 items-center self-start rounded border border-raycast-accent-red/35 bg-raycast-accent-red-soft px-2.5">
           <span className="text-xs leading-3 font-medium tracking-[0.4px] text-raycast-accent-red">
-            Real-time transcription
+            Privacy first
           </span>
         </div>
         <h2 className="flex flex-col xl:w-[440px]">
           <span className="section-title font-semibold tracking-[0.2px] text-raycast-ink">
-            Words appear
+            Privacy first.
           </span>
           <span className="section-title font-semibold tracking-[0.2px] text-raycast-mute">
-            in real-time
+            No audio leaves your Mac.
           </span>
         </h2>
         <p className="max-w-[480px] text-lg text-raycast-body xl:w-[400px]">
-          Watch the transcript stream live as people speak — no waiting for
-          pauses or for the call to end. Your audio never leaves your Mac.
+          Speech recognition runs directly on your Mac’s chip in 25 European
+          languages as people speak. Your call stays on your machine, and Amie
+          stores only the text.
         </p>
         <div className="flex h-7 shrink-0 items-center gap-2 self-start rounded-sm border border-raycast-hairline-strong px-2.5">
           <span className="size-1.5 shrink-0 rounded-full bg-raycast-accent-red" />
           <span className="text-sm leading-[13px] font-medium tracking-[0.1px] text-raycast-on-dark-mute">
-            Transcription model runs on your Mac
+            On-device NVIDIA model · Local database
           </span>
         </div>
       </div>
