@@ -79,6 +79,19 @@ export function Footer() {
               Real-time · Runs on your Mac
             </span>
           </div>
+          <a
+            href="https://www.claudeai.directory/launches/amie-free-meeting-transcription"
+            target="_blank"
+            rel="noopener"
+            className="self-start"
+          >
+            <img
+              src="https://www.claudeai.directory/badge/amie-free-meeting-transcription?theme=dark"
+              alt="Amie - free meeting transcription - Listed on Claude AI Directory"
+              width={176}
+              height={43}
+            />
+          </a>
         </div>
 
         <nav
