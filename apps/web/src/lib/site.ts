@@ -7,3 +7,11 @@ export const OG_IMAGE = {
   height: 630,
   alt: "Amie — your meetings, transcribed on your Mac. Names every speaker. Works with Google Meet, Zoom and Microsoft Teams.",
 };
+
+/** Every public page. Drives both build-time prerendering and /sitemap.xml. */
+export const PAGES = [
+  { path: "/", changefreq: "weekly", priority: 1.0 },
+  { path: "/support", changefreq: "monthly", priority: 0.6 },
+  { path: "/privacy", changefreq: "yearly", priority: 0.3 },
+  { path: "/terms", changefreq: "yearly", priority: 0.3 },
+] as const;
